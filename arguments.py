@@ -21,7 +21,7 @@ def add_model_config_args(parser):
         "--quantizer",
         type=str,
         default="ema",
-        choices=["ema", "origin", "fsq", "lfq"],
+        choices=["ema", "origin", "fsq", "sfsq", "lfq"],
         help="use which quantizer",
     )
     # FSQ
@@ -238,7 +238,7 @@ def get_args():
         args.save += "-codebook_weights-" + str(args.codebook_loss_weight)
         args.save += "-lfq_dim-" + str(args.lfq_dim)
 
-    elif args.quantizer == "fsq":
+    elif args.quantizer in ["fsq", "sfsq"]:
         args.embed_dim = len(args.levels)
         args.save += "-n_embed-" + str(multiplyList(args.levels))
 

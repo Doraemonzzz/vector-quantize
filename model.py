@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from quantizers import FSQ, LFQ, VectorQuantizeEMA
+from quantizers import FSQ, LFQ, SFSQ, VectorQuantizeEMA
 
 
 class Encoder(nn.Module):
@@ -73,6 +73,8 @@ class VQVAE(nn.Module):
         elif args.quantizer == "fsq":
             self.quantize_t = FSQ(levels=args.levels)
             # args.embed_dim = len(args.levels)
+        elif args.quantizer == "sfsq":
+            self.quantize_t = SFSQ(levels=args.levels)
         else:
             print("quantizer error!")
             exit()
@@ -98,7 +100,7 @@ class VQVAE(nn.Module):
             # quant_t = quant_t.permute(0, 3, 1, 2) have change the dimension in quantizer
             diff_t = diff_t.unsqueeze(0)
 
-        elif self.args.quantizer == "fsq":
+        elif self.args.quantizer in ["fsq", "sfsq"]:
             quant_t, id_t = self.quantize_t(logits)
             diff_t = torch.tensor(0.0).cuda().float()
 
