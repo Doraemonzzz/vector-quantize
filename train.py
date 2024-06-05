@@ -100,7 +100,7 @@ def main():
             lr_scheduler.step()
 
             # print info
-            if torch.distributed.get_rank() == 0 and num_iter % 5 == 0:
+            if torch.distributed.get_rank() == 0 and num_iter % args.log_interval == 0:
                 print(
                     "rank 0: epoch:{}, iter:{}, lr:{:.4}, l1loss:{:.4}, percep_loss:{:.4}, codebook_loss:{:.4}".format(
                         epoch,
