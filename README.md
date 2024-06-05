@@ -1,7 +1,9 @@
+The code is copy from [here](https://github.com/duchenzhuang/FSQ-pytorch).
+
 # FSQ-pytorch (Finite Scalar Quantization https://arxiv.org/abs/2309.15505)
 An unoffical Pytorch Implementation of Finite Scalar Quantization (https://arxiv.org/abs/2309.15505)
 
-<img width="1700" alt="image" src="https://github.com/duchenzhuang/FSQ-pytorch/blob/main/figures/fsq_vis.png">
+<img width="1700" alt="image" src="./figures/fsq_vis.png">
 
 In our view, FSQ is a great idea, and we manage to quickly implement a reproduction on a minimal framework. We are impressed by how FSQ is not only simple and effective in its concept but also highly optimizable during actual training.
 
