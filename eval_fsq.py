@@ -1,6 +1,7 @@
 import torch
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchvision import datasets, transforms
+from tqdm import tqdm
 
 from arguments import get_args
 from dataset import get_transform
@@ -8,13 +9,13 @@ from lpips import LPIPS
 from metric import get_revd_perceptual
 from model import VQVAE
 from util import multiplyList
-from tqdm import tqdm
 
 type_dict = {
     "fp32": torch.float32,
     "fp16": torch.float16,
     "bf16": torch.bfloat16,
 }
+
 
 def main():
     args = get_args()
@@ -54,7 +55,7 @@ def main():
 
     model.eval()
     # load perceptual model
-    perceptual_model = LPIPS().eval()#.to(dtype)
+    perceptual_model = LPIPS().eval()  # .to(dtype)
     perceptual_model.cuda(torch.cuda.current_device())
 
     get_l1_loss = torch.nn.L1Loss()
