@@ -2,8 +2,10 @@ import logging
 import os
 
 import torch
+import wandb
 from torchvision.utils import make_grid, save_image
 
+import distributed
 from arguments import get_args
 from dataset import get_data_loaders
 from lpips import LPIPS
@@ -11,7 +13,6 @@ from metric import get_revd_perceptual
 from model import VQVAE
 from scheduler import AnnealingLR
 from utils import (
-    initialize_distributed,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
@@ -27,8 +28,8 @@ logger = logging.getLogger("vq")
 
 def main():
     args = get_args()
-    initialize_distributed(args)
-    # distributed.enable(overwrite=True)
+    # initialize_distributed(args)
+    distributed.enable(overwrite=True)
     args.distributed = True
     args.gpu = int(os.environ["LOCAL_RANK"])
     args.world_size = int(os.environ["WORLD_SIZE"])
