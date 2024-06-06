@@ -1,3 +1,4 @@
+import logging
 import os
 
 import torch
@@ -9,17 +10,44 @@ from lpips import LPIPS
 from metric import get_revd_perceptual
 from model import VQVAE
 from scheduler import AnnealingLR
-from util import initialize_distributed, mkdir_ckpt_dirs, set_random_seed, type_dict
+from utils import (
+    initialize_distributed,
+    is_main_process,
+    logging_info,
+    mkdir_ckpt_dirs,
+    set_random_seed,
+    type_dict,
+)
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("vq")
 
 
 def main():
     args = get_args()
-    print(args)
     initialize_distributed(args)
     # distributed.enable(overwrite=True)
     args.distributed = True
     args.gpu = int(os.environ["LOCAL_RANK"])
     args.world_size = int(os.environ["WORLD_SIZE"])
+
+    # setup wandb
+    use_wandb = args.use_wandb
+    if use_wandb and is_main_process():
+        wandb_cache_dir = os.path.join(args.wandb_cache_dir, args.wandb_exp_name)
+        os.makedirs(wandb_cache_dir, exist_ok=True)
+        logging_info(f"wandb will be saved at {wandb_cache_dir}")
+        wandb.init(
+            config=args,
+            entity=args.wandb_entity,
+            project=args.wandb_project,
+            name=args.wandb_exp_name,
+            dir=wandb_cache_dir,
+        )
+
+    logging_info(args)
 
     set_random_seed(args.seed)
     mkdir_ckpt_dirs(args)
@@ -29,9 +57,11 @@ def main():
 
     # 2, load model
     model = VQVAE(args)
+
     dtype = type_dict[args.dtype]
-    print(model)
-    print(
+    logging_info(model)
+
+    logging_info(
         "num. model params: {:,} (num. trained: {:,})".format(
             sum(getattr(p, "_orig_size", p).numel() for p in model.parameters()),
             sum(
@@ -41,7 +71,7 @@ def main():
             ),
         )
     )
-    print(f"Dtype {dtype}")
+    logging_info(f"Dtype {dtype}")
     model.cuda(torch.cuda.current_device())
     model = torch.nn.parallel.DistributedDataParallel(
         model, device_ids=[args.gpu], find_unused_parameters=True
@@ -97,6 +127,15 @@ def main():
                 )
                 loss = codebook_loss + l1loss + perceptual_loss
 
+            if use_wandb and is_main_process():
+                wandb.log(
+                    {
+                        "codebook_loss": codebook_loss.item(),
+                        "l1loss": l1loss.item(),
+                        "perceptual_loss": perceptual_loss.item(),
+                    }
+                )
+
             # # backward
             # optimizer.zero_grad()
             # loss.backward()
@@ -110,8 +149,8 @@ def main():
             lr_scheduler.step()
 
             # print info
-            if torch.distributed.get_rank() == 0 and num_iter % args.log_interval == 0:
-                print(
+            if is_main_process() and num_iter % args.log_interval == 0:
+                logging_info(
                     "rank 0: epoch:{}, iter:{}, lr:{:.4}, l1loss:{:.4}, percep_loss:{:.4}, codebook_loss:{:.4}".format(
                         epoch,
                         num_iter,
@@ -123,7 +162,7 @@ def main():
                 )
 
             # save image for checking training
-            if num_iter % args.log_interval == 0 and torch.distributed.get_rank() == 0:
+            if is_main_process() and num_iter % args.log_interval == 0:
                 save_image(
                     make_grid(
                         torch.cat([input_img, reconstructions]), nrow=input_img.shape[0]
@@ -135,7 +174,7 @@ def main():
         # save checkpoints
         if (
             epoch % 5 == 0 or (epoch == args.max_train_epochs - 1)
-        ) and torch.distributed.get_rank() == 0:
+        ) and is_main_process() == 0:
             torch.save(
                 {
                     "iter": num_iter,

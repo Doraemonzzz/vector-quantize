@@ -5,7 +5,7 @@ import os
 
 import torch
 
-from util import multiplyList
+from utils import multiplyList
 
 
 def add_model_config_args(parser):
@@ -174,6 +174,19 @@ def add_training_args(parser):
         default="checkpoints",
         help="output dir",
     )
+    group.add_argument(
+        "--output-name",
+        type=str,
+        default=None,
+        help="output name",
+    )
+    # wandb parameters
+    parser.add_argument("--use_wandb", action="store_true", default=False)
+    parser.add_argument("--wandb_entity", default="")
+    parser.add_argument("--wandb_project", default="")
+    parser.add_argument("--wandb_exp_name", default="")
+    parser.add_argument("--wandb_cache_dir", default="wandb")
+    parser.add_argument("--log_freq", default=100, type=int)
 
     return parser
 
@@ -183,17 +196,27 @@ def add_data_args(parser):
 
     group = parser.add_argument_group("data", "data configurations")
     group.add_argument(
-        "--train-data-path",
+        "--data-set",
+        default="IMNET",
+        choices=["CIFAR", "IMNET"],
         type=str,
-        default="/localdata_ssd/ImageNet_ILSVRC2012/train",
-        help="the path of training data",
+        help="Dataset path",
     )
     group.add_argument(
-        "--val-data-path",
-        type=str,
-        default="/localdata_ssd/ImageNet_ILSVRC2012/val",
-        help="the path of val data",
+        "--data-path", default="./images/", type=str, help="dataset path"
     )
+    # group.add_argument(
+    #     "--train-data-path",
+    #     type=str,
+    #     default="/localdata_ssd/ImageNet_ILSVRC2012/train",
+    #     help="the path of training data",
+    # )
+    # group.add_argument(
+    #     "--val-data-path",
+    #     type=str,
+    #     default="/localdata_ssd/ImageNet_ILSVRC2012/val",
+    #     help="the path of val data",
+    # )
     group.add_argument(
         "--img-size", type=int, default=128, help="Size of image for dataset"
     )
@@ -243,7 +266,10 @@ def get_args():
 
     total_batch_size = args.batch_size * args.world_size
 
-    args.save = f"{args.ouput_dir}/{args.quantizer}-is{args.img_size}-bs{total_batch_size}-lr{args.lr}-wd{args.weight_decay}"
+    output_name = args.output_name
+    if output_name is None:
+        output_name = f"{args.quantizer}-is{args.img_size}-bs{total_batch_size}-lr{args.lr}-wd{args.weight_decay}"
+    args.save = f"{args.output_dir}/{output_name}"
 
     if args.quantizer == "lfq":
         args.embed_dim = args.lfq_dim

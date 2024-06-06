@@ -1,8 +1,16 @@
+import logging
 import os
 import random
+import socket
 
 import numpy as np
 import torch
+import torch.distributed as dist
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("dist init")
 
 type_dict = {
     "fp32": torch.float32,
@@ -68,3 +76,44 @@ def multiplyList(myList):
     for x in myList:
         result = result * x
     return result
+
+
+def is_dist_avail_and_initialized():
+    if not dist.is_available():
+        return False
+    if not dist.is_initialized():
+        return False
+    return True
+
+
+def get_world_size():
+    if not is_dist_avail_and_initialized():
+        return 1
+    return dist.get_world_size()
+
+
+def get_rank():
+    if not is_dist_avail_and_initialized():
+        return 0
+    return dist.get_rank()
+
+
+def is_main_process():
+    return get_rank() == 0
+
+
+def save_on_master(*args, **kwargs):
+    if is_main_process():
+        torch.save(*args, **kwargs)
+
+
+def get_ip():
+    hostname = socket.gethostname()
+    ip = socket.gethostbyname(hostname)
+
+    return ip
+
+
+def logging_info(string):
+    if is_main_process():
+        logger.info(string)

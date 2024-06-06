@@ -8,7 +8,7 @@ from dataset import get_transform
 from lpips import LPIPS
 from metric import get_revd_perceptual
 from model import VQVAE
-from util import multiplyList, type_dict
+from utils import multiplyList, type_dict
 
 
 def main():

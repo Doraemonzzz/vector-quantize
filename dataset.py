@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torchvision import datasets, transforms
 
@@ -21,12 +23,17 @@ def get_data_loaders(args):
     """
     get a distributed imagenet train dataloader and a non-distributed imagenet val dataloader
     """
-    #'/localdata_ssd/ImageNet_ILSVRC2012/train'
-    #'/localdata_ssd/ImageNet_ILSVRC2012/val'
-
-    imagenet_transform = get_transform(args)
-    train_set = datasets.ImageFolder(args.train_data_path, imagenet_transform)
-    val_set = datasets.ImageFolder(args.val_data_path, imagenet_transform)
+    transform = get_transform(args)
+    if args.data_set == "CIFAR":
+        train_set = datasets.CIFAR100(args.data_path, train=True, transform=transform)
+        val_set = datasets.CIFAR100(args.data_path, train=False, transform=transform)
+    elif args.data_set == "IMNET":
+        train_set = datasets.ImageFolder(
+            os.path.join(args.data_path, "train"), transform=transform
+        )
+        val_set = datasets.ImageFolder(
+            os.path.join(args.data_path, "val"), transform=transform
+        )
 
     sampler_train = torch.utils.data.DistributedSampler(
         train_set,
@@ -47,4 +54,5 @@ def get_data_loaders(args):
         num_workers=args.num_workers,
         drop_last=False,
     )
+
     return train_data_loader, val_data_loader
