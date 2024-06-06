@@ -92,7 +92,7 @@ def main():
         fid.update(input_img.cpu(), real=True)
         fid.update(reconstructions.cpu(), real=False)
 
-    print("fid score", fid.compute())
+    print("fid score", fid.compute().item())
     print("l1loss:", total_l1_loss / num_iter)
     print("precep_loss:", total_per_loss / num_iter)
     print("codebook usage", len(codebook_usage) / num_embed)
