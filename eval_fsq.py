@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchvision import datasets, transforms
@@ -9,7 +11,7 @@ from lpips import LPIPS
 from metric import get_revd_perceptual
 from model import VQVAE
 from utils import multiplyList, type_dict
-import os
+
 
 def main():
     args = get_args()
@@ -18,7 +20,9 @@ def main():
 
     # 1, load dataset
     imagenet_transform = get_transform(args)
-    val_set = datasets.ImageFolder(os.path.join(args.data_path, "val"), imagenet_transform)
+    val_set = datasets.ImageFolder(
+        os.path.join(args.data_path, "val"), imagenet_transform
+    )
     val_data_loader = torch.utils.data.DataLoader(
         val_set,
         batch_size=args.batch_size,
