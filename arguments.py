@@ -162,6 +162,13 @@ def add_training_args(parser):
         "--train-modules", type=str, default="all", help="Module to train"
     )
 
+    group.add_argument(
+        "--dtype",
+        type=str,
+        default="fp32",
+        choices=["fp32", "fp16", "bf16"],
+        help="training dtype",
+    )
     return parser
 
 

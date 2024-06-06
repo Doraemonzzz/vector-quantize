@@ -8,12 +8,18 @@ from lpips import LPIPS
 from metric import get_revd_perceptual
 from model import VQVAE
 from util import multiplyList
+from tqdm import tqdm
 
+type_dict = {
+    "fp32": torch.float32,
+    "fp16": torch.float16,
+    "bf16": torch.bfloat16,
+}
 
 def main():
     args = get_args()
 
-    assert args.quantizer == "fsq"
+    # assert args.quantizer == "fsq"
 
     # 1, load dataset
     imagenet_transform = get_transform(args)
@@ -43,10 +49,12 @@ def main():
         name = k[7:]  # remove `module.`
         new_state_dict[name] = v
     # load params
+    dtype = type_dict[args.dtype]
     model.load_state_dict(new_state_dict)
+
     model.eval()
     # load perceptual model
-    perceptual_model = LPIPS().eval()
+    perceptual_model = LPIPS().eval()#.to(dtype)
     perceptual_model.cuda(torch.cuda.current_device())
 
     get_l1_loss = torch.nn.L1Loss()
@@ -60,14 +68,15 @@ def main():
     total_per_loss = 0
     num_iter = 0
 
-    for i, (input_img, _) in enumerate(val_data_loader):
+    for input_img, _ in tqdm(val_data_loader):
         # forward
         num_iter += 1
         print(num_iter * args.batch_size)
 
         with torch.no_grad():
-            input_img = input_img.cuda(torch.cuda.current_device())
-            reconstructions, codebook_loss, ids = model(input_img, return_id=True)
+            with torch.amp.autocast(device_type="cuda", dtype=dtype):
+                input_img = input_img.cuda(torch.cuda.current_device())
+                reconstructions, codebook_loss, ids = model(input_img, return_id=True)
             # save_image(make_grid(torch.cat([input_img, reconstructions]), nrow=input_img.shape[0]), 'figures/' + str(num_embed)+'.jpg', normalize=True)
             # exit()
             ids = torch.flatten(ids)
