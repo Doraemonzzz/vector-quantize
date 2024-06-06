@@ -161,7 +161,6 @@ def add_training_args(parser):
     group.add_argument(
         "--train-modules", type=str, default="all", help="Module to train"
     )
-
     group.add_argument(
         "--dtype",
         type=str,
@@ -169,6 +168,13 @@ def add_training_args(parser):
         choices=["fp32", "fp16", "bf16"],
         help="training dtype",
     )
+    group.add_argument(
+        "--output-dir",
+        type=str,
+        default="checkpoints",
+        help="output dir",
+    )
+
     return parser
 
 
@@ -237,7 +243,7 @@ def get_args():
 
     total_batch_size = args.batch_size * args.world_size
 
-    args.save = f"checkpoints/{args.quantizer}-is{args.img_size}-bs{total_batch_size}-lr{args.lr}-wd{args.weight_decay}"
+    args.save = f"{args.ouput_dir}/{args.quantizer}-is{args.img_size}-bs{total_batch_size}-lr{args.lr}-wd{args.weight_decay}"
 
     if args.quantizer == "lfq":
         args.embed_dim = args.lfq_dim

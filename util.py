@@ -4,6 +4,12 @@ import random
 import numpy as np
 import torch
 
+type_dict = {
+    "fp32": torch.float32,
+    "fp16": torch.float16,
+    "bf16": torch.bfloat16,
+}
+
 
 def initialize_distributed(args):
     args.rank = int(os.environ["RANK"])

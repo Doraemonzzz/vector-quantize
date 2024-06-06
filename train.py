@@ -9,7 +9,7 @@ from lpips import LPIPS
 from metric import get_revd_perceptual
 from model import VQVAE
 from scheduler import AnnealingLR
-from util import initialize_distributed, mkdir_ckpt_dirs, set_random_seed
+from util import initialize_distributed, mkdir_ckpt_dirs, set_random_seed, type_dict
 
 
 def main():
@@ -29,6 +29,7 @@ def main():
 
     # 2, load model
     model = VQVAE(args)
+    dtype = type_dict[args.dtype]
     print(model)
     print(
         "num. model params: {:,} (num. trained: {:,})".format(
@@ -40,10 +41,12 @@ def main():
             ),
         )
     )
+    print(f"Dtype {dtype}")
     model.cuda(torch.cuda.current_device())
     model = torch.nn.parallel.DistributedDataParallel(
         model, device_ids=[args.gpu], find_unused_parameters=True
     )
+    scaler = torch.cuda.amp.GradScaler()
 
     # 3, load optimizer and scheduler
     optimizer = torch.optim.Adam(
@@ -86,17 +89,24 @@ def main():
 
             # forward
             input_img = input_img.cuda(torch.cuda.current_device())
-            reconstructions, codebook_loss, _ = model(input_img)
-            l1loss = get_l1loss(input_img, reconstructions)
-            perceptual_loss = get_revd_perceptual(
-                input_img, reconstructions, perceptual_model
-            )
-            loss = codebook_loss + l1loss + perceptual_loss
+            with torch.amp.autocast(device_type="cuda", dtype=dtype):
+                reconstructions, codebook_loss, _ = model(input_img)
+                l1loss = get_l1loss(input_img, reconstructions)
+                perceptual_loss = get_revd_perceptual(
+                    input_img, reconstructions, perceptual_model
+                )
+                loss = codebook_loss + l1loss + perceptual_loss
+
+            # # backward
+            # optimizer.zero_grad()
+            # loss.backward()
+            # optimizer.step()
+            # lr_scheduler.step()
 
             # backward
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             lr_scheduler.step()
 
             # print info
