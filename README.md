@@ -1,5 +1,8 @@
 The code is copy from [here](https://github.com/duchenzhuang/FSQ-pytorch).
 
+# Some results
+
+
 # FSQ-pytorch (Finite Scalar Quantization https://arxiv.org/abs/2309.15505)
 An unoffical Pytorch Implementation of Finite Scalar Quantization (https://arxiv.org/abs/2309.15505)
 
