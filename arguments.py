@@ -180,6 +180,12 @@ def add_training_args(parser):
         default=None,
         help="output name",
     )
+    group.add_argument(
+        "--loss-type",
+        type=int,
+        default=1,
+        help="Loss type",
+    )
     # wandb parameters
     parser.add_argument("--use_wandb", action="store_true", default=False)
     parser.add_argument("--wandb_entity", default="")
