@@ -43,7 +43,7 @@ The result of ema and lfq seems werid, need check this.
 
 Config:
 ```
-dtype: fp32
+dtype: bf16
 batch size: 32 * 8
 lr: 1e-4
 ```
