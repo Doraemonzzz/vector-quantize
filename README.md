@@ -7,6 +7,7 @@
 - [x] DDP evaluation.
 - [x] Add wandb logger.
 - [ ] Add large batch size result.
+- [ ] Add resume code.
 - [ ] Check ema and lfq bug.
 - [ ] Test Transformer arch.
 - [ ] Test Linear Attention arch.
@@ -45,6 +46,19 @@ dtype: fp32
 batch size: 32 * 8
 lr: 1e-4
 ```
+
+| name | levels      | fid       | l1_loss | precep_loss | codebook_usage |
+|------|-------------|-----------|---------|-------------|----------------|
+| ema  | -           | 151.7567  | 0.4831  | 0.4192      | 0.0911         |
+| lfq  | -           | 235.0212  | 0.6491  | 0.5473      | 0.0286         |
+| fsq  | 8-6-5       | 65.4644   | 0.2645  | 0.3142      | 1.0000         |
+| fsq  | 8-5-5-5     | 48.4387   | 0.2480  | 0.2699      | 1.0000         |
+| fsq  | 7-5-5-5-5   | 37.9094   | 0.2175  | 0.2323      | 1.0000         |
+| fsq  | 8-8-8-6-5   | 30.7434   | 0.1959  | 0.1998      | 1.0000         |
+| fsq  | 8-8-8-5-5-5 | 25.4654   | 0.1824  | 0.1799      | 0.9985         |
+| sfsq | 8-8-8-5-5-5 | 25.5291   | 0.1843  | 0.1812      | 0.9991         |
+
+It seems that there are no major issues with mixed-precision training under fsq, but we need to check the results for lfq and ema.
 
 ## Acknowledgement
 
