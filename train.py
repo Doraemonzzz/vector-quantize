@@ -139,7 +139,7 @@ def main():
                 elif loss_type == 2:
                     l1loss = get_l1loss(input_img, reconstructions)
                     perceptual_loss = torch.tensor(0.0).cuda().float()
-                    
+
                 loss = codebook_loss + l1loss + perceptual_loss
 
             if use_wandb and is_main_process():
