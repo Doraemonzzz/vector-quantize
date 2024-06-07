@@ -11,6 +11,7 @@
 - [ ] Check ema and lfq bug.
 - [ ] Test Transformer arch.
 - [ ] Test Linear Attention arch.
+- [ ] Perceptual loss ablation.
 
 # Results
 
