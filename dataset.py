@@ -56,3 +56,34 @@ def get_data_loaders(args):
     )
 
     return train_data_loader, val_data_loader
+
+
+def get_data_loaders_new(args, is_train=True):
+    transform = get_transform(args)
+    if args.data_set == "CIFAR":
+        dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
+    elif args.data_set == "IMNET":
+        if is_train:
+            name = "train"
+        else:
+            name = "val"
+        dataset = datasets.ImageFolder(
+            os.path.join(args.data_path, name), transform=transform
+        )
+
+    sampler = torch.utils.data.DistributedSampler(
+        dataset,
+        num_replicas=torch.distributed.get_world_size(),
+        rank=torch.distributed.get_rank(),
+        shuffle=is_train,
+    )
+
+    data_loader = torch.utils.data.DataLoader(
+        dataset,
+        sampler=sampler,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        drop_last=is_train,
+    )
+
+    return data_loader
