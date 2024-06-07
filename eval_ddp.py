@@ -33,7 +33,7 @@ def main():
     model = VQVAE(args)
     model.cuda(torch.cuda.current_device())
     ckpt_dir = os.path.join(args.save, args.load)
-    logging_info("Load from {ckpt_dir}")
+    logging_info(f"Load from {ckpt_dir}")
     state_dict = torch.load(ckpt_dir, map_location="cpu")["model_state_dict"]
     # create new OrderedDict that does not contain `module.`
     from collections import OrderedDict
@@ -95,7 +95,6 @@ def main():
 
         fid.update(input_img, real=True)
         fid.update(reconstructions, real=False)
-        break
 
     fid_score = fid.compute().item()
     # summary result

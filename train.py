@@ -1,5 +1,7 @@
 import logging
 import os
+import time
+import datetime
 
 import torch
 import wandb
@@ -101,6 +103,8 @@ def main():
     # 5. begin training
     num_iter = 0
     get_l1loss = torch.nn.L1Loss()
+    
+    start_time = time.time()
 
     for epoch in range(args.max_train_epochs):
         train_data_loader.sampler.set_epoch(epoch)
@@ -136,12 +140,6 @@ def main():
                         "perceptual_loss": perceptual_loss.item(),
                     }
                 )
-
-            # # backward
-            # optimizer.zero_grad()
-            # loss.backward()
-            # optimizer.step()
-            # lr_scheduler.step()
 
             # backward
             scaler.scale(loss).backward()
@@ -186,6 +184,9 @@ def main():
                 args.save + "/ckpts/{}.pt".format(epoch),
             )
 
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print("Training time {}".format(total_time_str))
 
 if __name__ == "__main__":
     main()
