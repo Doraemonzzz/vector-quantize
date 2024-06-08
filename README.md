@@ -14,7 +14,7 @@
 - [ ] Perceptual loss ablation.
 - [ ] Update fid evaluation.
 - [ ] Add gradient accumulation.
-- [ ] Fix mixpresion bug.
+- [ ] Rerun bf16 results.
 
 # Results
 
