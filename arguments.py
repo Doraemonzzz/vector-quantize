@@ -71,6 +71,12 @@ def add_training_args(parser):
         help="Gradient accumulation steps",
     )
     group.add_argument(
+        "--save-interval",
+        type=int,
+        default=10,
+        help="Number of epochs between saves",
+    )
+    group.add_argument(
         "--weight-decay",
         type=float,
         default=0.0,
@@ -128,12 +134,6 @@ def add_training_args(parser):
         action="store_true",
         default=True,
         help="Whether to save reconstruction sample",
-    )
-    group.add_argument(
-        "--save-interval",
-        type=int,
-        default=5000,  # 5000
-        help="number of iterations between saves",
     )
     group.add_argument(
         "--load",

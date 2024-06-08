@@ -184,7 +184,7 @@ def main():
 
         # save checkpoints
         if (
-            epoch % 5 == 0 or (epoch == args.max_train_epochs - 1)
+            epoch % args.save_interval == 0 or (epoch == args.max_train_epochs - 1)
         ) and is_main_process() == 0:
             torch.save(
                 {
