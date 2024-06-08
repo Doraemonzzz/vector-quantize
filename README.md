@@ -86,7 +86,7 @@ It seems that there are no major issues with mixed-precision training under fsq,
    1. Kmeans -> Hierarchical Kmeans, e.g, (n * m, d) -> (n + m, d)
    2. Check fsq-1: e.g, x -> [0, 1023]
    3. Map the input to a one-dimensional number in the range [0, M - 1], and then perform radix decomposition.
-   4. 
+   4.
 2. It is important to convert it into an integer, rather than its corresponding embedding?
 
 
@@ -105,4 +105,3 @@ vqvae gumbel
 5. Vector quantization loss analysis in VQGANs: a single-GPU ablation study for image-to-image synthesis
 6. Hierarchical Residual Learning Based Vector Quantized Variational Autoencoder for Image Reconstruction and Generation
 7. https://github.com/luv91/VQGAN_Project/
-
