@@ -16,6 +16,22 @@
 - [ ] Add gradient accumulation.
 - [ ] Rerun bf16 results.
 
+
+Algorithm check list.
+- [ ] vqvae.
+- [ ] vqvae ema.
+- [ ] vqvae gumbel.
+- [ ] vqvae.
+- [ ] fsq.
+
+Loss check list.
+- [ ] L1, L2 loss?
+- [ ] Gumbel kl loss.
+- [ ] Entropy loss in maskgit.
+- [ ] Perceptual loss.
+- [ ] Gan loss.
+
+
 # Results
 
 ## Repreduced result
@@ -64,6 +80,29 @@ lr: 1e-4
 
 It seems that there are no major issues with mixed-precision training under fsq, but we need to check the results for lfq and ema.
 
+## Notes
+
+1. The main reason for Fsq work is hierarchical decomposition?
+   1. Kmeans -> Hierarchical Kmeans, e.g, (n * m, d) -> (n + m, d)
+   2. Check fsq-1: e.g, x -> [0, 1023]
+   3. Map the input to a one-dimensional number in the range [0, M - 1], and then perform radix decomposition.
+   4. 
+2. It is important to convert it into an integer, rather than its corresponding embedding?
+
+
 ## Acknowledgement
 
-Our code is adapt from [FSQ-pytorch](https://github.com/duchenzhuang/FSQ-pytorch), and we would like to thank these teams for their selfless sharing.
+1. Our code is adapt from [FSQ-pytorch](https://github.com/duchenzhuang/FSQ-pytorch), and we would like to thank these teams for their selfless sharing.
+2. https://github.com/karpathy/deep-vector-quantization for origin VQVAE.
+
+
+## Reference
+vqvae gumbel
+1. https://github.com/facebookresearch/fairseq/blob/main/fairseq/modules/gumbel_vector_quantizer.py
+2. https://arxiv.org/abs/1910.05453
+3. https://github.com/kakaobrain/rq-vae-transformer/
+4. https://gist.github.com/sekstini/7f089f71d4b975ec8bde37d878b514d0
+5. Vector quantization loss analysis in VQGANs: a single-GPU ablation study for image-to-image synthesis
+6. Hierarchical Residual Learning Based Vector Quantized Variational Autoencoder for Image Reconstruction and Generation
+7. https://github.com/luv91/VQGAN_Project/
+

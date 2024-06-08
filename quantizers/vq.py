@@ -114,10 +114,10 @@ class VectorQuantizeEMA(nn.Module):
     def forward(self, z_e):
         B, C, H, W = z_e.shape
 
-        # z_e = z
         z_e = z_e.permute(0, 2, 3, 1)  # (B, H, W, C)
         flatten = z_e.reshape(-1, self.embedding_dim)  # (B*H*W, C)
 
+        # |a - b| ^ 2 = a * a ^ T + b * b ^ T - 2 * a * b ^ T
         dist = (
             flatten.pow(2).sum(1, keepdim=True)  # (B*H*W, 1)
             - 2 * flatten @ self.embed.weight.t()  # (B*H*W, n_embed)
