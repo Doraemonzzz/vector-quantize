@@ -65,6 +65,12 @@ def add_training_args(parser):
         "--batch-size", type=int, default=32, help="Data Loader batch size"
     )
     group.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=1,
+        help="Gradient accumulation steps",
+    )
+    group.add_argument(
         "--weight-decay",
         type=float,
         default=0.0,

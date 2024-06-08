@@ -153,9 +153,11 @@ def main():
 
             # backward
             scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            lr_scheduler.step()
+            if num_iter % args.gradient_accumulation_steps == 0:
+                scaler.step(optimizer)
+                scaler.update()
+                lr_scheduler.step()
+                optimizer.zero_grad()
 
             # print info
             if is_main_process() and num_iter % args.log_interval == 0:

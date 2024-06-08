@@ -12,6 +12,9 @@
 - [ ] Test Transformer arch.
 - [ ] Test Linear Attention arch.
 - [ ] Perceptual loss ablation.
+- [ ] Update fid evaluation.
+- [ ] Add gradient accumulation.
+- [ ] Fix mixpresion bug.
 
 # Results
 
