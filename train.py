@@ -160,7 +160,7 @@ def main():
                     {
                         "epoch": epoch,
                         "iter": num_iter,
-                        "model_state_dict": model.state_dict(),
+                        "model_state_dict": model_without_ddp.state_dict(),
                         "optimizer_state_dict": optimizer.state_dict(),
                         "scheduler_state_dict": lr_scheduler.state_dict(),
                         "scaler_state_dict": scaler.state_dict(),
@@ -232,7 +232,7 @@ def main():
                 {
                     "epoch": epoch,  # next epoch
                     "iter": num_iter,
-                    "model_state_dict": model.state_dict(),
+                    "model_state_dict": model_without_ddp.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "scheduler_state_dict": lr_scheduler.state_dict(),
                     "scaler_state_dict": scaler.state_dict(),
