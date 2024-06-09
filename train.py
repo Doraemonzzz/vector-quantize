@@ -27,11 +27,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("vq")
 
+
 def resume(model, optimizer, lr_scheduler, scaler, ckpt_path=None):
     if ckpt_path == None:
         logging_info(f"Train from scratch")
         return 0, 0
-    
+
     pkg = torch.load(ckpt_path, map_location="cpu")
     # create new OrderedDict that does not contain `module.`
     from collections import OrderedDict
@@ -42,24 +43,23 @@ def resume(model, optimizer, lr_scheduler, scaler, ckpt_path=None):
         state_dict[name] = v
     # load params
     model_msg = model.load_state_dict(state_dict)
-    
-    
-    opt_msg = optimizer.load_state_dict(pkg["optimizer_state_dict"])
-    
-    scheduler_msg = lr_scheduler.load_state_dict(pkg["scheduler_state_dict"])
-    
-    
-    scaler_msg = scaler.load_state_dict(pkg["scaler_state_dict"])
-    
+
+    optimizer.load_state_dict(pkg["optimizer_state_dict"])
+
+    lr_scheduler.load_state_dict(pkg["scheduler_state_dict"])
+
+    scaler.load_state_dict(pkg["scaler_state_dict"])
+
     num_iter = pkg["iter"]
     start_epoch = pkg["epoch"]
-    
+
     # logging
     logging_info(f"Load from {ckpt_path}")
     logging_info(model_msg)
     logging_info(f"Resume from epoch {start_epoch}, iter {num_iter}")
-    
+
     return start_epoch, num_iter
+
 
 def main():
     args = get_args()
@@ -99,7 +99,10 @@ def main():
 
     logging_info(
         "num. model params: {:,} (num. trained: {:,})".format(
-            sum(getattr(p, "_orig_size", p).numel() for p in model_without_ddp.parameters()),
+            sum(
+                getattr(p, "_orig_size", p).numel()
+                for p in model_without_ddp.parameters()
+            ),
             sum(
                 getattr(p, "_orig_size", p).numel()
                 for p in model_without_ddp.parameters()
@@ -136,9 +139,11 @@ def main():
 
     torch.distributed.barrier()
     # 5. begin training
-    start_epoch, num_iter = resume(model_without_ddp, optimizer, lr_scheduler, scaler, args.ckpt_path)
+    start_epoch, num_iter = resume(
+        model_without_ddp, optimizer, lr_scheduler, scaler, args.ckpt_path
+    )
     get_l1loss = torch.nn.L1Loss()
-    
+
     # ddp
     model = torch.nn.parallel.DistributedDataParallel(
         model_without_ddp, device_ids=[args.gpu], find_unused_parameters=True
@@ -225,7 +230,7 @@ def main():
         ) and is_main_process() == 0:
             torch.save(
                 {
-                    "epoch": epoch, # next epoch
+                    "epoch": epoch,  # next epoch
                     "iter": num_iter,
                     "model_state_dict": model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
