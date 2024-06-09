@@ -40,7 +40,7 @@ def main():
 
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
-        name = k[7:]  # remove `module.`
+        name = k.replace("module.", "")
         new_state_dict[name] = v
     # load params
     dtype = type_dict[args.dtype]

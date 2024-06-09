@@ -192,6 +192,12 @@ def add_training_args(parser):
         default=1,
         help="Loss type",
     )
+    group.add_argument(
+        "--ckpt-path",
+        type=str,
+        default=None,
+        help="Path to checkpoint path",
+    )
     # wandb parameters
     parser.add_argument("--use_wandb", action="store_true", default=False)
     parser.add_argument("--wandb_entity", default="")
@@ -217,18 +223,6 @@ def add_data_args(parser):
     group.add_argument(
         "--data-path", default="./images/", type=str, help="dataset path"
     )
-    # group.add_argument(
-    #     "--train-data-path",
-    #     type=str,
-    #     default="/localdata_ssd/ImageNet_ILSVRC2012/train",
-    #     help="the path of training data",
-    # )
-    # group.add_argument(
-    #     "--val-data-path",
-    #     type=str,
-    #     default="/localdata_ssd/ImageNet_ILSVRC2012/val",
-    #     help="the path of val data",
-    # )
     group.add_argument(
         "--img-size", type=int, default=128, help="Size of image for dataset"
     )
