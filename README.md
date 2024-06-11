@@ -13,8 +13,8 @@
 - [ ] Test Linear Attention arch.
 - [ ] Perceptual loss ablation.
 - [ ] Update fid evaluation.
-- [ ] Add gradient accumulation.
-- [ ] Rerun bf16 results.
+- [x] Add gradient accumulation.
+- [x] Rerun bf16 results.
 
 
 Algorithm check list.

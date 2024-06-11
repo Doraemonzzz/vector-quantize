@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 import distributed
 from arguments import get_args
-from dataset import get_data_loaders_new
+from dataset import get_data_loaders
 from lpips import LPIPS
 from metric import get_revd_perceptual
 from model import VQVAE
@@ -23,7 +23,7 @@ def main():
     args.world_size = int(os.environ["WORLD_SIZE"])
 
     # 1, load dataset
-    val_data_loader = get_data_loaders_new(args, is_train=False)
+    val_data_loader = get_data_loaders(args, is_train=False)
     transform_rev = transforms.Normalize(
         [-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
         [1.0 / 0.229, 1.0 / 0.224, 1.0 / 0.225],

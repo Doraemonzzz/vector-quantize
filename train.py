@@ -89,7 +89,8 @@ def main():
     mkdir_ckpt_dirs(args)
 
     # 1, load dataset
-    train_data_loader, val_data_loader = get_data_loaders(args)
+    train_data_loader = get_data_loaders(args, is_train=True)
+    val_data_loader = get_data_loaders(args, is_train=False)
 
     # 2, load model
     model_without_ddp = VQVAE(args)
@@ -142,6 +143,7 @@ def main():
     start_epoch, num_iter = resume(
         model_without_ddp, optimizer, lr_scheduler, scaler, args.ckpt_path
     )
+    logging_info(start_epoch)
     get_l1loss = torch.nn.L1Loss()
 
     # ddp
@@ -230,7 +232,7 @@ def main():
         ) and is_main_process() == 0:
             torch.save(
                 {
-                    "epoch": epoch,  # next epoch
+                    "epoch": epoch + 1,  # next epoch
                     "iter": num_iter,
                     "model_state_dict": model_without_ddp.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
@@ -242,7 +244,7 @@ def main():
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print("Training time {}".format(total_time_str))
+    logging_info("Training time {}".format(total_time_str))
 
 
 if __name__ == "__main__":
