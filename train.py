@@ -7,14 +7,13 @@ import torch
 import wandb
 from torchvision.utils import make_grid, save_image
 
-import distributed
-from arguments import get_args
-from dataset import get_data_loaders
-from lpips import LPIPS
-from metric import get_revd_perceptual
-from model import VQVAE
-from scheduler import AnnealingLR
-from utils import (
+import vector_quants.utils.distributed as distributed
+from vector_quants.data import get_data_loaders
+from vector_quants.loss import LPIPS, get_revd_perceptual
+from vector_quants.models import VQVAE
+from vector_quants.scheduler import AnnealingLR
+from vector_quants.utils import (
+    get_args,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,

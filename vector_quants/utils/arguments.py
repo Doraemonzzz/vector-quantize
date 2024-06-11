@@ -5,7 +5,7 @@ import os
 
 import torch
 
-from utils import multiplyList
+from .utils import multiplyList
 
 
 def add_model_config_args(parser):

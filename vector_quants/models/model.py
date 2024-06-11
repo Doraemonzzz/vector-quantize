@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from quantizers import FSQ, LFQ, SFSQ, VectorQuantizeEMA
+from vector_quants.quantizers import FSQ, LFQ, SFSQ, VectorQuantizeEMA
 
 
 class Encoder(nn.Module):
