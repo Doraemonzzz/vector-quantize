@@ -15,6 +15,9 @@
 - [ ] Update fid evaluation.
 - [x] Add gradient accumulation.
 - [x] Rerun bf16 results.
+- [ ] Add trainer.
+- [ ] Add metrics.
+- [ ] Update eval code, ref https://github.dev/SerezD/vqvae-vqgan-pytorch-lightning
 
 
 Algorithm check list.
