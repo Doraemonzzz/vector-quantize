@@ -67,7 +67,7 @@ class VQVAE(nn.Module):
                 codebook_size=2**args.lfq_dim,
                 dim=args.lfq_dim,
                 entropy_loss_weight=args.entropy_loss_weight,
-                commitment_loss_weight=args.codebook_loss_weight,
+                commitment_loss_weight=args.commitment_loss_weight,
             )
             # args.embed_dim = args.lfq_dim
         elif args.quantizer == "fsq":

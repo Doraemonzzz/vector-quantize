@@ -33,7 +33,7 @@ def add_model_config_args(parser):
         "--lfq-dim", type=int, default=10, help="look up free quantizer dim"
     )
     group.add_argument("--entropy-loss-weight", type=float, default=0.0)
-    group.add_argument("--codebook-loss-weight", type=float, default=0.0)
+    group.add_argument("--commitment-loss-weight", type=float, default=0.0)
 
     group.add_argument(
         "--embed-dim",
@@ -46,6 +46,11 @@ def add_model_config_args(parser):
         type=int,
         default=1024,
         help="The embedding dimension of VQVAE's codebook",
+    )
+    group.add_argument(
+        "--model-name",
+        type=str,
+        default="baseline",  # fsq baseline
     )
     return parser
 
@@ -198,6 +203,7 @@ def add_training_args(parser):
         default=None,
         help="Path to checkpoint path",
     )
+    group.add_argument("--eval-only", action="store_true", default=False)
     # wandb parameters
     parser.add_argument("--use_wandb", action="store_true", default=False)
     parser.add_argument("--wandb_entity", default="")
@@ -252,6 +258,16 @@ def add_loss_args(parser):
     group.add_argument(
         "--codebook-weight", type=float, default=1.0, help="Weight of codebook loss."
     )
+    group.add_argument("--fid-feature", type=int, default=2048)
+    group.add_argument("--perceptual-loss-type", type=int, default=1)
+    group.add_argument("--adversarial-loss-type", type=int, default=0)
+    group.add_argument("--post-transform-type", type=int, default=1)
+    group.add_argument("--l1-loss-weight", type=float, default=1.0)
+    group.add_argument("--l2-loss-weight", type=float, default=0.0)
+    group.add_argument("--perceptual-loss-weight", type=float, default=1.0)
+    group.add_argument("--adversarial-loss-weight", type=float, default=0.0)
+    group.add_argument("--codebook-loss-weight", type=float, default=1.0)
+
     return parser
 
 
