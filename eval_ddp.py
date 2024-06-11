@@ -1,17 +1,23 @@
 import os
 
-import distributed
+# import distributed
 import torch
 import torch.distributed as dist
-from arguments import get_args
-from dataset import get_data_loaders
-from lpips import LPIPS
-from metric import get_revd_perceptual
-from model import VQVAE
+
+# from arguments import get_args
+# from dataset import get_data_loaders
+# from lpips import LPIPS
+# from metric import get_revd_perceptual
+# from model import VQVAE
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchvision import transforms
 from tqdm import tqdm
-from utils import logging_info, multiplyList, type_dict
+
+import vector_quants.utils.distributed as distributed
+from vector_quants.data import get_data_loaders
+from vector_quants.loss import LPIPS, get_revd_perceptual
+from vector_quants.models import VQVAE
+from vector_quants.utils import get_args, logging_info, multiplyList, type_dict
 
 
 def main():
