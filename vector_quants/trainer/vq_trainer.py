@@ -4,20 +4,28 @@ import time
 from collections import OrderedDict
 
 import torch
+import torch.distributed as dist
 import wandb
 from torchvision.utils import make_grid, save_image
+from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import get_data_loaders
 from vector_quants.loss import Loss, get_post_transform
+from vector_quants.metrics import Metrics
 from vector_quants.models import get_model
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
+    get_metrics_list,
+    get_num_embed,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
+    print_dict,
+    reduce_dict,
     set_random_seed,
     type_dict,
+    update_dict,
 )
 
 from .base_trainer import BaseTrainer
@@ -113,13 +121,24 @@ class VQTrainer(BaseTrainer):
             self.model, device_ids=[args.gpu], find_unused_parameters=True
         )
 
+        # evaluation
+        self.eval_metrics = Metrics(
+            metrics_list=get_metrics_list(args.metrics_list),
+            dataset_name=args.data_set,
+            device=torch.cuda.current_device(),
+        )
+        self.num_embed = get_num_embed(args)
+
         # other params
         self.max_train_epochs = args.max_train_epochs
         self.log_interval = args.log_interval
+        self.eval_interval = args.eval_interval
         self.gradient_accumulation_steps = args.gradient_accumulation_steps
         self.save_interval = args.save_interval
         self.save = args.save
-        self.post_transform = get_post_transform(args.post_transform_type)
+        self.post_transform = get_post_transform(
+            args.post_transform_type, data_set=args.data_set
+        )
 
     @property
     def is_main_process(self):
@@ -162,8 +181,17 @@ class VQTrainer(BaseTrainer):
         start_epoch = self.start_epoch
         num_iter = self.num_iter
 
+        self.model.train()
+
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
+
+            logging_info(epoch % self.eval_interval)
+            if epoch % self.eval_interval == 0:
+                self.eval()
+
+            self.model.train()
+
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
                 if num_iter == 0:
@@ -203,16 +231,6 @@ class VQTrainer(BaseTrainer):
 
                 # print info
                 if self.is_main_process and num_iter % self.log_interval == 0:
-                    # logging_info(
-                    #     "rank 0: epoch:{}, iter:{}, lr:{:.4}, l1loss:{:.4}, percep_loss:{:.4}, codebook_loss:{:.4}".format(
-                    #         epoch,
-                    #         num_iter,
-                    #         optimizer.state_dict()["param_groups"][0]["lr"],
-                    #         l1loss.item(),
-                    #         perceptual_loss.item(),
-                    #         codebook_loss.item(),
-                    #     )
-                    # )
                     lr = self.optimizer.state_dict()["param_groups"][0]["lr"]
                     info = f"rank 0: epoch: {epoch}, iter: {num_iter}, lr: {lr}, "
                     for key in loss_dict:
@@ -253,41 +271,54 @@ class VQTrainer(BaseTrainer):
         self.eval()
 
     def eval(self):
-        return 0
-        # for input_img, _ in tqdm(self.val_data_loader, disable=not self.is_main_process):
-        #     # forward
-        #     num_iter += 1
-        #     with torch.no_grad():
-        #         with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-        #             input_img = input_img.cuda(torch.cuda.current_device())
-        #             reconstructions, codebook_loss, ids = self.model(input_img, return_id=True)
+        self.model.eval()
+        self.loss_fn.eval()
+        self.eval_metrics.reset()
 
-        #         ids = torch.flatten(ids)
-        #         for quan_id in ids:
-        #             codebook_usage.add(quan_id.item())
+        codebook_usage = set()
+        loss_dict_total = {}
+        for input_img, _ in tqdm(
+            self.val_data_loader, disable=not self.is_main_process
+        ):
+            with torch.no_grad():
+                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                    input_img = input_img.cuda(torch.cuda.current_device())
+                    reconstructions, codebook_loss, ids = self.model(
+                        input_img, return_id=True
+                    )
+                    loss, loss_dict = self.loss_fn(
+                        codebook_loss,
+                        self.post_transform(input_img),
+                        self.post_transform(reconstructions),
+                    )
 
-        #     input_img, reconstructions = self.post_transform(input_img), self.post_transform(reconstructions)
-        #     # compute L1 loss and perceptual loss
-        #     loss, loss_dict = self.loss_fn(input_img, reconstructions)
-        #     total_l1_loss += l1loss.cpu().item()
-        #     total_per_loss += perceptual_loss.cpu().item()
+                loss_dict_total = update_dict(loss_dict_total, loss_dict)
 
-        #     fid.update(input_img, real=True)
-        #     fid.update(reconstructions, real=False)
+                ids = torch.flatten(ids)
+                for quan_id in ids:
+                    codebook_usage.add(quan_id.item())
 
-        # fid_score = fid.compute().item()
-        # # summary result
-        # world_size = torch.distributed.get_world_size()
-        # loss = torch.Tensor([fid_score, total_l1_loss, total_per_loss]).cuda()
-        # codebook_usage_list = [None for _ in range(world_size)]
-        # dist.all_reduce(loss, op=dist.ReduceOp.SUM)
-        # dist.all_gather_object(codebook_usage_list, codebook_usage)
-        # loss /= world_size
-        # codebook_usage = set()
-        # for codebook_usange_ in codebook_usage_list:
-        #     codebook_usage = codebook_usage.union(codebook_usange_)
+            self.eval_metrics.update(
+                real=input_img.contiguous(), fake=reconstructions.contiguous()
+            )
 
-        # logging_info(f"fid score: {loss[0].item()}")
-        # logging_info(f"l1loss: {loss[1] / num_iter}")
-        # logging_info(f"precep_loss: {loss[2] / num_iter}")
-        # logging_info(f"codebook usage: {len(codebook_usage) / num_embed}")
+        # update this later
+        world_size = dist.get_world_size()
+        codebook_usage_list = [None for _ in range(world_size)]
+        dist.all_gather_object(codebook_usage_list, codebook_usage)
+        codebook_usage = set()
+        for codebook_usange_ in codebook_usage_list:
+            codebook_usage = codebook_usage.union(codebook_usange_)
+
+        eval_loss_dict = reduce_dict(loss_dict_total)
+        eval_results = self.eval_metrics.compute_and_reduce()
+
+        print_dict(eval_loss_dict)
+        print_dict(eval_results)
+        codebook_usage = len(codebook_usage) / self.num_embed
+        logging_info(f"codebook usage: {codebook_usage}")
+
+        if self.use_wandb and self.is_main_process:
+            wandb.log(eval_loss_dict)
+            wandb.log(eval_results)
+            wandb.log({"codebook usage": codebook_usage})

@@ -117,3 +117,63 @@ def get_ip():
 def logging_info(string):
     if is_main_process():
         logger.info(string)
+
+
+def rescale_image_tensor(img_tensor, mean, std):
+    if isinstance(mean, (int, float)):
+        mean = [mean] * 3
+    if isinstance(std, (int, float)):
+        std = [std] * 3
+    mean = torch.tensor(mean).view(3, 1, 1).type_as(img_tensor)
+    std = torch.tensor(std).view(3, 1, 1).type_as(img_tensor)
+    return img_tensor * std + mean
+
+
+def update_dict(dict1, dict2):
+    for key in dict2:
+        if key not in dict1:
+            dict1[key] = 0
+        else:
+            dict1[key] += dict2[key]
+
+    return dict1
+
+
+def reduce_dict(loss_dict):
+    dist.get_world_size()
+    keys = list(loss_dict.keys())
+    tensor = torch.tensor(
+        [loss_dict[key] for key in keys],
+        dtype=torch.float32,
+        device=torch.cuda.current_device(),
+    )
+
+    # Reduce the tensors across all devices
+    dist.reduce(tensor, dst=0, op=dist.ReduceOp.SUM, group=dist.group.WORLD)
+
+    res = {}
+    for i, key in enumerate(keys):
+        res[key] = tensor[i].item()
+
+    return res
+
+
+def print_dict(res_dict):
+    for key in res_dict:
+        logging_info(f"{key}: {res_dict[key]}")
+
+
+def get_num_embed(args):
+    if args.quantizer in ["ema", "origin"]:
+        result = args.n_embed
+    else:
+        result = 1
+        for x in args.levels:
+            result = result * x
+        return result
+
+    return result
+
+
+def get_metrics_list(metrics_list):
+    return metrics_list.split(",")

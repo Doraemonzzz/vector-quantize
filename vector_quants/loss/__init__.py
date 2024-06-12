@@ -6,6 +6,7 @@ from vector_quants.utils import (
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
+    rescale_image_tensor,
     set_random_seed,
     type_dict,
 )
@@ -39,13 +40,17 @@ def get_adversarial_loss(adversarial_loss_type):
     return model
 
 
-def get_post_transform(post_transform_type):
+def get_post_transform(post_transform_type, data_set="imagenet-1k"):
     if post_transform_type == 0:
         logging_info(f"Post Transform: None")
         post_transform = lambda x: x
     elif post_transform_type == 1:
         logging_info(f"Post Transform: fsq_pytorch default")
         post_transform = transform_rev
+    else:
+        logging_info(f"Post Transform: rescale to [0, 1]")
+        norm_mean, norm_std = get_mean_std_from_dataset_name(data_set)
+        post_transform = lambda x: rescale_image_tensor(x, norm_mean, norm_std)
 
     return post_transform
 
@@ -55,7 +60,6 @@ class Loss(nn.Module):
         self,
         perceptual_loss_type=0,
         adversarial_loss_type=0,
-        # transform_type=0,
         # weight
         l1_loss_weight=1.0,
         l2_loss_weight=0.0,
@@ -64,7 +68,6 @@ class Loss(nn.Module):
         codebook_loss_weight=1.0,
     ):
         super().__init__()
-        # self.transform = get_transform(transform_type)
         self.perceptual_loss = get_perceptual_loss(perceptual_loss_type)
         self.adversarial_loss = get_adversarial_loss(adversarial_loss_type)
 

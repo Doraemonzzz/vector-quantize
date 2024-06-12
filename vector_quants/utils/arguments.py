@@ -204,6 +204,13 @@ def add_training_args(parser):
         help="Path to checkpoint path",
     )
     group.add_argument("--eval-only", action="store_true", default=False)
+    group.add_argument(
+        "--eval-interval",
+        type=int,
+        default=5,
+        help="Evaluation interval",
+    )
+
     # wandb parameters
     parser.add_argument("--use_wandb", action="store_true", default=False)
     parser.add_argument("--wandb_entity", default="")
@@ -221,8 +228,8 @@ def add_data_args(parser):
     group = parser.add_argument_group("data", "data configurations")
     group.add_argument(
         "--data-set",
-        default="IMNET",
-        choices=["CIFAR", "IMNET"],
+        default="imagenet-1k",
+        choices=["cifar100", "imagenet-1k"],
         type=str,
         help="Dataset path",
     )
@@ -267,6 +274,8 @@ def add_loss_args(parser):
     group.add_argument("--perceptual-loss-weight", type=float, default=1.0)
     group.add_argument("--adversarial-loss-weight", type=float, default=0.0)
     group.add_argument("--codebook-loss-weight", type=float, default=1.0)
+    # evaluation
+    group.add_argument("--metrics-list", type=str, default="")
 
     return parser
 

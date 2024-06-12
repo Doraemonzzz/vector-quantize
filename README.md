@@ -16,8 +16,9 @@
 - [x] Add gradient accumulation.
 - [x] Rerun bf16 results.
 - [ ] Add trainer.
-- [ ] Add metrics.
+- [x] Add metrics.
 - [ ] Update eval code, ref https://github.dev/SerezD/vqvae-vqgan-pytorch-lightning
+- [ ] Update code book usage.
 
 
 Algorithm check list.
