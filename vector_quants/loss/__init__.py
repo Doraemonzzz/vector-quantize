@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from vector_quants.data import get_mean_std_from_dataset_name
 from vector_quants.utils import (
     get_args,
     is_main_process,

@@ -184,7 +184,8 @@ class VQTrainer(BaseTrainer):
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
-            if (epoch + 1) % self.eval_interval == 0:
+            # if (epoch + 1) % self.eval_interval == 0:
+            if epoch % self.eval_interval == 0:
                 self.eval()
 
             self.model.train()
@@ -321,4 +322,5 @@ class VQTrainer(BaseTrainer):
             wandb.log(eval_results)
             wandb.log({"codebook usage": codebook_usage})
 
+        torch.cuda.empty_cache()
         logging_info("End Evaluation")
