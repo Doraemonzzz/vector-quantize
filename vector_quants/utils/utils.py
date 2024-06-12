@@ -158,9 +158,9 @@ def reduce_dict(loss_dict):
     return res
 
 
-def print_dict(res_dict):
+def print_dict(res_dict, prefix=""):
     for key in res_dict:
-        logging_info(f"{key}: {res_dict[key]}")
+        logging_info(f"{prefix}_{key}: {res_dict[key]}")
 
 
 def get_num_embed(args):

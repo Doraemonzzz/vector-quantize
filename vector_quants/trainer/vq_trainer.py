@@ -181,13 +181,10 @@ class VQTrainer(BaseTrainer):
         start_epoch = self.start_epoch
         num_iter = self.num_iter
 
-        self.model.train()
-
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
-            logging_info(epoch % self.eval_interval)
-            if epoch % self.eval_interval == 0:
+            if (epoch + 1) % self.eval_interval == 0:
                 self.eval()
 
             self.model.train()
@@ -271,6 +268,7 @@ class VQTrainer(BaseTrainer):
         self.eval()
 
     def eval(self):
+        logging_info("Start Evaluation")
         self.model.eval()
         self.loss_fn.eval()
         self.eval_metrics.reset()
@@ -313,8 +311,8 @@ class VQTrainer(BaseTrainer):
         eval_loss_dict = reduce_dict(loss_dict_total)
         eval_results = self.eval_metrics.compute_and_reduce()
 
-        print_dict(eval_loss_dict)
-        print_dict(eval_results)
+        print_dict(eval_loss_dict, prefix="valid")
+        print_dict(eval_results, prefix="valid")
         codebook_usage = len(codebook_usage) / self.num_embed
         logging_info(f"codebook usage: {codebook_usage}")
 
@@ -322,3 +320,5 @@ class VQTrainer(BaseTrainer):
             wandb.log(eval_loss_dict)
             wandb.log(eval_results)
             wandb.log({"codebook usage": codebook_usage})
+
+        logging_info("End Evaluation")
