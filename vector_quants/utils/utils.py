@@ -180,3 +180,18 @@ def get_metrics_list(metrics_list):
         return []
     else:
         return metrics_list.split(",")
+
+
+def compute_grad_norm(model, norm_type=2):
+    if hasattr(model, "module"):
+        parameters = model.module.parameters()
+    else:
+        parameters = model.parameters()
+
+    total_norm = 0
+    for param in parameters:
+        if param.requires_grad and param.grad is not None:
+            param_norm = param.grad.detach().data.norm(norm_type)
+            total_norm += param_norm.item() ** norm_type
+    total_norm = total_norm ** (1 / norm_type)
+    return total_norm

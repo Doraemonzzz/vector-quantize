@@ -15,8 +15,10 @@ from vector_quants.data import get_data_loaders
 from vector_quants.loss import Loss, get_post_transform
 from vector_quants.metrics import CodeBookMetric, Metrics
 from vector_quants.models import get_model
+from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
+    compute_grad_norm,
     get_metrics_list,
     get_num_embed,
     is_main_process,
@@ -98,11 +100,8 @@ class VQTrainer(BaseTrainer):
         self.scaler = torch.cuda.amp.GradScaler()
 
         # 3, load optimizer and scheduler
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(),
-            lr=cfg_train.lr,
-            weight_decay=cfg_train.weight_decay,
-        )
+        self.optimizer = get_optimizer(cfg_train, self.model)
+
         self.lr_scheduler = AnnealingLR(
             self.optimizer,
             start_lr=cfg_train.lr,
@@ -152,6 +151,7 @@ class VQTrainer(BaseTrainer):
         self.post_transform = get_post_transform(
             cfg_loss.post_transform_type, data_set=cfg_data.data_set
         )
+        self.clip_grad = cfg_train.clip_grad
 
     @property
     def is_main_process(self):
@@ -160,7 +160,7 @@ class VQTrainer(BaseTrainer):
     def resume(self, ckpt_path):
         if ckpt_path == None:
             logging_info(f"Train from scratch")
-            return 0, 0
+            return 1, 1
 
         pkg = torch.load(ckpt_path, map_location="cpu")
 
@@ -197,15 +197,14 @@ class VQTrainer(BaseTrainer):
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
-            if (epoch + 1) % self.eval_interval == 0:
-                # if epoch % self.eval_interval == 0:
+            if epoch % self.eval_interval == 0:
                 self.eval()
 
             self.model.train()
 
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
-                if num_iter == 0:
+                if num_iter == 1:
                     torch.save(
                         {
                             "epoch": epoch,
@@ -228,25 +227,39 @@ class VQTrainer(BaseTrainer):
                         self.post_transform(reconstructions),
                     )
 
-                if self.use_wandb and self.is_main_process:
-                    wandb.log(loss_dict)
-
                 # backward
                 self.scaler.scale(loss).backward()
+
+                # compute grad norm
+                grad_norm = 0
+                if self.is_main_process and num_iter % self.log_interval == 0:
+                    grad_norm = compute_grad_norm(self.model)
+
                 if num_iter % self.gradient_accumulation_steps == 0:
+                    if self.clip_grad:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model.parameters(), self.clip_grad
+                        )
+
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.lr_scheduler.step()
                     self.optimizer.zero_grad()
-                    num_iter += 1
 
                 # print info
+                if self.use_wandb and self.is_main_process:
+                    wandb.log(loss_dict)
+
                 if self.is_main_process and num_iter % self.log_interval == 0:
                     lr = self.optimizer.state_dict()["param_groups"][0]["lr"]
                     info = f"rank 0: epoch: {epoch}, iter: {num_iter}, lr: {lr}, "
                     for key in loss_dict:
                         info += f"{key}: {loss_dict[key]}, "
+                    info += f"gnorm: {grad_norm}"
                     logging_info(info)
+                    if self.use_wandb:
+                        wandb.log({"gnorm": grad_norm})
 
                 # save image for checking training
                 if self.is_main_process and num_iter % self.log_interval == 0:
@@ -258,6 +271,8 @@ class VQTrainer(BaseTrainer):
                         os.path.join(self.save, "samples/{num_iter}.jpg"),
                         normalize=True,
                     )
+
+                num_iter += 1
 
             # save checkpoints
             if (

@@ -48,7 +48,7 @@ class TrainingConfig:
     weight_decay: float = field(
         default=0.0, metadata={"help": "Weight decay coefficient for L2 regularization"}
     )
-    clip_grad: float = field(default=1.0, metadata={"help": "Gradient clipping"})
+    clip_grad: float = field(default=0.0, metadata={"help": "Gradient clipping"})
     train_iters: int = field(
         default=500000,
         metadata={"help": "Total number of iterations to train over all training runs"},
@@ -120,6 +120,17 @@ class TrainingConfig:
         default="wandb", metadata={"help": "wandb cache directory"}
     )
     log_freq: int = field(default=100, metadata={"help": "Log frequency"})
+    # optimizer
+    optimizer_name: str = field(default="adam", metadata={"help": "Optimizer name"})
+    adam_beta1: float = field(
+        default=0.9, metadata={"help": "Beta1 for Adam optimizer"}
+    )
+    adam_beta2: float = field(
+        default=0.999, metadata={"help": "Beta2 for Adam optimizer"}
+    )
+    adam_epsilon: float = field(
+        default=1e-8, metadata={"help": "Epsilon for Adam optimizer."}
+    )
 
 
 @dataclass

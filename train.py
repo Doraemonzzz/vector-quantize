@@ -195,12 +195,11 @@ def main():
 
             # backward
             scaler.scale(loss).backward()
-            if num_iter % args.gradient_accumulation_steps == 0:
+            if (num_iter + 1) % args.gradient_accumulation_steps == 0:
                 scaler.step(optimizer)
                 scaler.update()
                 lr_scheduler.step()
                 optimizer.zero_grad()
-                num_iter += 1
 
             # print info
             if is_main_process() and num_iter % args.log_interval == 0:
@@ -224,6 +223,8 @@ def main():
                     args.save + "/samples/{}.jpg".format(num_iter),
                     normalize=True,
                 )
+
+            num_iter += 1
 
         # save checkpoints
         if (
