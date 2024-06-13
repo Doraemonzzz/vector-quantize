@@ -12,7 +12,7 @@ from tqdm import tqdm
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import get_data_loaders
 from vector_quants.loss import Loss, get_post_transform
-from vector_quants.metrics import Metrics
+from vector_quants.metrics import Metrics, CodeBookMetric
 from vector_quants.models import get_model
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
@@ -127,6 +127,7 @@ class VQTrainer(BaseTrainer):
             dataset_name=args.data_set,
             device=torch.cuda.current_device(),
         )
+        self.codebook_metric = CodeBookMetric(get_num_embed(args))
         self.num_embed = get_num_embed(args)
 
         # other params
@@ -274,7 +275,6 @@ class VQTrainer(BaseTrainer):
         self.loss_fn.eval()
         self.eval_metrics.reset()
 
-        codebook_usage = set()
         loss_dict_total = {}
         for input_img, _ in tqdm(
             self.val_data_loader, disable=not self.is_main_process
@@ -282,7 +282,7 @@ class VQTrainer(BaseTrainer):
             with torch.no_grad():
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     input_img = input_img.cuda(torch.cuda.current_device())
-                    reconstructions, codebook_loss, ids = self.model(
+                    reconstructions, codebook_loss, indices = self.model(
                         input_img, return_id=True
                     )
                     loss, loss_dict = self.loss_fn(
@@ -293,34 +293,23 @@ class VQTrainer(BaseTrainer):
 
                 loss_dict_total = update_dict(loss_dict_total, loss_dict)
 
-                ids = torch.flatten(ids)
-                for quan_id in ids:
-                    codebook_usage.add(quan_id.item())
-
             self.eval_metrics.update(
                 real=input_img.contiguous(), fake=reconstructions.contiguous()
             )
+            self.codebook_metric.update(indices)
 
-        # update this later
-        world_size = dist.get_world_size()
-        codebook_usage_list = [None for _ in range(world_size)]
-        dist.all_gather_object(codebook_usage_list, codebook_usage)
-        codebook_usage = set()
-        for codebook_usange_ in codebook_usage_list:
-            codebook_usage = codebook_usage.union(codebook_usange_)
-
-        eval_loss_dict = reduce_dict(loss_dict_total)
+        eval_loss_dict = reduce_dict(loss_dict_total, prefix="valid_")
         eval_results = self.eval_metrics.compute_and_reduce()
+        codebook_results = self.codebook_metric.get_result()
 
-        print_dict(eval_loss_dict, prefix="valid")
-        print_dict(eval_results, prefix="valid")
-        codebook_usage = len(codebook_usage) / self.num_embed
-        logging_info(f"codebook usage: {codebook_usage}")
+        print_dict(eval_loss_dict)
+        print_dict(eval_results)
+        print_dict(codebook_results)
 
         if self.use_wandb and self.is_main_process:
             wandb.log(eval_loss_dict)
             wandb.log(eval_results)
-            wandb.log({"codebook usage": codebook_usage})
+            wandb.log(codebook_results)
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")

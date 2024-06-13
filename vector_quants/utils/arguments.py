@@ -45,7 +45,7 @@ def add_model_config_args(parser):
         "--n-embed",
         type=int,
         default=1024,
-        help="The embedding dimension of VQVAE's codebook",
+        help="The number embeddings of VQVAE's codebook",
     )
     group.add_argument(
         "--model-name",

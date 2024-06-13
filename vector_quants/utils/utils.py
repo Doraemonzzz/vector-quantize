@@ -139,7 +139,7 @@ def update_dict(dict1, dict2):
     return dict1
 
 
-def reduce_dict(loss_dict):
+def reduce_dict(loss_dict, prefix=""):
     dist.get_world_size()
     keys = list(loss_dict.keys())
     tensor = torch.tensor(
@@ -153,14 +153,14 @@ def reduce_dict(loss_dict):
 
     res = {}
     for i, key in enumerate(keys):
-        res[key] = tensor[i].item()
+        res[f"{prefix}{key}"] = tensor[i].item()
 
     return res
 
 
-def print_dict(res_dict, prefix=""):
+def print_dict(res_dict):
     for key in res_dict:
-        logging_info(f"{prefix}_{key}: {res_dict[key]}")
+        logging_info(f"{key}: {res_dict[key]}")
 
 
 def get_num_embed(args):
@@ -176,4 +176,7 @@ def get_num_embed(args):
 
 
 def get_metrics_list(metrics_list):
-    return metrics_list.split(",")
+    if metrics_list == "":
+        return []
+    else:
+        return metrics_list.split(",")
