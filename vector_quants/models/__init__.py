@@ -1,4 +1,4 @@
-from .model import VQVAE
+from .baseline import VQVAE
 
 MODEL_DICT = {"baseline": VQVAE}
 

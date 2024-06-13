@@ -111,3 +111,8 @@ vqvae gumbel
 6. Hierarchical Residual Learning Based Vector Quantized Variational Autoencoder for Image Reconstruction and Generation
 7. https://github.com/luv91/VQGAN_Project/
 8. https://github.com/S-aiueo32/lpips-pytorch/
+
+
+fsq, sfsq acc, no acc
+add yaml
+add personal vq

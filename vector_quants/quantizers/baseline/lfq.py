@@ -82,6 +82,7 @@ class LFQ(Module):
         num_codebooks=1,
         keep_num_codebooks_dim=None,
         codebook_scale=1.0,  # for residual LFQ, codebook scaled down by 2x at each layer
+        **kwargs,
     ):
         super().__init__()
 

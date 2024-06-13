@@ -1,4 +1,4 @@
-# Credit to https://github.com/rakkit 
+# Credit to https://github.com/rakkit
 DATASET_CONFIGS = {
     "mnist": {
         "image_size": 28,

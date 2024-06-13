@@ -16,7 +16,7 @@ class ModelConfig:
         default="ema",
         metadata={
             "help": "Use which quantizer",
-            "choices": ["ema", "origin", "fsq", "sfsq", "lfq"],
+            "choices": ["ema", "origin", "fsq", "sfsq", "lfq", "Vq"],
         },
     )
     levels: List[int] = field(
@@ -26,10 +26,16 @@ class ModelConfig:
     embed_dim: int = field(
         default=256, metadata={"help": "The embedding dimension of VQVAE's codebook"}
     )
-    n_embed: int = field(
+    num_embed: int = field(
         default=1024, metadata={"help": "The number embeddings of VQVAE's codebook"}
     )
     model_name: str = field(default="baseline", metadata={"help": "Model name"})
+    entropy_loss_weight: float = field(
+        default=0.0, metadata={"help": "Entropy loss weight"}
+    )
+    commitment_loss_weight: float = field(
+        default=0.0, metadata={"help": "Commitment loss weight"}
+    )
 
 
 @dataclass
@@ -158,12 +164,6 @@ class LossConfig:
     post_transform_type: int = field(
         default=1, metadata={"help": "Post transform type before compute loss"}
     )
-    entropy_loss_weight: float = field(
-        default=0.0, metadata={"help": "Entropy loss weight"}
-    )
-    commitment_loss_weight: float = field(
-        default=0.0, metadata={"help": "Commitment loss weight"}
-    )
     l1_loss_weight: float = field(default=1.0, metadata={"help": "L1 loss weight"})
     l2_loss_weight: float = field(default=0.0, metadata={"help": "L2 loss weight"})
     perceptual_loss_weight: float = field(
@@ -224,10 +224,10 @@ def process_args(args):
 
     elif quantizer in ["fsq", "sfsq"]:
         args.model.embed_dim = len(args.model.levels)
-        postfix = f"-n_embed-{get_num_embed(args.model)}"
+        postfix = f"-num_embed-{get_num_embed(args.model)}"
 
     else:
-        postfix = f"-n_embed-{get_num_embed(args.model)}"
+        postfix = f"-num_embed-{get_num_embed(args.model)}"
 
     args.train.save = save + postfix
 

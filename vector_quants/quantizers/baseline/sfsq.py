@@ -7,6 +7,7 @@ from typing import List, Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from einops import pack, rearrange, unpack
 from torch import Tensor, int32
 from torch.nn import Module
@@ -44,15 +45,14 @@ def round_ste(z: Tensor) -> Tensor:
 
 # main class
 
-
-class FSQ(Module):
+# Simple FSQ
+class SFSQ(Module):
     def __init__(
         self,
         levels: List[int],
         dim: Optional[int] = None,
-        num_codebooks=1,
-        keep_num_codebooks_dim: Optional[bool] = None,
         scale: Optional[float] = None,
+        **kwargs,
     ):
         super().__init__()
         _levels = torch.tensor(levels, dtype=int32)
@@ -66,15 +66,8 @@ class FSQ(Module):
         codebook_dim = len(levels)
         self.codebook_dim = codebook_dim
 
-        effective_codebook_dim = codebook_dim * num_codebooks
-        self.num_codebooks = num_codebooks
-        self.effective_codebook_dim = effective_codebook_dim
-
-        keep_num_codebooks_dim = default(keep_num_codebooks_dim, num_codebooks > 1)
-        assert not (num_codebooks > 1 and not keep_num_codebooks_dim)
-        self.keep_num_codebooks_dim = keep_num_codebooks_dim
-
-        self.dim = default(dim, len(_levels) * num_codebooks)
+        effective_codebook_dim = codebook_dim
+        self.dim = default(dim, len(_levels))
 
         has_projections = self.dim != effective_codebook_dim
         self.project_in = (
@@ -98,42 +91,40 @@ class FSQ(Module):
 
     def bound(self, z: Tensor, eps: float = 1e-3) -> Tensor:
         """Bound `z`, an array of shape (..., d)."""
-        half_l = (self._levels - 1) * (1 - eps) / 2
-        offset = torch.where(self._levels % 2 == 0, 0.5, 0.0)
-        shift = (offset / half_l).tan()
-        return (z + shift).tanh() * half_l - offset
+        d = self._levels - 1
+        # [0, L - 1]
+        output = d * F.sigmoid(z)
+        return output
 
     def quantize(self, z: Tensor) -> Tensor:
         """Quantizes z, returns quantized zhat, same shape as z."""
-        quantized = round_ste(self.bound(z))
-        half_width = self._levels // 2  # Renormalize to [-1, 1].
-        return quantized / half_width
+        d = self._levels - 1
+        # [0, L - 1] -> [0, 1]
+        quantized = round_ste(self.bound(z)) / d
+        return quantized
 
-    def _scale_and_shift(self, zhat_normalized: Tensor) -> Tensor:
-        half_width = self._levels // 2
-        return (zhat_normalized * half_width) + half_width
+    def _scale(self, zhat_normalized: Tensor) -> Tensor:
+        d = self._levels - 1
+        return zhat_normalized * d
 
-    def _scale_and_shift_inverse(self, zhat: Tensor) -> Tensor:
-        half_width = self._levels // 2
-        return (zhat - half_width) / half_width
+    def _scale_inverse(self, zhat: Tensor) -> Tensor:
+        d = self._levels - 1
+        return zhat / d
 
     def codes_to_indices(self, zhat: Tensor) -> Tensor:
         """Converts a `code` to an index in the codebook."""
         assert zhat.shape[-1] == self.codebook_dim
-        zhat = self._scale_and_shift(zhat)
+        zhat = self._scale(zhat)
         return (zhat * self._basis).sum(dim=-1).to(int32)
 
     def indices_to_codes(self, indices: Tensor, project_out=True) -> Tensor:
         """Inverse of `codes_to_indices`."""
 
-        is_img_or_video = indices.ndim >= (3 + int(self.keep_num_codebooks_dim))
+        is_img_or_video = indices.ndim >= 3
 
         indices = rearrange(indices, "... -> ... 1")
         codes_non_centered = (indices // self._basis) % self._levels
-        codes = self._scale_and_shift_inverse(codes_non_centered)
-
-        if self.keep_num_codebooks_dim:
-            codes = rearrange(codes, "... c d -> ... (c d)")
+        codes = self._scale_inverse(codes_non_centered)
 
         if project_out:
             codes = self.project_out(codes)
@@ -149,7 +140,6 @@ class FSQ(Module):
         b - batch
         n - sequence (or flattened spatial dimensions)
         d - feature dimension, which is also log2(codebook size)
-        c - number of codebook dim
         """
 
         is_img_or_video = z.ndim >= 4
@@ -166,12 +156,8 @@ class FSQ(Module):
 
         z = self.project_in(z)
 
-        z = rearrange(z, "b n (c d) -> b n c d", c=self.num_codebooks)
-
         codes = self.quantize(z)
         indices = self.codes_to_indices(codes)
-
-        codes = rearrange(codes, "b n c d -> b n (c d)")
 
         out = self.project_out(codes)
 
@@ -180,18 +166,14 @@ class FSQ(Module):
         if is_img_or_video:
             out = unpack_one(out, ps, "b * d")
             out = rearrange(out, "b ... d -> b d ...")
-
-            indices = unpack_one(indices, ps, "b * c")
-
-        if not self.keep_num_codebooks_dim:
-            indices = rearrange(indices, "... 1 -> ...")
+            indices = unpack_one(indices, ps, "b *")
 
         return out, indices
 
 
 if __name__ == "__main__":
     levels = [8, 5, 5, 5]  # see 4.1 and A.4.1 in the paper
-    quantizer = FSQ(levels)
+    quantizer = SFSQ(levels)
 
     x = torch.randn(1, 4, 16, 16)  # 4 since there are 4 levels
     xhat, indices = quantizer(x)

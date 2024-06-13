@@ -1,7 +1,8 @@
 import torch
+from einops import rearrange
 from torch import nn
 
-from vector_quants.quantizers import FSQ, LFQ, SFSQ, VectorQuantizeEMA
+from vector_quants.quantizers import get_quantizer
 
 
 class Encoder(nn.Module):
@@ -59,25 +60,7 @@ class VQVAE(nn.Module):
         super().__init__()
         self.args = args
 
-        if args.quantizer == "ema" or args.quantizer == "origin":
-            self.quantize_t = VectorQuantizeEMA(args, args.embed_dim, args.n_embed)
-
-        elif args.quantizer == "lfq":
-            self.quantize_t = LFQ(
-                codebook_size=2**args.lfq_dim,
-                dim=args.lfq_dim,
-                entropy_loss_weight=args.entropy_loss_weight,
-                commitment_loss_weight=args.commitment_loss_weight,
-            )
-            # args.embed_dim = args.lfq_dim
-        elif args.quantizer == "fsq":
-            self.quantize_t = FSQ(levels=args.levels)
-            # args.embed_dim = len(args.levels)
-        elif args.quantizer == "sfsq":
-            self.quantize_t = SFSQ(levels=args.levels)
-        else:
-            print("quantizer error!")
-            exit()
+        self.quantizer = get_quantizer(args)
 
         self.enc = Encoder(args)
         self.dec = Decoder(args)
@@ -96,24 +79,29 @@ class VQVAE(nn.Module):
     def encode(self, input):
         logits = self.enc(input)
         if self.args.quantizer == "ema" or self.args.quantizer == "origin":
-            quant_t, diff_t, id_t = self.quantize_t(logits)
-            # quant_t = quant_t.permute(0, 3, 1, 2) have change the dimension in quantizer
+            quant_t, diff_t, id_t = self.quantizer(logits)
             diff_t = diff_t.unsqueeze(0)
 
         elif self.args.quantizer in ["fsq", "sfsq"]:
-            quant_t, id_t = self.quantize_t(logits)
+            quant_t, id_t = self.quantizer(logits)
             diff_t = torch.tensor(0.0).cuda().float()
 
         elif self.args.quantizer == "lfq":
             # quantized, indices, entropy_aux_loss = quantizer(image_feats)
-            quant_t, id_t, diff_t = self.quantize_t(logits)
+            quant_t, id_t, diff_t = self.quantizer(logits)
+        elif self.args.quantizer == "Vq":
+
+            logits = rearrange(logits, "b c h w -> b h w c")
+            quant_t, diff_t, id_t = self.quantizer(logits)
+            quant_t = rearrange(quant_t, "b h w c -> b c h w")
+
         return quant_t, diff_t, id_t
 
     def decode(self, code):
         return self.dec(code)
 
     def decode_code(self, code_t):
-        quant_t = self.quantize_t.embed_code(code_t)
+        quant_t = self.quantizer.embed_code(code_t)
         quant_t = quant_t.permute(0, 3, 1, 2)
         dec = self.dec(quant_t)
 

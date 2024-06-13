@@ -165,7 +165,7 @@ def print_dict(res_dict):
 
 def get_num_embed(args):
     if args.quantizer in ["ema", "origin"]:
-        result = args.n_embed
+        result = args.num_embed
     else:
         result = 1
         for x in args.levels:

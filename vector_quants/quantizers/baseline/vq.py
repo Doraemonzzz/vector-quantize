@@ -13,18 +13,18 @@ def all_reduce(tensor, op=dist.ReduceOp.SUM):
 
 
 class Quantize(nn.Module):
-    def __init__(self, dim, n_embed, decay=0.99, eps=1e-5):
+    def __init__(self, dim, num_embed, decay=0.99, eps=1e-5, **kwargs):
         super().__init__()
 
         self.dim = dim
-        self.n_embed = n_embed
+        self.num_embed = num_embed
         self.decay = decay
         self.eps = eps
 
-        embed = torch.randn(dim, n_embed)
+        embed = torch.randn(dim, num_embed)
         torch.nn.init.xavier_uniform_(embed, gain=torch.nn.init.calculate_gain("tanh"))
         self.register_buffer("embed", embed)
-        self.register_buffer("cluster_size", torch.zeros(n_embed))
+        self.register_buffer("cluster_size", torch.zeros(num_embed))
         self.register_buffer("embed_avg", embed.clone())
 
     def forward(self, input, continuous_relax=False, temperature=1.0, hard=False):
@@ -34,12 +34,12 @@ class Quantize(nn.Module):
             flatten.pow(2).sum(1, keepdim=True)
             - 2 * flatten @ self.embed
             + self.embed.pow(2).sum(0, keepdim=True)
-        )  # dist map, shape=[*, n_embed]
+        )  # dist map, shape=[*, num_embed]
 
         if not continuous_relax:
             # argmax + lookup
             _, embed_ind = (-dist).max(1)
-            embed_onehot = F.one_hot(embed_ind, self.n_embed).type(flatten.dtype)
+            embed_onehot = F.one_hot(embed_ind, self.num_embed).type(flatten.dtype)
             # print(embed_ind.shape)
             # print(input.shape)
             embed_ind = embed_ind.view(*input.shape[:-1])
@@ -48,7 +48,7 @@ class Quantize(nn.Module):
             # gumbel softmax weighted sum
             embed_soft, embed_ind = gumbel_softmax(-dist, tau=temperature, hard=False)
             embed_ind = embed_ind.view(*input.shape[:-1])
-            embed_soft = embed_soft.view(*input.shape[:-1], self.n_embed)
+            embed_soft = embed_soft.view(*input.shape[:-1], self.num_embed)
             quantize = embed_soft @ self.embed.transpose(0, 1)
         else:
             # gumbel softmax hard lookup
@@ -69,7 +69,7 @@ class Quantize(nn.Module):
             self.embed_avg.data.mul_(self.decay).add_(embed_sum, alpha=1 - self.decay)
             n = self.cluster_size.sum()
             cluster_size = (
-                (self.cluster_size + self.eps) / (n + self.n_embed * self.eps) * n
+                (self.cluster_size + self.eps) / (n + self.num_embed * self.eps) * n
             )
             embed_normalized = self.embed_avg / cluster_size.unsqueeze(0)
             self.embed.data.copy_(embed_normalized)
@@ -80,7 +80,7 @@ class Quantize(nn.Module):
             # maybe need replace a KL term here
             qy = (-dist).softmax(-1)
             diff = torch.sum(
-                qy * torch.log(qy * self.n_embed + 1e-20), dim=-1
+                qy * torch.log(qy * self.num_embed + 1e-20), dim=-1
             ).mean()  # KL
             # diff = (quantize - input).pow(2).mean().detach() # gumbel softmax do not need diff
             quantize = quantize.to(memory_format=torch.channels_last)
@@ -93,19 +93,26 @@ class Quantize(nn.Module):
 
 class VectorQuantizeEMA(nn.Module):
     def __init__(
-        self, args, embedding_dim, n_embed, commitment_cost=1, decay=0.99, eps=1e-5
+        self,
+        args,
+        embedding_dim,
+        num_embed,
+        commitment_cost=1,
+        decay=0.99,
+        eps=1e-5,
+        **kwargs
     ):
         super().__init__()
         self.args = args
         self.ema = True if args.quantizer == "ema" else False
 
         self.embedding_dim = embedding_dim
-        self.n_embed = n_embed
+        self.num_embed = num_embed
         self.commitment_cost = commitment_cost
 
-        self.embed = nn.Embedding(n_embed, embedding_dim)
-        self.embed.weight.data.uniform_(-1.0 / n_embed, 1.0 / n_embed)
-        self.register_buffer("cluster_size", torch.zeros(n_embed))
+        self.embed = nn.Embedding(num_embed, embedding_dim)
+        self.embed.weight.data.uniform_(-1.0 / num_embed, 1.0 / num_embed)
+        self.register_buffer("cluster_size", torch.zeros(num_embed))
         self.register_buffer("embed_avg", self.embed.weight.data.clone())
 
         self.decay = decay
@@ -120,13 +127,13 @@ class VectorQuantizeEMA(nn.Module):
         # |a - b| ^ 2 = a * a ^ T + b * b ^ T - 2 * a * b ^ T
         dist = (
             flatten.pow(2).sum(1, keepdim=True)  # (B*H*W, 1)
-            - 2 * flatten @ self.embed.weight.t()  # (B*H*W, n_embed)
-            + self.embed.weight.pow(2).sum(1, keepdim=True).t()  # (1, n_embed)
-        )  # (B*H*W, n_embed)
+            - 2 * flatten @ self.embed.weight.t()  # (B*H*W, num_embed)
+            + self.embed.weight.pow(2).sum(1, keepdim=True).t()  # (1, num_embed)
+        )  # (B*H*W, num_embed)
         _, embed_ind = (-dist).max(1)  # choose the nearest neighboor
-        embed_onehot = F.one_hot(embed_ind, self.n_embed).type(
+        embed_onehot = F.one_hot(embed_ind, self.num_embed).type(
             flatten.dtype
-        )  # (BHW, n_embed)
+        )  # (BHW, num_embed)
         embed_ind = embed_ind.view(B, H, W)  #
 
         z_q = self.embed_code(embed_ind)  # B, H, W, C
@@ -144,7 +151,7 @@ class VectorQuantizeEMA(nn.Module):
             self.embed_avg.data.mul_(self.decay).add_(embed_sum, alpha=1 - self.decay)
             n = self.cluster_size.sum()
             cluster_size = (
-                (self.cluster_size + self.eps) / (n + self.n_embed * self.eps) * n
+                (self.cluster_size + self.eps) / (n + self.num_embed * self.eps) * n
             )
             embed_normalized = self.embed_avg / cluster_size.unsqueeze(1)
             self.embed.weight.data.copy_(embed_normalized)

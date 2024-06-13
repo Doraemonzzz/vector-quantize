@@ -310,8 +310,8 @@ def get_args():
 
     elif args.quantizer in ["fsq", "sfsq"]:
         args.embed_dim = len(args.levels)
-        args.save += "-n_embed-" + str(multiplyList(args.levels))
+        args.save += "-num_embed-" + str(multiplyList(args.levels))
 
     else:
-        args.save += "-n_embed-" + str(args.n_embed)
+        args.save += "-num_embed-" + str(args.num_embed)
     return args

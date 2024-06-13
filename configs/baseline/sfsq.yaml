@@ -1,4 +1,4 @@
 model:
-  quantizer: fsq
+  quantizer: sfsq
 loss:
   post_transform_type: 2

@@ -6,14 +6,13 @@ from torchvision import datasets, transforms
 from .constants import get_mean_std_from_dataset_name
 
 
-
 def get_transform(args):
     # Train and Val share the same transform
     imagenet_transform = [
         transforms.Resize(args.img_size),
         transforms.CenterCrop(args.img_size),
         transforms.ToTensor(),
-        transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set))
+        transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set)),
     ]
     return transforms.Compose(imagenet_transform)
 
@@ -49,10 +48,13 @@ def get_data_loaders_by_args(args, is_train=True):
 
     return data_loader
 
+
 def get_data_loaders(cfg_train, cfg_data, is_train=True):
     transform = get_transform(cfg_data)
     if cfg_data.data_set == "cifar100":
-        dataset = datasets.CIFAR100(cfg_data.data_path, train=is_train, transform=transform)
+        dataset = datasets.CIFAR100(
+            cfg_data.data_path, train=is_train, transform=transform
+        )
     elif cfg_data.data_set == "imagenet-1k":
         if is_train:
             name = "train"
