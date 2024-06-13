@@ -13,7 +13,7 @@
 - [ ] Test Linear Attention arch.
 - [ ] Perceptual loss ablation.
 - [ ] Update fid evaluation.
-- [x] Add gradient accumulation.
+- [ ] Add gradient accumulation. (rerun this)
 - [x] Rerun bf16 results.
 - [x] Add trainer.
 - [x] Add metrics.
@@ -110,3 +110,4 @@ vqvae gumbel
 5. Vector quantization loss analysis in VQGANs: a single-GPU ablation study for image-to-image synthesis
 6. Hierarchical Residual Learning Based Vector Quantized Variational Autoencoder for Image Reconstruction and Generation
 7. https://github.com/luv91/VQGAN_Project/
+8. https://github.com/S-aiueo32/lpips-pytorch/
