@@ -12,8 +12,9 @@ from vector_quants.utils import (
     type_dict,
 )
 
-from .lpips import LPIPS
 from .utils import get_post_transform, get_revd_perceptual, transform_rev
+
+perceptual_loss_type_dict = {2: "alex", 3: "squeeze", 4: "vgg"}
 
 
 def get_perceptual_loss(perceptual_loss_type):
@@ -23,7 +24,15 @@ def get_perceptual_loss(perceptual_loss_type):
     else:
         if perceptual_loss_type == 1:
             logging_info(f"Perceptual loss: Vgg lpips from fsq_pytorch")
+            from .lpips import LPIPS
+
             model = LPIPS().eval()
+        else:
+            net_type = perceptual_loss_type_dict[perceptual_loss_type]
+            logging_info(f"Perceptual loss: {net_type} lpips")
+            from .perceptual_loss import LPIPS
+
+            model = LPIPS(net_type=net_type).eval()
 
         model.cuda(torch.cuda.current_device())
 
