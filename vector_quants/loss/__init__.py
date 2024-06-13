@@ -13,7 +13,7 @@ from vector_quants.utils import (
 )
 
 from .lpips import LPIPS
-from .utils import get_revd_perceptual, transform_rev
+from .utils import get_post_transform, get_revd_perceptual, transform_rev
 
 
 def get_perceptual_loss(perceptual_loss_type):
@@ -39,21 +39,6 @@ def get_adversarial_loss(adversarial_loss_type):
         model = None
 
     return model
-
-
-def get_post_transform(post_transform_type, data_set="imagenet-1k"):
-    if post_transform_type == 0:
-        logging_info(f"Post Transform: None")
-        post_transform = lambda x: x
-    elif post_transform_type == 1:
-        logging_info(f"Post Transform: fsq_pytorch default")
-        post_transform = transform_rev
-    else:
-        logging_info(f"Post Transform: rescale to [0, 1]")
-        norm_mean, norm_std = get_mean_std_from_dataset_name(data_set)
-        post_transform = lambda x: rescale_image_tensor(x, norm_mean, norm_std)
-
-    return post_transform
 
 
 class Loss(nn.Module):

@@ -1,4 +1,5 @@
 from .arguments import get_args
+from .dataclass import get_cfg
 from .distributed import enable
 from .utils import (
     get_metrics_list,

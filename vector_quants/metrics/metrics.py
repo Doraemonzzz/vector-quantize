@@ -139,7 +139,7 @@ class Metrics:
         device="cuda:0",
     ):
         self.device = device
-        print(metrics_list)
+
         self.metrics = {
             metric_name: get_metrics_cls_by_name(metric_name)
             for metric_name in metrics_list

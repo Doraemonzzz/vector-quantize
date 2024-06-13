@@ -8,7 +8,7 @@ import wandb
 from torchvision.utils import make_grid, save_image
 
 import vector_quants.utils.distributed as distributed
-from vector_quants.data import get_data_loaders
+from vector_quants.data import get_data_loaders_by_args
 from vector_quants.loss import LPIPS, get_revd_perceptual
 from vector_quants.models import VQVAE
 from vector_quants.scheduler import AnnealingLR
@@ -88,8 +88,8 @@ def main():
     mkdir_ckpt_dirs(args)
 
     # 1, load dataset
-    train_data_loader = get_data_loaders(args, is_train=True)
-    val_data_loader = get_data_loaders(args, is_train=False)
+    train_data_loader = get_data_loaders_by_args(args, is_train=True)
+    val_data_loader = get_data_loaders_by_args(args, is_train=False)
 
     # 2, load model
     model_without_ddp = VQVAE(args)
@@ -142,7 +142,7 @@ def main():
     start_epoch, num_iter = resume(
         model_without_ddp, optimizer, lr_scheduler, scaler, args.ckpt_path
     )
-    logging_info(start_epoch)
+    logging_info(f"Start epoch: {start_epoch}")
     get_l1loss = torch.nn.L1Loss()
 
     # ddp

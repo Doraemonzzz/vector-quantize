@@ -2,6 +2,8 @@ import datetime
 import os
 import time
 from collections import OrderedDict
+from dataclasses import asdict
+from pprint import pformat
 
 import torch
 import wandb
@@ -33,41 +35,50 @@ from .base_trainer import BaseTrainer
 class VQTrainer(BaseTrainer):
     def __init__(
         self,
-        args,
+        cfg,
     ):
         super().__init__()
 
-        set_random_seed(args.seed)
+        logging_info(pformat(asdict(cfg)))
+
+        cfg_model = cfg.model
+        cfg_train = cfg.train
+        cfg_data = cfg.data
+        cfg_loss = cfg.loss
+
+        set_random_seed(cfg_train.seed)
 
         distributed.enable(overwrite=True)
-        args.distributed = True
-        args.gpu = int(os.environ["LOCAL_RANK"])
-        args.world_size = int(os.environ["WORLD_SIZE"])
+        cfg_train.distributed = True
+        cfg_train.gpu = int(os.environ["LOCAL_RANK"])
+        cfg_train.world_size = int(os.environ["WORLD_SIZE"])
 
-        mkdir_ckpt_dirs(args)
+        mkdir_ckpt_dirs(cfg_train)
 
         # setup wandb
-        self.use_wandb = args.use_wandb
+        self.use_wandb = cfg_train.use_wandb
         if self.use_wandb and self.is_main_process:
-            wandb_cache_dir = os.path.join(args.wandb_cache_dir, args.wandb_exp_name)
+            wandb_cache_dir = os.path.join(
+                cfg_train.wandb_cache_dir, cfg_train.wandb_exp_name
+            )
             os.makedirs(wandb_cache_dir, exist_ok=True)
             logging_info(f"wandb will be saved at {wandb_cache_dir}")
             wandb.init(
-                config=args,
-                entity=args.wandb_entity,
-                project=args.wandb_project,
-                name=args.wandb_exp_name,
+                config=cfg,
+                entity=cfg_train.wandb_entity,
+                project=cfg_train.wandb_project,
+                name=cfg_train.wandb_exp_name,
                 dir=wandb_cache_dir,
             )
 
         # 1, load dataset
-        self.train_data_loader = get_data_loaders(args, is_train=True)
-        self.val_data_loader = get_data_loaders(args, is_train=False)
+        self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
+        self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False)
 
         # 2, load model
-        self.model = get_model(args)
+        self.model = get_model(cfg_model)
 
-        self.dtype = type_dict[args.dtype]
+        self.dtype = type_dict[cfg_train.dtype]
         logging_info(self.model)
 
         logging_info(
@@ -88,56 +99,58 @@ class VQTrainer(BaseTrainer):
 
         # 3, load optimizer and scheduler
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+            self.model.parameters(),
+            lr=cfg_train.lr,
+            weight_decay=cfg_train.weight_decay,
         )
         self.lr_scheduler = AnnealingLR(
             self.optimizer,
-            start_lr=args.lr,
-            warmup_iter=args.warmup * args.train_iters,
-            num_iters=args.train_iters,
-            decay_style=args.lr_decay_style,
+            start_lr=cfg_train.lr,
+            warmup_iter=cfg_train.warmup * cfg_train.train_iters,
+            num_iters=cfg_train.train_iters,
+            decay_style=cfg_train.lr_decay_style,
             last_iter=-1,
-            decay_ratio=args.lr_decay_ratio,
+            decay_ratio=cfg_train.lr_decay_ratio,
         )
 
         # 4. get loss
         self.loss_fn = Loss(
-            perceptual_loss_type=args.perceptual_loss_type,
-            adversarial_loss_type=args.adversarial_loss_type,
-            l1_loss_weight=args.l1_loss_weight,
-            l2_loss_weight=args.l2_loss_weight,
-            perceptual_loss_weight=args.perceptual_loss_weight,
-            adversarial_loss_weight=args.adversarial_loss_weight,
-            codebook_loss_weight=args.codebook_loss_weight,
+            perceptual_loss_type=cfg_loss.perceptual_loss_type,
+            adversarial_loss_type=cfg_loss.adversarial_loss_type,
+            l1_loss_weight=cfg_loss.l1_loss_weight,
+            l2_loss_weight=cfg_loss.l2_loss_weight,
+            perceptual_loss_weight=cfg_loss.perceptual_loss_weight,
+            adversarial_loss_weight=cfg_loss.adversarial_loss_weight,
+            codebook_loss_weight=cfg_loss.codebook_loss_weight,
         )
         torch.distributed.barrier()
 
         # 5. resume
-        self.start_epoch, self.num_iter = self.resume(args.ckpt_path)
-        logging_info(self.start_epoch)
+        self.start_epoch, self.num_iter = self.resume(cfg_train.ckpt_path)
+        logging_info(f"Start epoch: {self.start_epoch}")
 
         self.model = torch.nn.parallel.DistributedDataParallel(
-            self.model, device_ids=[args.gpu], find_unused_parameters=True
+            self.model, device_ids=[cfg_train.gpu], find_unused_parameters=True
         )
 
         # evaluation
         self.eval_metrics = Metrics(
-            metrics_list=get_metrics_list(args.metrics_list),
-            dataset_name=args.data_set,
+            metrics_list=get_metrics_list(cfg_loss.metrics_list),
+            dataset_name=cfg_data.data_set,
             device=torch.cuda.current_device(),
         )
-        self.codebook_metric = CodeBookMetric(get_num_embed(args))
-        self.num_embed = get_num_embed(args)
+        self.num_embed = get_num_embed(cfg_model)
+        self.codebook_metric = CodeBookMetric(self.num_embed)
 
         # other params
-        self.max_train_epochs = args.max_train_epochs
-        self.log_interval = args.log_interval
-        self.eval_interval = args.eval_interval
-        self.gradient_accumulation_steps = args.gradient_accumulation_steps
-        self.save_interval = args.save_interval
-        self.save = args.save
+        self.max_train_epochs = cfg_train.max_train_epochs
+        self.log_interval = cfg_train.log_interval
+        self.eval_interval = cfg_train.eval_interval
+        self.gradient_accumulation_steps = cfg_train.gradient_accumulation_steps
+        self.save_interval = cfg_train.save_interval
+        self.save = cfg_train.save
         self.post_transform = get_post_transform(
-            args.post_transform_type, data_set=args.data_set
+            cfg_loss.post_transform_type, data_set=cfg_data.data_set
         )
 
     @property
