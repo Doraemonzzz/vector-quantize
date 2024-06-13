@@ -1,6 +1,7 @@
-from torchmetrics import Metric
-import torch.distributed as dist
 import torch
+import torch.distributed as dist
+from torchmetrics import Metric
+
 
 class CodeBookMetric(Metric):
     def __init__(self, num_embeddings):
@@ -21,29 +22,35 @@ class CodeBookMetric(Metric):
         used_indices = index_count / torch.sum(index_count)
 
         # perplexity
-        perplexity = torch.exp(-torch.sum(used_indices * torch.log(used_indices + 1e-10), dim=-1)).sum().item()
+        perplexity = (
+            torch.exp(
+                -torch.sum(used_indices * torch.log(used_indices + 1e-10), dim=-1)
+            )
+            .sum()
+            .item()
+        )
 
         # get the percentage of used codebook
         n = index_count.shape[0]
         used_codebook = (torch.count_nonzero(used_indices).item() * 100) / n
 
         return used_indices, perplexity, used_codebook
-    
+
     def reset(self):
         self.index_count = None
-    
+
     def reduce(self):
         tensor = self.index_count
         dist.reduce(tensor, dst=0, op=dist.ReduceOp.SUM, group=dist.group.WORLD)
         self.index_count = tensor
-    
+
     def get_result(self):
         self.reduce()
         used_indices, perplexity, used_codebook = self.compute()
-        
+
         output = {
             "perplexity": perplexity,
             "used_codebook": used_codebook,
         }
-        
+
         return output

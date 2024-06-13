@@ -4,7 +4,6 @@ import time
 from collections import OrderedDict
 
 import torch
-import torch.distributed as dist
 import wandb
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
@@ -12,7 +11,7 @@ from tqdm import tqdm
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import get_data_loaders
 from vector_quants.loss import Loss, get_post_transform
-from vector_quants.metrics import Metrics, CodeBookMetric
+from vector_quants.metrics import CodeBookMetric, Metrics
 from vector_quants.models import get_model
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
