@@ -13,7 +13,7 @@ from vector_quants.utils import (
 )
 
 from .lpips import LPIPS
-from .metric import get_revd_perceptual, transform_rev
+from .utils import get_revd_perceptual, transform_rev
 
 
 def get_perceptual_loss(perceptual_loss_type):
