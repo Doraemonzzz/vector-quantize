@@ -168,5 +168,5 @@ tags
 # ruff
 .ruff_cache
 
-data
+
 *.pth
