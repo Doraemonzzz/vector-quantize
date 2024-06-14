@@ -22,13 +22,9 @@ class CodeBookMetric(Metric):
         used_indices = index_count / torch.sum(index_count)
 
         # perplexity
-        perplexity = (
-            torch.exp(
-                -torch.sum(used_indices * torch.log(used_indices + 1e-10), dim=-1)
-            )
-            .sum()
-            .item()
-        )
+        perplexity = torch.exp(
+            -torch.sum(used_indices * torch.log(used_indices + 1e-10), dim=-1)
+        ).item()
 
         # get the percentage of used codebook
         n = index_count.shape[0]
