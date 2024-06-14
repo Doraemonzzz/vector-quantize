@@ -1,0 +1,5 @@
+model:
+  quantizer: fsq
+  levels: [8, 8, 8, 5, 5, 5]
+loss:
+  post_transform_type: 2

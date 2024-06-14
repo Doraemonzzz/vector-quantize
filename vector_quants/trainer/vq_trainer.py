@@ -233,7 +233,9 @@ class VQTrainer(BaseTrainer):
                 # compute grad norm
                 grad_norm = 0
                 if self.is_main_process and num_iter % self.log_interval == 0:
-                    grad_norm = compute_grad_norm(self.model)
+                    grad_norm = compute_grad_norm(
+                        self.model, scale=self.scaler.get_scale()
+                    )
 
                 if num_iter % self.gradient_accumulation_steps == 0:
                     if self.clip_grad:
@@ -325,7 +327,9 @@ class VQTrainer(BaseTrainer):
             )
             self.codebook_metric.update(indices)
 
-        eval_loss_dict = reduce_dict(loss_dict_total, prefix="valid_")
+        eval_loss_dict = reduce_dict(
+            loss_dict_total, n=len(self.val_data_loader), prefix="valid_"
+        )
         eval_results = self.eval_metrics.compute_and_reduce()
         codebook_results = self.codebook_metric.get_result()
 

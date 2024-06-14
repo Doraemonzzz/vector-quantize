@@ -139,11 +139,11 @@ def update_dict(dict1, dict2):
     return dict1
 
 
-def reduce_dict(loss_dict, prefix=""):
+def reduce_dict(loss_dict, n, prefix=""):
     dist.get_world_size()
     keys = list(loss_dict.keys())
     tensor = torch.tensor(
-        [loss_dict[key] for key in keys],
+        [loss_dict[key] / n for key in keys],
         dtype=torch.float32,
         device=torch.cuda.current_device(),
     )
@@ -182,7 +182,7 @@ def get_metrics_list(metrics_list):
         return metrics_list.split(",")
 
 
-def compute_grad_norm(model, norm_type=2):
+def compute_grad_norm(model, norm_type=2, scale=1):
     if hasattr(model, "module"):
         parameters = model.module.parameters()
     else:
@@ -191,7 +191,8 @@ def compute_grad_norm(model, norm_type=2):
     total_norm = 0
     for param in parameters:
         if param.requires_grad and param.grad is not None:
-            param_norm = param.grad.detach().data.norm(norm_type)
+            grad = param.grad.detach().data.float() / scale
+            param_norm = grad.norm(norm_type)
             total_norm += param_norm.item() ** norm_type
     total_norm = total_norm ** (1 / norm_type)
     return total_norm

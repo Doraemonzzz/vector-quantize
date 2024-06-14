@@ -1,0 +1,6 @@
+model:
+  quantizer: Vq
+  num_embed: 1024
+  commitment_loss_weight: 0.25
+loss:
+  post_transform_type: 2
