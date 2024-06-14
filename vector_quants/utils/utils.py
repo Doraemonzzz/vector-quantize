@@ -196,3 +196,28 @@ def compute_grad_norm(model, norm_type=2, scale=1):
             total_norm += param_norm.item() ** norm_type
     total_norm = total_norm ** (1 / norm_type)
     return total_norm
+
+
+def print_module(module):
+    named_modules = set()
+    for p in module.named_modules():
+        named_modules.update([p[0]])
+    named_modules = list(named_modules)
+
+    string_repr = ""
+    for p in module.named_parameters():
+        name = p[0].split(".")[0]
+        if name not in named_modules:
+            string_repr = (
+                string_repr
+                + "("
+                + name
+                + "): "
+                + "Tensor("
+                + str(tuple(p[1].shape))
+                + ", requires_grad="
+                + str(p[1].requires_grad)
+                + ")\n"
+            )
+
+    return string_repr.rstrip("\n")

@@ -128,6 +128,7 @@ class VQTrainer(BaseTrainer):
         self.start_epoch, self.num_iter = self.resume(cfg_train.ckpt_path)
         logging_info(f"Start epoch: {self.start_epoch}")
 
+        num_embed = self.model.num_embed
         self.model = torch.nn.parallel.DistributedDataParallel(
             self.model, device_ids=[cfg_train.gpu], find_unused_parameters=True
         )
@@ -138,7 +139,8 @@ class VQTrainer(BaseTrainer):
             dataset_name=cfg_data.data_set,
             device=torch.cuda.current_device(),
         )
-        self.num_embed = get_num_embed(cfg_model)
+
+        self.num_embed = num_embed if num_embed != -1 else get_num_embed(cfg_model)
         self.codebook_metric = CodeBookMetric(self.num_embed)
 
         # other params

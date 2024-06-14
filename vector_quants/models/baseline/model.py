@@ -65,6 +65,13 @@ class VQVAE(nn.Module):
         self.enc = Encoder(args)
         self.dec = Decoder(args)
 
+    @property
+    def num_embed(self):
+        if hasattr(self.quantizer, "num_embed"):
+            return self.quantizer.num_embed
+        else:
+            return -1
+
     def forward(self, input, return_id=True):
         (
             quant_t,
@@ -89,7 +96,7 @@ class VQVAE(nn.Module):
         elif self.args.quantizer == "lfq":
             # quantized, indices, entropy_aux_loss = quantizer(image_feats)
             quant_t, id_t, diff_t = self.quantizer(logits)
-        elif self.args.quantizer == "Vq":
+        elif self.args.quantizer in ["Vq", "Gvq", "Hvq"]:
 
             logits = rearrange(logits, "b c h w -> b h w c")
             quant_t, diff_t, id_t = self.quantizer(logits)

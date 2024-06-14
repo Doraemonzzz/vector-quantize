@@ -10,6 +10,7 @@ from .utils import (
     mkdir_ckpt_dirs,
     multiplyList,
     print_dict,
+    print_module,
     reduce_dict,
     rescale_image_tensor,
     set_random_seed,

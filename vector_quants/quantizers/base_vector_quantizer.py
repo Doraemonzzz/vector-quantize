@@ -9,6 +9,10 @@ class BaseVectorQuantizer(ABC, nn.Module):
     ):
         super().__init__()
 
+    @property
+    def num_embed(self):
+        pass
+
     @abstractmethod
     def forward(self, x):
         pass

@@ -1,16 +1,18 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 
 from .base_vector_quantizer import BaseVectorQuantizer
 from .utils import compute_dist, pack_one, unpack_one
 
 
-class VectorQuantizer(BaseVectorQuantizer):
-    def __init__(self, num_embed, embed_dim, commitment_loss_weight=0.25):
+class GroupVectorQuantizer(BaseVectorQuantizer):
+    def __init__(self, num_embed, embed_dim, num_group, commitment_loss_weight=0.25):
         super().__init__()
         self._num_embed = num_embed
-        self.embed_dim = embed_dim
+        self.num_group = num_group
+        self.embed_dim = embed_dim // num_group
         self.commitment_loss_weight = commitment_loss_weight
 
         # create the codebook of the desired size
@@ -44,13 +46,18 @@ class VectorQuantizer(BaseVectorQuantizer):
     def codes_to_indices(self, codes):
         # (b, *, d) -> (n, d)
         codes, ps = pack_one(codes, "* d")
+        codes = rearrange(codes, "... (g d) -> (... g) d", g=self.num_group)
         # n, m
         dist = compute_dist(codes, self.codebook.weight)
         # n, 1
         indices = torch.argmin(dist, dim=-1)
-        indices = unpack_one(indices, ps, "*")
+        indices = rearrange(indices, "(b g) -> b g", g=self.num_group)
+        indices = unpack_one(indices, ps, "* g")
 
         return indices
 
     def indices_to_codes(self, indices):
-        return self.codebook(indices)
+        indices = self.codebook(indices)
+        indices = rearrange(indices, "... g d -> ... (g d)")
+
+        return indices

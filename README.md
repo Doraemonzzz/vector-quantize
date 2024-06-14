@@ -7,7 +7,7 @@
 - [x] DDP evaluation.
 - [x] Add wandb logger.
 - [ ] Add large batch size result.
-- [ ] Add resume code.
+- [x] Add resume code.
 - [ ] Check ema and lfq bug.
 - [ ] Test Transformer arch.
 - [ ] Test Linear Attention arch.
@@ -20,17 +20,17 @@
 - [x] Update eval code, ref https://github.dev/SerezD/vqvae-vqgan-pytorch-lightning
 - [x] Update code book usage.
 - [x] Use dataclass and YAML to manage config.
-- [ ] Update eval
+- [x] Update eval
 
 Metric check list.
 - [ ] fid.
 - [x] codebook usage.
 - [x] adversarial loss.
-- [ ] is.
+- [x] is.
 - [x] l1.
 - [x] l2.
 - [ ] mse.
-- [ ] lpips.
+- [x] lpips.
 - [x] perceptual loss.
 - [x] psnr.
 - [x] ssim.

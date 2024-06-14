@@ -1,4 +1,6 @@
 from .baseline import FSQ, LFQ, SFSQ, VectorQuantizeEMA
+from .group_vector_quantizer import GroupVectorQuantizer
+from .hierachical_vector_quantizer import HierachicalVectorQuantizer
 from .vector_quantizer import VectorQuantizer
 
 
@@ -20,6 +22,19 @@ def get_quantizer(args):
     elif args.quantizer == "Vq":
         quantizer = VectorQuantizer(
             num_embed=args.num_embed,
+            embed_dim=args.embed_dim,
+            commitment_loss_weight=args.commitment_loss_weight,
+        )
+    elif args.quantizer == "Gvq":
+        quantizer = GroupVectorQuantizer(
+            num_embed=args.num_embed,
+            embed_dim=args.embed_dim,
+            num_group=args.num_group,
+            commitment_loss_weight=args.commitment_loss_weight,
+        )
+    elif args.quantizer == "Hvq":
+        quantizer = HierachicalVectorQuantizer(
+            levels=args.levels,
             embed_dim=args.embed_dim,
             commitment_loss_weight=args.commitment_loss_weight,
         )
