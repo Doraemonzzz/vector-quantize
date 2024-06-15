@@ -316,10 +316,13 @@ class VQTrainer(BaseTrainer):
                     reconstructions, codebook_loss, indices = self.model(
                         input_img, return_id=True
                     )
+                    # rescale to [0, 1]
+                    input_img = self.post_transform(input_img)
+                    reconstructions = self.post_transform(reconstructions)
                     loss, loss_dict = self.loss_fn(
                         codebook_loss,
-                        self.post_transform(input_img),
-                        self.post_transform(reconstructions),
+                        input_img,
+                        reconstructions,
                     )
 
                 loss_dict_total = update_dict(loss_dict_total, loss_dict)
