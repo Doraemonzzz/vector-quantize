@@ -52,7 +52,7 @@ ALL_METRICS_DICT = {
     "fdd": FDD,
     "lpip": LPIPS,
     "lpips": LPIPS,
-    "psnr": PSNR,
+    "psnr": PSNR,  # partial(PSNR, data_range=1.0),
     "ssim": partial(SSIM, data_range=1.0),
 }
 

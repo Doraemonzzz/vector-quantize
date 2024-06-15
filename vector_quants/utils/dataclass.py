@@ -1,5 +1,7 @@
+import argparse
 import os
-from dataclasses import dataclass, field
+import sys
+from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
 from omegaconf import OmegaConf
@@ -190,21 +192,20 @@ class Config:
     cfg_path: str = field(default="", metadata={"help": "Config path"})
 
 
-def merge_config(yaml_config, args):
-    # Create OmegaConf from dataclass
-    config = OmegaConf.structured(Config())
-
-    # Merge YAML config if provided
-    if yaml_config:
-        config = OmegaConf.merge(config, yaml_config)
-
+def merge_config(args, yaml_config, cmd_args_dict):
     # Convert argparse Namespace to dictionary and create OmegaConf
     args_dict = vars(args)
-    cli_config = {k: v for k, v in args_dict.items() if v is not None}
-    cli_config = OmegaConf.create(cli_config)
+    default_config = {k: v for k, v in args_dict.items() if v is not None}
+    default_config = OmegaConf.create(default_config)
 
-    # Merge CLI config
-    config = OmegaConf.merge(config, cli_config)
+    OmegaConf.create(cmd_args_dict)
+
+    # Create OmegaConf from dataclass
+    config = OmegaConf.structured(Config())
+    # merge
+    config = OmegaConf.merge(config, default_config)
+    config = OmegaConf.merge(config, yaml_config)
+    config = OmegaConf.merge(config, cmd_args_dict)
 
     # Convert OmegaConf to dataclass instance
     return OmegaConf.to_object(config)
@@ -237,15 +238,45 @@ def process_args(args):
     return args
 
 
-def get_cfg():
+def get_cfg(args_list=sys.argv[1:]):
     parser = ArgumentParser()
     parser.add_arguments(Config, dest="args")
-    args = parser.parse_args().args
+    args = parser.parse_args(args_list).args
+    # default args
     args = process_args(args)
 
+    # yaml args
     yaml_config = OmegaConf.create()
     if args.cfg_path:
         yaml_config = OmegaConf.load(args.cfg_path)
-    config = merge_config(yaml_config, args)
+
+    # cmd args
+    # credit to https://github.com/pytorch/torchtitan/blob/main/torchtitan/config_manager.py
+    # aux parser to parse the command line only args, with no defaults from main parser
+    cmd_args_dict = {}
+    for name, cfg in vars(args).items():
+        if name == "cfg_path":
+            cmd_args_dict[name] = cfg
+            aux_parser.add_argument("--" + name, type=type(cfg))
+        else:
+            aux_parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+            for key, val in asdict(cfg).items():
+                if isinstance(val, bool):
+                    aux_parser.add_argument(
+                        "--" + key, action="store_true" if val else "store_false"
+                    )
+                else:
+                    if key == "levels":
+                        print(type(val))
+                        aux_parser.add_argument("--" + key, type=int, nargs="+")
+                    else:
+                        aux_parser.add_argument("--" + key, type=type(val))
+
+            cmd_args, _ = aux_parser.parse_known_args(args_list)
+
+            cmd_args_dict[name] = vars(cmd_args)
+
+    # merge: default -> yaml -> cmd
+    config = merge_config(args, yaml_config, cmd_args_dict)
 
     return config

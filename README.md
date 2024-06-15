@@ -33,7 +33,7 @@ Metric check list.
 - [ ] mse.
 - [x] lpips.
 - [x] perceptual loss.
-- [x] psnr.
+- [ ] psnr. (need check)
 - [x] ssim.
 - [x] gnorm.
 
@@ -127,3 +127,4 @@ vqvae gumbel
 6. Hierarchical Residual Learning Based Vector Quantized Variational Autoencoder for Image Reconstruction and Generation
 7. https://github.com/luv91/VQGAN_Project/
 8. https://github.com/S-aiueo32/lpips-pytorch/
+9. https://github.com/pytorch/torchtitan
