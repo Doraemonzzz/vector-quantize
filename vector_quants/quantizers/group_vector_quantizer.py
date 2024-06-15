@@ -57,7 +57,7 @@ class GroupVectorQuantizer(BaseVectorQuantizer):
         return indices
 
     def indices_to_codes(self, indices):
-        indices = self.codebook(indices)
-        indices = rearrange(indices, "... g d -> ... (g d)")
+        codes = self.codebook(indices)
+        codes = rearrange(codes, "... g d -> ... (g d)")
 
-        return indices
+        return codes
