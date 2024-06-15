@@ -21,6 +21,7 @@
 - [x] Update code book usage.
 - [x] Use dataclass and YAML to manage config.
 - [x] Update eval
+- [ ] Update resume, add yaml file
 
 Metric check list.
 - [ ] fid.
