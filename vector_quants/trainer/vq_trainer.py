@@ -265,17 +265,6 @@ class VQTrainer(BaseTrainer):
                     if self.use_wandb:
                         wandb.log({"gnorm": grad_norm})
 
-                # save image for checking training
-                if self.is_main_process and num_iter % self.log_interval == 0:
-                    save_image(
-                        make_grid(
-                            torch.cat([input_img, reconstructions]),
-                            nrow=input_img.shape[0],
-                        ),
-                        os.path.join(self.save, "samples/{num_iter}.jpg"),
-                        normalize=True,
-                    )
-
                 num_iter += 1
 
             # save checkpoints
@@ -292,6 +281,15 @@ class VQTrainer(BaseTrainer):
                         "scaler_state_dict": self.scaler.state_dict(),
                     },
                     os.path.join(self.save, f"ckpts/{epoch}.pt"),
+                )
+                # save image for checking training
+                save_image(
+                    make_grid(
+                        torch.cat([input_img, reconstructions]),
+                        nrow=input_img.shape[0],
+                    ),
+                    os.path.join(self.save, f"samples/epoch_{epoch}.jpg"),
+                    normalize=True,
                 )
 
         total_time = time.time() - start_time
