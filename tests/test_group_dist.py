@@ -1,8 +1,8 @@
 import pytest
 import torch
+from einops import rearrange
 
 from vector_quants.quantizers.utils import compute_dist, pack_one, unpack_one
-from einops import rearrange
 
 n = 4
 m = 32
@@ -29,10 +29,7 @@ def get_shape(n, m):
     "num_embed",
     [1024, 2048],
 )
-@pytest.mark.parametrize(
-    "num_group",
-    [1, 2, 4, 8]
-)
+@pytest.mark.parametrize("num_group", [1, 2, 4, 8])
 @pytest.mark.parametrize(
     "dtype",
     [
