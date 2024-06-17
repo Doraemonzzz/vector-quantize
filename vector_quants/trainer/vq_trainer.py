@@ -223,10 +223,12 @@ class VQTrainer(BaseTrainer):
                 input_img = input_img.cuda(torch.cuda.current_device())
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     reconstructions, codebook_loss, _ = self.model(input_img)
+                    input_img = self.post_transform(input_img)
+                    reconstructions = self.post_transform(reconstructions)
                     loss, loss_dict = self.loss_fn(
                         codebook_loss,
-                        self.post_transform(input_img),
-                        self.post_transform(reconstructions),
+                        input_img,
+                        reconstructions,
                     )
 
                 # backward

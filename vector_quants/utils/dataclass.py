@@ -18,7 +18,17 @@ class ModelConfig:
         default="ema",
         metadata={
             "help": "Use which quantizer",
-            "choices": ["ema", "origin", "fsq", "sfsq", "lfq", "Vq", "Gvq", "Hvq"],
+            "choices": [
+                "ema",
+                "origin",
+                "fsq",
+                "sfsq",
+                "lfq",
+                "Vq",
+                "Gvq",
+                "Hvq",
+                "Rvq",
+            ],
         },
     )
     levels: List[int] = field(
@@ -33,6 +43,9 @@ class ModelConfig:
     )
     num_group: int = field(
         default=8, metadata={"help": "The number group of VQVAE's codebook"}
+    )
+    num_residual: int = field(
+        default=1, metadata={"help": "The number residual of VQVAE's codebook"}
     )
     model_name: str = field(default="baseline", metadata={"help": "Model name"})
     entropy_loss_weight: float = field(
