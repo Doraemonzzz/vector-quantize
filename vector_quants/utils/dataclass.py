@@ -24,6 +24,7 @@ class ModelConfig:
                 "fsq",
                 "sfsq",
                 "lfq",
+                "rvq",
                 "Vq",
                 "Gvq",
                 "Hvq",
@@ -53,6 +54,14 @@ class ModelConfig:
     )
     commitment_loss_weight: float = field(
         default=0.0, metadata={"help": "Commitment loss weight"}
+    )
+    # for rq
+    ema_decay: float = field(default=0.99, metadata={"help": "Ema decay for codebook"})
+    shared_codebook: bool = field(
+        default=False,
+        metadata={
+            "help": "If True, codebooks are shared in all location. If False, uses separate codebooks along the depth dimension. (default: False)"
+        },
     )
 
 

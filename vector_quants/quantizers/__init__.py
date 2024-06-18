@@ -1,4 +1,4 @@
-from .baseline import FSQ, LFQ, SFSQ, VectorQuantizeEMA
+from .baseline import FSQ, LFQ, SFSQ, RQBottleneck, VectorQuantizeEMA
 from .group_vector_quantizer import GroupVectorQuantizer
 from .hierachical_vector_quantizer import HierachicalVectorQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
@@ -20,6 +20,14 @@ def get_quantizer(args):
         quantizer = FSQ(levels=args.levels)
     elif args.quantizer == "sfsq":
         quantizer = SFSQ(levels=args.levels)
+    elif args.quantizer == "rvq":
+        quantizer = RQBottleneck(
+            num_embed=args.num_embed,
+            embed_dim=args.embed_dim,
+            num_residual=args.num_residual,
+            decay=args.ema_decay,
+            shared_codebook=args.shared_codebook,
+        )
     elif args.quantizer == "Vq":
         quantizer = VectorQuantizer(
             num_embed=args.num_embed,

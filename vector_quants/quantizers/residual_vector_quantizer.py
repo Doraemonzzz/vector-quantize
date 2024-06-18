@@ -28,10 +28,40 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         # nn.init.normal_(self.codebook.weight, mean=0, std=self.embed_dim**-0.5)
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
+    # def forward(self, x):
+    #     indices_list = []
+    #     x_quant = 0
+    #     residual = x
+    #     diff = 0
+
+    #     for _ in range(self.num_residual):
+    #         # get indices
+    #         indices = self.codes_to_indices(residual)
+
+    #         # quantize
+    #         residual_quant = self.indices_to_codes(indices)
+
+    #         # compute diff
+    #         loss = F.mse_loss(
+    #             residual_quant, residual.detach()
+    #         ) + self.commitment_loss_weight * F.mse_loss(
+    #             residual_quant.detach(), residual
+    #         )
+
+    #         # update
+    #         residual = residual - residual_quant.detach()
+    #         x_quant = x_quant + residual_quant
+    #         diff = diff + loss
+    #         indices_list.append(indices.unsqueeze(0))
+
+    #     indices = torch.cat(indices_list, dim=0)
+
+    #     return x_quant, diff, indices
+
     def forward(self, x):
         indices_list = []
-        x_quant = 0
-        residual = x
+        x_quant = torch.zeros_like(x)
+        residual = x.detach().clone()
         diff = 0
 
         for _ in range(self.num_residual):
@@ -49,10 +79,17 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
             )
 
             # update
-            residual = residual - residual_quant.detach()
-            x_quant = x_quant + residual_quant
+            residual.sub_(residual_quant)
+            x_quant.add_(residual_quant)
             diff = diff + loss
             indices_list.append(indices.unsqueeze(0))
+
+        # # compute diff
+        # diff = F.mse_loss(
+        #     x_quant, x.detach()
+        # ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+
+        x_quant = x + (x_quant - x).detach()
 
         indices = torch.cat(indices_list, dim=0)
 
