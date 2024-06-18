@@ -12,7 +12,15 @@ from torch.nn import functional as F
 class VQEmbedding(nn.Embedding):
     """VQ embedding module with ema update."""
 
-    def __init__(self, num_embed, embed_dim, ema=True, decay=0.99, restart_unused_codes=True, eps=1e-5):
+    def __init__(
+        self,
+        num_embed,
+        embed_dim,
+        ema=True,
+        decay=0.99,
+        restart_unused_codes=True,
+        eps=1e-5,
+    ):
         super().__init__(num_embed + 1, embed_dim, padding_idx=num_embed)
 
         self.ema = ema
@@ -25,8 +33,8 @@ class VQEmbedding(nn.Embedding):
             _ = [p.requires_grad_(False) for p in self.parameters()]
 
             # padding index is not updated by EMA
-            self.register_buffer('cluster_size_ema', torch.zeros(num_embed))
-            self.register_buffer('embed_ema', self.weight[:-1, :].detach().clone())
+            self.register_buffer("cluster_size_ema", torch.zeros(num_embed))
+            self.register_buffer("embed_ema", self.weight[:-1, :].detach().clone())
 
     @torch.no_grad()
     def compute_distances(self, inputs):
@@ -38,20 +46,24 @@ class VQEmbedding(nn.Embedding):
 
         inputs_flat = inputs.reshape(-1, embed_dim)
 
-        inputs_norm_sq = inputs_flat.pow(2.).sum(dim=1, keepdim=True)
-        codebook_t_norm_sq = codebook_t.pow(2.).sum(dim=0, keepdim=True)
+        inputs_norm_sq = inputs_flat.pow(2.0).sum(dim=1, keepdim=True)
+        codebook_t_norm_sq = codebook_t.pow(2.0).sum(dim=0, keepdim=True)
         distances = torch.addmm(
             inputs_norm_sq + codebook_t_norm_sq,
             inputs_flat,
             codebook_t,
             alpha=-2.0,
         )
-        distances = distances.reshape(*inputs_shape[:-1], -1)  # [B, h, w, num_embed or num_embed+1]
+        distances = distances.reshape(
+            *inputs_shape[:-1], -1
+        )  # [B, h, w, num_embed or num_embed+1]
         return distances
 
     @torch.no_grad()
     def find_nearest_embedding(self, inputs):
-        distances = self.compute_distances(inputs)  # [B, h, w, num_embed or num_embed+1]
+        distances = self.compute_distances(
+            inputs
+        )  # [B, h, w, num_embed or num_embed+1]
         embed_idxs = distances.argmin(dim=-1)  # use padding index or not
 
         return embed_idxs
@@ -59,28 +71,27 @@ class VQEmbedding(nn.Embedding):
     @torch.no_grad()
     def _tile_with_noise(self, x, target_n):
         B, embed_dim = x.shape
-        n_repeats = (target_n + B -1) // B
+        n_repeats = (target_n + B - 1) // B
         std = x.new_ones(embed_dim) * 0.01 / np.sqrt(embed_dim)
         x = x.repeat(n_repeats, 1)
         x = x + torch.rand_like(x) * std
-        return x    
-    
+        return x
+
     @torch.no_grad()
     def _update_buffers(self, vectors, idxs):
 
-        num_embed, embed_dim = self.weight.shape[0]-1, self.weight.shape[-1]
-        
+        num_embed, embed_dim = self.weight.shape[0] - 1, self.weight.shape[-1]
+
         vectors = vectors.reshape(-1, embed_dim)
         idxs = idxs.reshape(-1)
-        
+
         n_vectors = vectors.shape[0]
         n_total_embed = num_embed
 
         one_hot_idxs = vectors.new_zeros(n_total_embed, n_vectors)
-        one_hot_idxs.scatter_(dim=0,
-                              index=idxs.unsqueeze(0),
-                              src=vectors.new_ones(1, n_vectors)
-                              )
+        one_hot_idxs.scatter_(
+            dim=0, index=idxs.unsqueeze(0), src=vectors.new_ones(1, n_vectors)
+        )
 
         cluster_size = one_hot_idxs.sum(dim=1)
         vectors_sum_per_cluster = one_hot_idxs @ vectors
@@ -90,21 +101,27 @@ class VQEmbedding(nn.Embedding):
             dist.all_reduce(cluster_size, op=dist.ReduceOp.SUM)
 
         self.cluster_size_ema.mul_(self.decay).add_(cluster_size, alpha=1 - self.decay)
-        self.embed_ema.mul_(self.decay).add_(vectors_sum_per_cluster, alpha=1 - self.decay)
-        
+        self.embed_ema.mul_(self.decay).add_(
+            vectors_sum_per_cluster, alpha=1 - self.decay
+        )
+
         if self.restart_unused_codes:
             if n_vectors < num_embed:
                 vectors = self._tile_with_noise(vectors, num_embed)
             n_vectors = vectors.shape[0]
-            _vectors_random = vectors[torch.randperm(n_vectors, device=vectors.device)][:num_embed]
-            
+            _vectors_random = vectors[torch.randperm(n_vectors, device=vectors.device)][
+                :num_embed
+            ]
+
             if dist.is_initialized():
                 dist.broadcast(_vectors_random, 0)
-        
+
             usage = (self.cluster_size_ema.view(-1, 1) >= 1).float()
-            self.embed_ema.mul_(usage).add_(_vectors_random * (1-usage))
+            self.embed_ema.mul_(usage).add_(_vectors_random * (1 - usage))
             self.cluster_size_ema.mul_(usage.view(-1))
-            self.cluster_size_ema.add_(torch.ones_like(self.cluster_size_ema) * (1-usage).view(-1))
+            self.cluster_size_ema.add_(
+                torch.ones_like(self.cluster_size_ema) * (1 - usage).view(-1)
+            )
 
     @torch.no_grad()
     def _update_embedding(self):
@@ -121,7 +138,7 @@ class VQEmbedding(nn.Embedding):
         if self.training:
             if self.ema:
                 self._update_buffers(inputs, embed_idxs)
-        
+
         embeds = self.embed(embed_idxs)
 
         if self.ema and self.training:
@@ -148,40 +165,50 @@ class RQBottleneck(nn.Module):
             as the new embedding of unused codes in training. (default: True)
     """
 
-    def __init__(self,
-                 num_embed,
-                 embed_dim,
-                 num_residual=1, 
-                 decay=0.99,
-                 shared_codebook=False,
-                 restart_unused_codes=True,
-                 commitment_loss='cumsum'
-                 ):
+    def __init__(
+        self,
+        num_embed,
+        embed_dim,
+        num_residual=1,
+        decay=0.99,
+        shared_codebook=False,
+        restart_unused_codes=True,
+        commitment_loss="cumsum",
+    ):
         super().__init__()
         self.shared_codebook = shared_codebook
         if self.shared_codebook:
             if isinstance(num_embed, Iterable) or isinstance(decay, Iterable):
-                raise ValueError("Shared codebooks are incompatible \
-                                    with list types of momentums or sizes: Change it into int")
+                raise ValueError(
+                    "Shared codebooks are incompatible \
+                                    with list types of momentums or sizes: Change it into int"
+                )
 
         self.restart_unused_codes = restart_unused_codes
         self.num_residual = num_residual
         self.num_embed = [num_embed] * self.num_residual
         self.decay = [num_embed] * self.num_residual
-        
+
         if self.shared_codebook:
-            codebook0 = VQEmbedding(self.num_embed[0], 
-                                    embed_dim, 
-                                    decay=self.decay[0], 
-                                    restart_unused_codes=restart_unused_codes,
-                                    )
-            self.codebooks = nn.ModuleList([codebook0 for _ in range(self.num_residual)])
+            codebook0 = VQEmbedding(
+                self.num_embed[0],
+                embed_dim,
+                decay=self.decay[0],
+                restart_unused_codes=restart_unused_codes,
+            )
+            self.codebooks = nn.ModuleList(
+                [codebook0 for _ in range(self.num_residual)]
+            )
         else:
-            codebooks = [VQEmbedding(self.num_embed[idx], 
-                                     embed_dim, 
-                                     decay=self.decay[idx], 
-                                     restart_unused_codes=restart_unused_codes,
-                                     ) for idx in range(self.num_residual)]
+            codebooks = [
+                VQEmbedding(
+                    self.num_embed[idx],
+                    embed_dim,
+                    decay=self.decay[idx],
+                    restart_unused_codes=restart_unused_codes,
+                )
+                for idx in range(self.num_residual)
+            ]
             self.codebooks = nn.ModuleList(codebooks)
 
         self.commitment_loss = commitment_loss
@@ -218,7 +245,7 @@ class RQBottleneck(nn.Module):
 
             quant_list.append(aggregated_quants.clone())
             code_list.append(code.unsqueeze(-1))
-        
+
         codes = torch.cat(code_list, dim=-1)
         return quant_list, codes
 
@@ -230,62 +257,77 @@ class RQBottleneck(nn.Module):
         quants_trunc = x + (quants_trunc - x).detach()
 
         return quants_trunc, commitment_loss, codes
-    
+
     def compute_commitment_loss(self, x, quant_list):
         r"""
         Compute the commitment loss for the residual quantization.
         The loss is iteratively computed by aggregating quantized features.
         """
         loss_list = []
-        
+
         for idx, quant in enumerate(quant_list):
-            partial_loss = (x-quant.detach()).pow(2.0).mean()
+            partial_loss = (x - quant.detach()).pow(2.0).mean()
             loss_list.append(partial_loss)
-        
+
         commitment_loss = torch.mean(torch.stack(loss_list))
         return commitment_loss
-    
+
     @torch.no_grad()
     def embed_code(self, code):
         assert code.shape[1:] == self.code_shape
-        
+
         code_slices = torch.chunk(code, chunks=code.shape[-1], dim=-1)
 
         if self.shared_codebook:
-            embeds = [self.codebooks[0].embed(code_slice) for i, code_slice in enumerate(code_slices)]
+            embeds = [
+                self.codebooks[0].embed(code_slice)
+                for i, code_slice in enumerate(code_slices)
+            ]
         else:
-            embeds = [self.codebooks[i].embed(code_slice) for i, code_slice in enumerate(code_slices)]
-        
+            embeds = [
+                self.codebooks[i].embed(code_slice)
+                for i, code_slice in enumerate(code_slices)
+            ]
+
         embeds = torch.cat(embeds, dim=-2).sum(-2)
         embeds = self.to_latent_shape(embeds)
 
         return embeds
-    
+
     @torch.no_grad()
     def embed_code_with_depth(self, code, to_latent_shape=False):
-        '''
+        """
         do not reduce the code embedding over the axis of code-depth.
-        
+
         Caution: RQ-VAE does not use scale of codebook, thus assume all scales are ones.
-        '''
+        """
         # spatial resolution can be different in the sampling process
         assert code.shape[-1] == self.code_shape[-1]
-        
+
         code_slices = torch.chunk(code, chunks=code.shape[-1], dim=-1)
 
         if self.shared_codebook:
-            embeds = [self.codebooks[0].embed(code_slice) for i, code_slice in enumerate(code_slices)]
+            embeds = [
+                self.codebooks[0].embed(code_slice)
+                for i, code_slice in enumerate(code_slices)
+            ]
         else:
-            embeds = [self.codebooks[i].embed(code_slice) for i, code_slice in enumerate(code_slices)]
+            embeds = [
+                self.codebooks[i].embed(code_slice)
+                for i, code_slice in enumerate(code_slices)
+            ]
 
         if to_latent_shape:
-            embeds = [self.to_latent_shape(embed.squeeze(-2)).unsqueeze(-2) for embed in embeds]
+            embeds = [
+                self.to_latent_shape(embed.squeeze(-2)).unsqueeze(-2)
+                for embed in embeds
+            ]
         embeds = torch.cat(embeds, dim=-2)
-        
+
         return embeds, None
 
     @torch.no_grad()
-    def embed_partial_code(self, code, code_idx, decode_type='select'):
+    def embed_partial_code(self, code, code_idx, decode_type="select"):
         r"""
         Decode the input codes, using [0, 1, ..., code_idx] codebooks.
 
@@ -299,21 +341,29 @@ class RQBottleneck(nn.Module):
 
         assert code.shape[1:] == self.code_shape
         assert code_idx < code.shape[-1]
-        
+
         B, h, w, _ = code.shape
-        
+
         code_slices = torch.chunk(code, chunks=code.shape[-1], dim=-1)
         if self.shared_codebook:
-            embeds = [self.codebooks[0].embed(code_slice) for i, code_slice in enumerate(code_slices)]
+            embeds = [
+                self.codebooks[0].embed(code_slice)
+                for i, code_slice in enumerate(code_slices)
+            ]
         else:
-            embeds = [self.codebooks[i].embed(code_slice) for i, code_slice in enumerate(code_slices)]
-            
-        if decode_type == 'select':
+            embeds = [
+                self.codebooks[i].embed(code_slice)
+                for i, code_slice in enumerate(code_slices)
+            ]
+
+        if decode_type == "select":
             embeds = embeds[code_idx].view(B, h, w, -1)
-        elif decode_type == 'add':
-            embeds = torch.cat(embeds[:code_idx+1], dim=-2).sum(-2)
+        elif decode_type == "add":
+            embeds = torch.cat(embeds[: code_idx + 1], dim=-2).sum(-2)
         else:
-            raise NotImplementedError(f"{decode_type} is not implemented in partial decoding")
+            raise NotImplementedError(
+                f"{decode_type} is not implemented in partial decoding"
+            )
 
         embeds = self.to_latent_shape(embeds)
 
