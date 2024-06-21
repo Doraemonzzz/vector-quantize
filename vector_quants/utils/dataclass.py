@@ -26,6 +26,7 @@ class ModelConfig:
                 "lfq",
                 "rvq",
                 "Vq",
+                "EmaVq",
                 "Gvq",
                 "Hvq",
                 "Cvq",

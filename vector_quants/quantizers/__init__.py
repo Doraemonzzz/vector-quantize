@@ -1,5 +1,6 @@
 from .baseline import FSQ, LFQ, SFSQ, RQBottleneck, VectorQuantizeEMA
 from .carry_vector_quantizer import CarryVectorQuantizer
+from .ema_vector_quantizer import EMAVectorQuantizer
 from .group_vector_quantizer import GroupVectorQuantizer
 from .hierachical_vector_quantizer import HierachicalVectorQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
@@ -34,6 +35,13 @@ def get_quantizer(args):
             num_embed=args.num_embed,
             embed_dim=args.embed_dim,
             commitment_loss_weight=args.commitment_loss_weight,
+        )
+    elif args.quantizer == "EmaVq":
+        quantizer = EMAVectorQuantizer(
+            num_embed=args.num_embed,
+            embed_dim=args.embed_dim,
+            commitment_loss_weight=args.commitment_loss_weight,
+            decay=args.ema_decay,
         )
     elif args.quantizer == "Gvq":
         quantizer = GroupVectorQuantizer(

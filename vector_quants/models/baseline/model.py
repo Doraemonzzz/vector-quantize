@@ -96,7 +96,7 @@ class VQVAE(nn.Module):
         elif self.args.quantizer == "lfq":
             # quantized, indices, entropy_aux_loss = quantizer(image_feats)
             quant_t, id_t, diff_t = self.quantizer(logits)
-        elif self.args.quantizer in ["rvq", "Vq", "Gvq", "Hvq", "Cvq", "Rvq"]:
+        elif self.args.quantizer in ["rvq", "Vq", "EmaVq", "Gvq", "Hvq", "Cvq", "Rvq"]:
 
             logits = rearrange(logits, "b c h w -> b h w c")
             quant_t, diff_t, id_t = self.quantizer(logits)
