@@ -1,4 +1,5 @@
 from .baseline import FSQ, LFQ, SFSQ, RQBottleneck, VectorQuantizeEMA
+from .carry_vector_quantizer import CarryVectorQuantizer
 from .group_vector_quantizer import GroupVectorQuantizer
 from .hierachical_vector_quantizer import HierachicalVectorQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
@@ -44,6 +45,13 @@ def get_quantizer(args):
     elif args.quantizer == "Hvq":
         quantizer = HierachicalVectorQuantizer(
             levels=args.levels,
+            embed_dim=args.embed_dim,
+            commitment_loss_weight=args.commitment_loss_weight,
+        )
+    elif args.quantizer == "Cvq":
+        quantizer = CarryVectorQuantizer(
+            base=args.base,
+            num_levels=args.num_levels,
             embed_dim=args.embed_dim,
             commitment_loss_weight=args.commitment_loss_weight,
         )

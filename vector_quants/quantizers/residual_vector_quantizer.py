@@ -84,11 +84,6 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
             diff = diff + loss
             indices_list.append(indices.unsqueeze(0))
 
-        # # compute diff
-        # diff = F.mse_loss(
-        #     x_quant, x.detach()
-        # ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
-
         x_quant = x + (x_quant - x).detach()
 
         indices = torch.cat(indices_list, dim=0)

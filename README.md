@@ -22,6 +22,7 @@
 - [x] Use dataclass and YAML to manage config.
 - [x] Update eval
 - [ ] Update resume, add yaml file
+- [ ] Residual vq bug.
 
 Metric check list.
 - [ ] fid.
