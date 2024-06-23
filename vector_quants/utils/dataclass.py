@@ -27,6 +27,7 @@ class ModelConfig:
                 "rvq",
                 "Vq",
                 "EmaVq",
+                "GumbelVq",
                 "Gvq",
                 "Hvq",
                 "Cvq",
@@ -67,6 +68,12 @@ class ModelConfig:
             "help": "If True, codebooks are shared in all location. If False, uses separate codebooks along the depth dimension. (default: False)"
         },
     )
+    # for gumbel vq
+    temp: float = field(
+        default=1.0,
+        metadata={"help": "Non-negative scalar temperature for gumbel softmax"},
+    )
+    kl_loss_weight: float = field(default=5e-4, metadata={"help": "KL loss weight"})
 
 
 @dataclass

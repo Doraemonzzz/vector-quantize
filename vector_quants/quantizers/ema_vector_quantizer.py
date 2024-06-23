@@ -51,6 +51,7 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
         x_quant = self.indices_to_codes(indices)
 
         if self.training:
+            # oom version
             # ema_count = self.decay * self.ema_count + (1 - self.decay) * embed_count_sum
             # # Laplace smoothing of the ema count(avoid zero)
             # N = embed_count_sum.sum().item()
@@ -63,18 +64,33 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
             # )
             # self.codebook.weight.data = self.ema_weight / self.ema_count.unsqueeze(-1)
 
-            #####
-            self.ema_count.data.mul_(self.decay).add_(
-                embed_count_sum, alpha=1 - self.decay
-            )
-            self.ema_weight.data.mul_(self.decay).add_(embed_sum, alpha=1 - self.decay)
+            # Laplace smoothing of the ema count(avoid zero)
             N = embed_count_sum.sum().item()
+            self.ema_count.data = (
+                self.decay * self.ema_count + (1 - self.decay) * embed_count_sum
+            )
+            self.ema_weight.data = (
+                self.decay * self.ema_weight + (1 - self.decay) * embed_sum
+            )
             ema_count = (
                 (self.ema_count + self.epsilon)
                 / (N + self.num_embed * self.epsilon)
                 * N
             )
-            self.codebook.weight.copy_(self.ema_weight / ema_count.unsqueeze(-1))
+            self.codebook.weight.data = self.ema_weight / ema_count.unsqueeze(-1)
+
+            # #####
+            # self.ema_count.data.mul_(self.decay).add_(
+            #     embed_count_sum, alpha=1 - self.decay
+            # )
+            # self.ema_weight.data.mul_(self.decay).add_(embed_sum, alpha=1 - self.decay)
+            # N = embed_count_sum.sum().item()
+            # ema_count = (
+            #     (self.ema_count + self.epsilon)
+            #     / (N + self.num_embed * self.epsilon)
+            #     * N
+            # )
+            # self.codebook.weight.copy_(self.ema_weight / ema_count.unsqueeze(-1))
 
         # compute diff
         diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
