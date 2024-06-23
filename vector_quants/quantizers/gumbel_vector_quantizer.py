@@ -41,11 +41,7 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         x_quant = self.indices_to_codes(indices)
 
         # compute diff
-        diff = (
-            F.mse_loss(x_quant, x.detach())
-            + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
-            + kl_loss
-        )
+        diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x) + kl_loss
 
         x_quant = x + (x_quant - x).detach()
 
@@ -55,10 +51,10 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         # (b, *, d) -> (n, d)
         codes, ps = pack_one(codes, "* d")
         # n, m
-        dist = compute_dist(codes, self.codebook.weight)
+        logits = -compute_dist(codes, self.codebook.weight)
         # n, m
         hard = False if self.training else True
-        indices = F.gumbel_softmax(dist, tau=self.temp, dim=-1, hard=hard)
+        indices = F.gumbel_softmax(logits, tau=self.temp, dim=-1, hard=hard)
         indices = unpack_one(indices, ps, "* m")
 
         if self.kl_loss_weight > 0:
@@ -66,7 +62,7 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
             # Note:
             #       KL(P(x), Q(x)) = sum_x (P(x) * log(P(x) / Q(x)))
             #       in this case: P(x) is p, Q(x) is uniform distribution (1 / num_embed)
-            p = F.softmax(dist, dim=-1)
+            p = F.softmax(logits, dim=-1)
             kl_loss = (
                 self.kl_loss_weight
                 * torch.sum(p * torch.log(p * self.num_embed + eps), dim=-1).mean()
