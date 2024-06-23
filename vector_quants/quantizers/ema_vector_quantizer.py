@@ -84,12 +84,12 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
             embed_count_sum = indices_onehot.sum(0)
             # (V, n), (n, d) -> (V, n)
             embed_sum = indices_onehot.transpose(0, 1).to(torch.float32) @ codes
-            torch.distributed.all_reduce(
-                embed_count_sum,
-            )
-            torch.distributed.all_reduce(
-                embed_sum,
-            )
+            # torch.distributed.all_reduce(
+            #     embed_count_sum,
+            # )
+            # torch.distributed.all_reduce(
+            #     embed_sum,
+            # )
         else:
             embed_count_sum = None
             embed_sum = None
