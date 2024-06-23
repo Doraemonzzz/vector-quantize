@@ -47,7 +47,6 @@ class Logger:
         self.cnt = cnt
 
     def log(self, **kwargs):
-        self.cnt += 1
         if self.cnt % self.log_interval == 0:
             gpu_mem_stats = self.get_gpu_stat()
 
@@ -55,6 +54,7 @@ class Logger:
                 logging_info(self.to_string(**kwargs, **gpu_mem_stats))
                 if self.use_wandb:
                     wandb.log(kwargs | gpu_mem_stats)
+        self.cnt += 1
 
     def get_gpu_stat(self):
         gpu_mem_stats = self.gpu_memory_monitor.get_peak_stats()
