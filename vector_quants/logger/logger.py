@@ -19,7 +19,7 @@ class Logger:
         wandb_exp_name=None,
         wandb_cache_dir=None,
     ):
-        self.cnt = 0
+        self.cnt = 1
         self.log_interval = log_interval
         self.gpu_keys = ["max_reserved_gib", "max_reserved_pct"]
         self.keys = keys + self.gpu_keys
