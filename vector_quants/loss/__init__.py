@@ -81,6 +81,12 @@ class Loss(nn.Module):
             "adversarial_loss",
             "codebook_loss",
             "loss",
+            "valid_l1_loss",
+            "valid_l2_loss",
+            "valid_perceptual_loss",
+            "valid_adversarial_loss",
+            "valid_codebook_loss",
+            "valid_loss",
         ]
         return keys
 

@@ -128,7 +128,6 @@ class VQTrainer(BaseTrainer):
 
         # logger
         self.logger = Logger(
-            log_interval=cfg_train.log_interval,
             keys=["epoch", "iter", "lr"]
             + self.loss_fn.keys
             + metrics_names
@@ -193,7 +192,6 @@ class VQTrainer(BaseTrainer):
 
         start_epoch = self.start_epoch
         num_iter = self.num_iter
-        self.logger.setup_cnt(self.num_iter)
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -253,15 +251,20 @@ class VQTrainer(BaseTrainer):
                     self.optimizer.zero_grad()
 
                 # print info
-                self.logger.log(
-                    **loss_dict,
-                    **{
-                        "epoch": epoch,
-                        "iter": num_iter,
-                        "lr": self.optimizer.state_dict()["param_groups"][0]["lr"],
-                        "gnorm": grad_norm,
-                    },
-                )
+                if num_iter % self.log_interval == 0:
+                    self.logger.log(
+                        **(
+                            loss_dict
+                            | {
+                                "epoch": epoch,
+                                "iter": num_iter,
+                                "lr": self.optimizer.state_dict()["param_groups"][0][
+                                    "lr"
+                                ],
+                                "gnorm": grad_norm,
+                            }
+                        ),
+                    )
 
                 num_iter += 1
 
@@ -334,11 +337,7 @@ class VQTrainer(BaseTrainer):
         eval_results = self.eval_metrics.compute_and_reduce()
         codebook_results = self.codebook_metric.get_result()
 
-        self.logger.log(
-            **eval_loss_dict,
-            **eval_results,
-            **codebook_results,
-        )
+        self.logger.log(**(eval_loss_dict | eval_results | codebook_results))
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")

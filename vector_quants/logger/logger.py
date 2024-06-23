@@ -10,7 +10,6 @@ from .gpu_logger import build_gpu_memory_monitor
 class Logger:
     def __init__(
         self,
-        log_interval=1,
         keys=[],
         use_wandb=False,
         cfg=None,
@@ -19,8 +18,6 @@ class Logger:
         wandb_exp_name=None,
         wandb_cache_dir=None,
     ):
-        self.cnt = 1
-        self.log_interval = log_interval
         self.gpu_keys = ["max_reserved_gib", "max_reserved_pct"]
         self.keys = keys + self.gpu_keys
         self.use_wandb = use_wandb
@@ -43,18 +40,14 @@ class Logger:
     def is_main_process(self):
         return is_main_process()
 
-    def setup_cnt(self, cnt):
-        self.cnt = cnt
-
     def log(self, **kwargs):
-        if self.cnt % self.log_interval == 0:
-            gpu_mem_stats = self.get_gpu_stat()
+        gpu_mem_stats = self.get_gpu_stat()
 
-            if self.is_main_process:
-                logging_info(self.to_string(**kwargs, **gpu_mem_stats))
-                if self.use_wandb:
-                    wandb.log(kwargs | gpu_mem_stats)
-        self.cnt += 1
+        if self.is_main_process:
+            stat = kwargs | gpu_mem_stats
+            logging_info(self.to_string(**stat))
+            if self.use_wandb:
+                wandb.log(stat)
 
     def get_gpu_stat(self):
         gpu_mem_stats = self.gpu_memory_monitor.get_peak_stats()
