@@ -6,14 +6,14 @@ from dataclasses import asdict
 from pprint import pformat
 
 import torch
-import wandb
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import get_data_loaders
+from vector_quants.logger import Logger
 from vector_quants.loss import Loss, get_post_transform
-from vector_quants.metrics import CodeBookMetric, Metrics
+from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
 from vector_quants.models import get_model
 from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
@@ -24,7 +24,6 @@ from vector_quants.utils import (
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
-    print_dict,
     reduce_dict,
     set_random_seed,
     type_dict,
@@ -56,22 +55,6 @@ class VQTrainer(BaseTrainer):
         cfg_train.world_size = int(os.environ["WORLD_SIZE"])
 
         mkdir_ckpt_dirs(cfg_train)
-
-        # setup wandb
-        self.use_wandb = cfg_train.use_wandb
-        if self.use_wandb and self.is_main_process:
-            wandb_cache_dir = os.path.join(
-                cfg_train.wandb_cache_dir, cfg_train.wandb_exp_name
-            )
-            os.makedirs(wandb_cache_dir, exist_ok=True)
-            logging_info(f"wandb will be saved at {wandb_cache_dir}")
-            wandb.init(
-                config=cfg,
-                entity=cfg_train.wandb_entity,
-                project=cfg_train.wandb_project,
-                name=cfg_train.wandb_exp_name,
-                dir=wandb_cache_dir,
-            )
 
         # 1, load dataset
         self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
@@ -143,6 +126,21 @@ class VQTrainer(BaseTrainer):
         self.num_embed = num_embed if num_embed != -1 else get_num_embed(cfg_model)
         self.codebook_metric = CodeBookMetric(self.num_embed)
 
+        # logger
+        self.logger = Logger(
+            log_interval=cfg_train.log_interval,
+            keys=["epoch", "iter", "lr"]
+            + self.loss_fn.keys
+            + metrics_names
+            + ["gnorm"],
+            use_wandb=cfg_train.use_wandb,
+            cfg=cfg,
+            wandb_entity=cfg_train.wandb_entity,
+            wandb_project=cfg_train.wandb_project,
+            wandb_exp_name=cfg_train.wandb_exp_name,
+            wandb_cache_dir=cfg_train.wandb_cache_dir,
+        )
+
         # other params
         self.max_train_epochs = cfg_train.max_train_epochs
         self.log_interval = cfg_train.log_interval
@@ -195,6 +193,7 @@ class VQTrainer(BaseTrainer):
 
         start_epoch = self.start_epoch
         num_iter = self.num_iter
+        self.logger.setup_cnt(self.num_iter)
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -254,18 +253,15 @@ class VQTrainer(BaseTrainer):
                     self.optimizer.zero_grad()
 
                 # print info
-                if self.use_wandb and self.is_main_process:
-                    wandb.log(loss_dict)
-
-                if self.is_main_process and num_iter % self.log_interval == 0:
-                    lr = self.optimizer.state_dict()["param_groups"][0]["lr"]
-                    info = f"rank 0: epoch: {epoch}, iter: {num_iter}, lr: {lr}, "
-                    for key in loss_dict:
-                        info += f"{key}: {loss_dict[key]}, "
-                    info += f"gnorm: {grad_norm}"
-                    logging_info(info)
-                    if self.use_wandb:
-                        wandb.log({"gnorm": grad_norm})
+                self.logger.log(
+                    **loss_dict,
+                    **{
+                        "epoch": epoch,
+                        "iter": num_iter,
+                        "lr": self.optimizer.state_dict()["param_groups"][0]["lr"],
+                        "gnorm": grad_norm,
+                    },
+                )
 
                 num_iter += 1
 
@@ -338,14 +334,11 @@ class VQTrainer(BaseTrainer):
         eval_results = self.eval_metrics.compute_and_reduce()
         codebook_results = self.codebook_metric.get_result()
 
-        print_dict(eval_loss_dict)
-        print_dict(eval_results)
-        print_dict(codebook_results)
-
-        if self.use_wandb and self.is_main_process:
-            wandb.log(eval_loss_dict)
-            wandb.log(eval_results)
-            wandb.log(codebook_results)
+        self.logger.log(
+            **eval_loss_dict,
+            **eval_results,
+            **codebook_results,
+        )
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")

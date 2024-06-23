@@ -74,6 +74,10 @@ _features_based_metrics = [
     # 'fvd'
 ]
 
+metrics_names = (
+    _image_based_metrics + _features_based_metrics + ["perplexity", "used_codebook"]
+)
+
 
 def monkey_patch_compute(compute_foo, metric_name):
     def wrapper(*args, **kwargs):

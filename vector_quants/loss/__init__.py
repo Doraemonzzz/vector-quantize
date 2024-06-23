@@ -72,6 +72,18 @@ class Loss(nn.Module):
         self.adversarial_loss_weight = adversarial_loss_weight
         self.codebook_loss_weight = codebook_loss_weight
 
+    @property
+    def keys(self):
+        keys = [
+            "l1_loss",
+            "l2_loss",
+            "perceptual_loss",
+            "adversarial_loss",
+            "codebook_loss",
+            "loss",
+        ]
+        return keys
+
     def forward(self, codebook_loss, images, reconstructions):
         l1_loss = self.compute_l1_loss(images, reconstructions)
         l2_loss = self.compute_l2_loss(images, reconstructions)

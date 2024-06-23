@@ -114,9 +114,12 @@ def get_ip():
     return ip
 
 
-def logging_info(string):
+def logging_info(string, warning=False):
     if is_main_process():
-        logger.info(string)
+        if warning:
+            logger.warning(string)
+        else:
+            logger.info(string)
 
 
 def rescale_image_tensor(img_tensor, mean, std):
