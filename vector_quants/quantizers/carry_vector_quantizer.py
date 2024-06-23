@@ -69,18 +69,15 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
     def codes_to_indices(self, codes):
         # (b, *, d) -> (n, d)
         codes, ps = pack_one(codes, "* d")
-        codes = rearrange(codes, "... (g d) -> ... d g", g=self.num_levels)
-        indices_list = []
-        for i in range(self.num_levels):
-            # n, m
-            dist = compute_dist(codes[..., i], self.codebook_weight)
-            # n, 1
-            indices = torch.argmin(dist, dim=-1)
-            indices_list.append(indices.unsqueeze(-1))
+        # compute in parallel
+        codes = rearrange(codes, "... (g d) -> (... g) d", g=self.num_levels)
+        # n, m
+        dist = compute_dist(codes, self.codebook_weight)
+        # n, 1
+        indices = torch.argmin(dist, dim=-1)
+        indices = rearrange(indices, "(b g) -> b g", g=self.num_levels)
+        indices = (indices * self._basis).sum(dim=-1).to(torch.int32)
 
-        indices = (
-            (torch.cat(indices_list, dim=-1) * self._basis).sum(dim=-1).to(torch.int32)
-        )
         indices = unpack_one(indices, ps, "*")
 
         return indices
