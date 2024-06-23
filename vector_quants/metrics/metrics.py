@@ -39,13 +39,11 @@ from vector_quants.data import get_mean_std_from_dataset_name
 from vector_quants.utils import rescale_image_tensor
 
 from .torchmetric_fdd import FrechetDinovDistance as FDD
-from .torchmetric_fid_ddp import FrechetInceptionDistanceDDP as FID_DDP
 from .torchmetric_sfid import sFrechetInceptionDistance as SFID
 
 ALL_METRICS_DICT = {
     "mse": MeanSquaredError,
     "fid": FID,
-    "fid_ddp": FID_DDP,
     "kid": partial(KID, subset_size=2),
     "is": InceptionScore,
     "sfid": SFID,
@@ -66,7 +64,6 @@ _image_based_metrics = [
 
 _features_based_metrics = [
     "fid",
-    "fid_ddp",
     "kid",
     "sfid",
     "fdd",
@@ -188,10 +185,6 @@ class Metrics:
         results = {}
         for model_key in self.metrics:
             results.update(self.metrics[model_key].compute())
-            # if model_key in ["fid_ddp"]:
-            #     results.update(self.metrics[model_key].reduce_and_compute())
-            # else:
-            #     results.update(self.metrics[model_key].compute())
 
         if off_load:
             self.off_load()
