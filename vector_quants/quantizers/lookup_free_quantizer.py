@@ -1,0 +1,60 @@
+import torch
+
+from .base_vector_quantizer import BaseVectorQuantizer
+from .utils import pack_one, unpack_one
+
+
+class LookUpFreeQuantizer(BaseVectorQuantizer):
+    def __init__(self, embed_dim, codebook_value=1):
+        super().__init__()
+        base = 2
+        self.base = base
+        num_levels = embed_dim
+        levels = [base] * num_levels
+        _levels = torch.tensor(levels, dtype=torch.int32)
+        self.register_buffer("_levels", _levels, persistent=False)
+        _basis = torch.cumprod(
+            torch.tensor([1] + levels[:-1]), dim=0, dtype=torch.int32
+        )
+        self.register_buffer("_basis", _basis, persistent=False)
+
+        self._num_embed = self._levels.prod().item()
+        self.num_levels = self._levels.shape[0]
+        self.register_buffer("_offset", _levels.cumsum(dim=0), persistent=False)
+        self.embed_dim = embed_dim
+        self.codebook_value = codebook_value
+
+    def extra_repr(self):
+        return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
+
+    @property
+    def num_embed(self):
+        return self._num_embed
+
+    def forward(self, x):
+        # get indices
+        indices = self.latent_to_indice(x)
+
+        # quantize
+        x_quant = self.indice_to_code(indices)
+
+        diff = torch.tensor(0.0).cuda().float()
+        x_quant = x + (x_quant - x).detach()
+
+        return x_quant, diff, indices
+
+    def latent_to_indice(self, latent):
+        # (b, *, d) -> (n, d)
+        latent, ps = pack_one(latent, "* d")
+        indices = ((latent > 0).int() * self._basis).sum(dim=-1).to(torch.int32)
+
+        indices = unpack_one(indices, ps, "*")
+
+        return indices
+
+    def indice_to_code(self, indices):
+        # (..., d)
+        indices = (indices.unsqueeze(-1) // self._basis) % self._levels
+        codes = torch.where(indices > 0, self.codebook_value, -self.codebook_value)
+
+        return codes

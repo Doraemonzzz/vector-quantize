@@ -40,7 +40,6 @@ Tradeoff between resolution and number of features.
 Todo:
 Quant Method:
 - [ ] Rvq.
-- [ ] Rvq no share.
 - [ ] Fsq.
 - [ ] Lfq.
 

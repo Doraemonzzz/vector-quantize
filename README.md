@@ -27,6 +27,7 @@ For the complete development logs, please refer to [here](./docs/develop_logs.md
 - [ ] Ema gradient acc.
 - [ ] Ema codebook loss bug.
 - [ ] Update evaluation bug.
+- [ ] Gumbel bin count bug.
 
 Metric check list.
 - [ ] fid.

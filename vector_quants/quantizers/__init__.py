@@ -4,6 +4,7 @@ from .ema_vector_quantizer import EMAVectorQuantizer
 from .group_vector_quantizer import GroupVectorQuantizer
 from .gumbel_vector_quantizer import GumbelVectorQuantizer
 from .hierachical_vector_quantizer import HierachicalVectorQuantizer
+from .lookup_free_quantizer import LookUpFreeQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
 from .vector_quantizer import VectorQuantizer
 
@@ -78,6 +79,10 @@ def get_quantizer(args):
             embed_dim=args.embed_dim,
             num_residual=args.num_residual,
             commitment_loss_weight=args.commitment_loss_weight,
+        )
+    elif args.quantizer == "Lfq":
+        quantizer = LookUpFreeQuantizer(
+            embed_dim=args.embed_dim,
         )
 
     return quantizer

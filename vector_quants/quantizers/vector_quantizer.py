@@ -27,10 +27,10 @@ class VectorQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         # get indices
-        indices = self.codes_to_indices(x)
+        indices = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indices_to_codes(indices)
+        x_quant = self.indice_to_code(indices)
 
         # compute diff
         diff = F.mse_loss(
@@ -41,7 +41,7 @@ class VectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, diff, indices
 
-    def codes_to_indices(self, codes):
+    def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         codes, ps = pack_one(codes, "* d")
         # n, m
@@ -52,5 +52,5 @@ class VectorQuantizer(BaseVectorQuantizer):
 
         return indices
 
-    def indices_to_codes(self, indices):
+    def indice_to_code(self, indices):
         return self.codebook(indices)

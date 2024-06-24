@@ -35,10 +35,10 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         # get indices
-        indices, kl_loss = self.codes_to_indices(x)
+        indices, kl_loss = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indices_to_codes(indices)
+        x_quant = self.indice_to_code(indices)
 
         # compute diff
         # diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x) + kl_loss
@@ -48,11 +48,11 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, diff, indices
 
-    def codes_to_indices(self, codes, eps=1e-10):
+    def latent_to_indice(self, latent, eps=1e-10):
         # (b, *, d) -> (n, d)
-        codes, ps = pack_one(codes, "* d")
+        latent, ps = pack_one(latent, "* d")
         # n, m
-        logits = -compute_dist(codes, self.codebook.weight)
+        logits = -compute_dist(latent, self.codebook.weight)
         # n, m
         hard = False if self.training else True
         indices = F.gumbel_softmax(logits, tau=self.temp, dim=-1, hard=hard)
@@ -73,5 +73,5 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
         return indices, kl_loss
 
-    def indices_to_codes(self, indices):
+    def indice_to_code(self, indices):
         return torch.einsum("... m, m d -> ... d", indices, self.codebook.weight)

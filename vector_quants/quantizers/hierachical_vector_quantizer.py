@@ -33,7 +33,7 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
         self.init_codebook()
 
     def extra_repr(self):
-        return f"(num embedding): {self.num_embed}"
+        return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
 
     @property
     def num_embed(self):
@@ -46,10 +46,10 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         # get indices
-        indices = self.codes_to_indices(x)
+        indices = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indices_to_codes(indices)
+        x_quant = self.indice_to_code(indices)
 
         # compute diff
         diff = F.mse_loss(
@@ -60,14 +60,14 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, diff, indices
 
-    def codes_to_indices(self, codes):
+    def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
-        codes, ps = pack_one(codes, "* d")
-        codes = rearrange(codes, "... (g d) -> ... d g", g=self.num_levels)
+        latent, ps = pack_one(latent, "* d")
+        latent = rearrange(latent, "... (g d) -> ... d g", g=self.num_levels)
         indices_list = []
         for i in range(self.num_levels):
             # n, m
-            dist = compute_dist(codes[..., i], self.codebook_weights[i])
+            dist = compute_dist(latent[..., i], self.codebook_weights[i])
             # n, 1
             indices = torch.argmin(dist, dim=-1)
             indices_list.append(indices.unsqueeze(-1))
@@ -79,7 +79,7 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
 
         return indices
 
-    def indices_to_codes(self, indices):
+    def indice_to_code(self, indices):
         indices = (indices.unsqueeze(-1) // self._basis) % self._levels
         codes_list = []
         for i in range(self.num_levels):

@@ -45,10 +45,10 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         # get indices
-        indices, embed_count_sum, embed_sum = self.codes_to_indices(x)
+        indices, embed_count_sum, embed_sum = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indices_to_codes(indices)
+        x_quant = self.indice_to_code(indices)
 
         if self.training:
             # oom version
@@ -99,11 +99,11 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, diff, indices
 
-    def codes_to_indices(self, codes):
+    def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
-        codes, ps = pack_one(codes, "* d")
+        latent, ps = pack_one(latent, "* d")
         # n, m
-        dist = compute_dist(codes, self.codebook.weight)
+        dist = compute_dist(latent, self.codebook.weight)
         # n, 1
         indices = torch.argmin(dist, dim=-1)
         if self.training:
@@ -112,7 +112,7 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
             # n, V -> V
             embed_count_sum = indices_onehot.sum(0)
             # (V, n), (n, d) -> (V, n)
-            embed_sum = indices_onehot.transpose(0, 1).to(torch.float32) @ codes
+            embed_sum = indices_onehot.transpose(0, 1).to(torch.float32) @ latent
             torch.distributed.all_reduce(
                 embed_count_sum,
             )
@@ -127,5 +127,5 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
 
         return indices, embed_count_sum, embed_sum
 
-    def indices_to_codes(self, indices):
+    def indice_to_code(self, indices):
         return self.codebook(indices)

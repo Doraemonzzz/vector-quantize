@@ -105,6 +105,7 @@ class VQVAE(nn.Module):
             "Hvq",
             "Cvq",
             "Rvq",
+            "Lfq",
         ]:
 
             logits = rearrange(logits, "b c h w -> b h w c")

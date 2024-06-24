@@ -17,7 +17,6 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
     def __init__(self, base, num_levels, embed_dim, commitment_loss_weight=0.25):
         super().__init__()
         self.base = base
-        self.num_levels = num_levels
         levels = [base] * num_levels
         _levels = torch.tensor(levels, dtype=torch.int32)
         self.register_buffer("_levels", _levels, persistent=False)
@@ -52,10 +51,10 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         # get indices
-        indices = self.codes_to_indices(x)
+        indices = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indices_to_codes(indices)
+        x_quant = self.indice_to_code(indices)
 
         # compute diff
         diff = F.mse_loss(
@@ -66,13 +65,13 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, diff, indices
 
-    def codes_to_indices(self, codes):
+    def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
-        codes, ps = pack_one(codes, "* d")
+        latent, ps = pack_one(latent, "* d")
         # compute in parallel
-        codes = rearrange(codes, "... (g d) -> (... g) d", g=self.num_levels)
+        latent = rearrange(latent, "... (g d) -> (... g) d", g=self.num_levels)
         # n, m
-        dist = compute_dist(codes, self.codebook_weight)
+        dist = compute_dist(latent, self.codebook_weight)
         # n, 1
         indices = torch.argmin(dist, dim=-1)
         indices = rearrange(indices, "(b g) -> b g", g=self.num_levels)
@@ -82,7 +81,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         return indices
 
-    def indices_to_codes(self, indices):
+    def indice_to_code(self, indices):
         indices = (indices.unsqueeze(-1) // self._basis) % self._levels
         codes_list = []
         for i in range(self.num_levels):

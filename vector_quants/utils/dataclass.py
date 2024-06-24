@@ -32,6 +32,7 @@ class ModelConfig:
                 "Hvq",
                 "Cvq",
                 "Rvq",
+                "Lfq",
             ],
         },
     )
@@ -300,7 +301,6 @@ def get_cfg(args_list=sys.argv[1:]):
                     )
                 else:
                     if key == "levels":
-                        print(type(val))
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
