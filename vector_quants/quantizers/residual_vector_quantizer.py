@@ -60,6 +60,7 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         indices_list = []
+        loss_list = []
         x_quant = torch.zeros_like(x)
         residual = x.detach().clone()
         diff = 0
@@ -72,17 +73,17 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
             residual_quant = self.indices_to_codes(indices)
 
             # compute diff
-            loss = F.mse_loss(
-                residual_quant, residual.detach()
-            ) + self.commitment_loss_weight * F.mse_loss(
-                residual_quant.detach(), residual
+            loss_list.append(
+                F.mse_loss(residual_quant, x.detach())
+                + self.commitment_loss_weight * F.mse_loss(residual_quant.detach(), x)
             )
 
             # update
-            residual.sub_(residual_quant)
-            x_quant.add_(residual_quant)
-            diff = diff + loss
+            residual = residual - residual_quant
+            x_quant = x_quant + residual_quant
             indices_list.append(indices.unsqueeze(0))
+
+        diff = torch.mean(torch.stack(loss_list))
 
         x_quant = x + (x_quant - x).detach()
 
