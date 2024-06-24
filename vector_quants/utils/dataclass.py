@@ -33,6 +33,7 @@ class ModelConfig:
                 "Cvq",
                 "Rvq",
                 "Lfq",
+                "Fsq"
             ],
         },
     )
@@ -260,7 +261,7 @@ def process_args(args):
         args.model.embed_dim = args.model.lfq_dim
         postfix = f"-entropy_weights-{args.loss.entropy_loss_weight}-codebook_weights-{args.loss.codebook_loss_weight}-lfq_dim-{args.model.lfq_dim}"
 
-    elif quantizer in ["fsq", "sfsq"]:
+    elif quantizer in ["fsq", "sfsq", "Fsq"]:
         args.model.embed_dim = len(args.model.levels)
         postfix = f"-num_embed-{get_num_embed(args.model)}"
 

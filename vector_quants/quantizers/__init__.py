@@ -7,7 +7,7 @@ from .hierachical_vector_quantizer import HierachicalVectorQuantizer
 from .lookup_free_quantizer import LookUpFreeQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
 from .vector_quantizer import VectorQuantizer
-
+from .finite_scalar_quantizer import FiniteScalarQuantizer
 
 def get_quantizer(args):
     if args.quantizer == "ema" or args.quantizer == "origin":
@@ -83,6 +83,10 @@ def get_quantizer(args):
     elif args.quantizer == "Lfq":
         quantizer = LookUpFreeQuantizer(
             embed_dim=args.embed_dim,
+        )
+    elif args.quantizer == "Fsq":
+        quantizer = FiniteScalarQuantizer(
+            levels=args.levels,
         )
 
     return quantizer
