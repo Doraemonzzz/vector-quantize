@@ -33,6 +33,7 @@ Backbone.
 
 Tradeoff between resolution and number of features.
 - [ ] f8, f32.
+- [ ] Multi scale like var.
 
 
 ## 240624
