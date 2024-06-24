@@ -20,7 +20,6 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
 
         self._num_embed = self._levels.prod().item()
         self.num_levels = self._levels.shape[0]
-        self.register_buffer("_offset", _levels.cumsum(dim=0), persistent=False)
         self.embed_dim = embed_dim
         self.codebook_value = codebook_value
 

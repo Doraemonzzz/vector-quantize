@@ -27,7 +27,6 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         self._num_embed = self._levels.prod().item()
         self.num_levels = self._levels.shape[0]
-        self.register_buffer("_offset", _levels.cumsum(dim=0), persistent=False)
         assert embed_dim % self.num_levels == 0
         self.embed_dim = embed_dim // self._levels.shape[0]
         self.commitment_loss_weight = commitment_loss_weight
