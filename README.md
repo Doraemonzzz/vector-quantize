@@ -26,6 +26,7 @@ For the complete development logs, please refer to [here](./docs/develop_logs.md
 - [ ] Residual vq bug.
 - [ ] Ema gradient acc.
 - [ ] Rq, Ema codebook loss bug.
+- [ ] Update evaluation bug.
 
 Metric check list.
 - [ ] fid.
