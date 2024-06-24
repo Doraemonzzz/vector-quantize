@@ -58,13 +58,15 @@ $$
 d_j =d,
 x_{\mathrm{quant}}=\sum_{j} f(x, \mathbf W_j) .
 $$
-残差型（对特征维度不进行分解）：
+注意这样并不能起到作用（每次都对$x$进行量化），比较合理的是使用如下方式：
 $$
 d_j =d,
 r_0=x, r_j = r_{j-1}-\bar x_j, \\
 \bar x_j=f(r_{j-1}, W_j), \\
 x_{\mathrm{quant}}=\sum_{j=1}^{k}\bar x_j .
 $$
+由此即可得到残差型（对特征维度不进行分解）。
+
 说明：
 
 - Var/Rqvae是对$\sum_{j=1}^{s}\bar x_j$和$x$算loss；
