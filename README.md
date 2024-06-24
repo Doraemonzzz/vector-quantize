@@ -1,6 +1,7 @@
 
 
 # Todo
+For the complete development logs, please refer to [here](./docs/develop_logs.md).
 
 - [x] Add simple fsq. (use [0, 1] instead of [-1, 1], which makes the code more simpler.)
 - [x] Mix presion training.
@@ -48,7 +49,7 @@ Algorithm check list.
 
 Loss check list.
 - [ ] L1, L2 loss?
-- [ ] Gumbel kl loss.
+- [ ] Gumbel, kl loss.
 - [ ] Entropy loss in maskgit.
 - [ ] Perceptual loss.
 - [ ] Gan loss.
