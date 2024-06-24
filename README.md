@@ -24,6 +24,8 @@ For the complete development logs, please refer to [here](./docs/develop_logs.md
 - [x] Update eval
 - [ ] Update resume, add yaml file
 - [ ] Residual vq bug.
+- [ ] Ema gradient acc.
+- [ ] Rq, Ema codebook loss bug.
 
 Metric check list.
 - [ ] fid.
