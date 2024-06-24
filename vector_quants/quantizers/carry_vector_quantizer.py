@@ -50,11 +50,11 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         nn.init.uniform_(self.codebook_weight, -1 / self.base, 1 / self.base)
 
     def forward(self, x):
-        # get indices
-        indices = self.latent_to_indice(x)
+        # get indice
+        indice = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indice_to_code(indices)
+        x_quant = self.indice_to_code(indice)
 
         # compute diff
         diff = F.mse_loss(
@@ -63,7 +63,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indices
+        return x_quant, diff, indice
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
@@ -73,20 +73,20 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         # n, m
         dist = compute_dist(latent, self.codebook_weight)
         # n, 1
-        indices = torch.argmin(dist, dim=-1)
-        indices = rearrange(indices, "(b g) -> b g", g=self.num_levels)
-        indices = (indices * self._basis).sum(dim=-1).to(torch.int32)
+        indice = torch.argmin(dist, dim=-1)
+        indice = rearrange(indice, "(b g) -> b g", g=self.num_levels)
+        indice = (indice * self._basis).sum(dim=-1).to(torch.int32)
 
-        indices = unpack_one(indices, ps, "*")
+        indice = unpack_one(indice, ps, "*")
 
-        return indices
+        return indice
 
-    def indice_to_code(self, indices):
-        indices = (indices.unsqueeze(-1) // self._basis) % self._levels
-        codes_list = []
+    def indice_to_code(self, indice):
+        indice = (indice.unsqueeze(-1) // self._basis) % self._levels
+        code_list = []
         for i in range(self.num_levels):
-            codes = F.embedding(indices[..., i], self.codebook_weight)
-            codes_list.append(codes.unsqueeze(-1))
-        codes = rearrange(torch.cat(codes_list, dim=-1), "... d g -> ... (g d)")
+            code = F.embedding(indice[..., i], self.codebook_weight)
+            code_list.append(code.unsqueeze(-1))
+        code = rearrange(torch.cat(code_list, dim=-1), "... d g -> ... (g d)")
 
-        return codes
+        return code

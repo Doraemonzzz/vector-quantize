@@ -28,11 +28,11 @@ class GroupVectorQuantizer(BaseVectorQuantizer):
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
-        # get indices
-        indices = self.latent_to_indice(x)
+        # get indice
+        indice = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indice_to_code(indices)
+        x_quant = self.indice_to_code(indice)
 
         # compute diff
         diff = F.mse_loss(
@@ -41,7 +41,7 @@ class GroupVectorQuantizer(BaseVectorQuantizer):
 
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indices
+        return x_quant, diff, indice
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
@@ -50,14 +50,14 @@ class GroupVectorQuantizer(BaseVectorQuantizer):
         # n, m
         dist = compute_dist(latent, self.codebook.weight)
         # n, 1
-        indices = torch.argmin(dist, dim=-1)
-        indices = rearrange(indices, "(b g) -> b g", g=self.num_group)
-        indices = unpack_one(indices, ps, "* g")
+        indice = torch.argmin(dist, dim=-1)
+        indice = rearrange(indice, "(b g) -> b g", g=self.num_group)
+        indice = unpack_one(indice, ps, "* g")
 
-        return indices
+        return indice
 
-    def indice_to_code(self, indices):
-        codes = self.codebook(indices)
-        codes = rearrange(codes, "... g d -> ... (g d)")
+    def indice_to_code(self, indice):
+        code = self.codebook(indice)
+        code = rearrange(code, "... g d -> ... (g d)")
 
-        return codes
+        return code

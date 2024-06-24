@@ -26,11 +26,11 @@ class VectorQuantizer(BaseVectorQuantizer):
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
-        # get indices
-        indices = self.latent_to_indice(x)
+        # get indice
+        indice = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indice_to_code(indices)
+        x_quant = self.indice_to_code(indice)
 
         # compute diff
         diff = F.mse_loss(
@@ -39,18 +39,18 @@ class VectorQuantizer(BaseVectorQuantizer):
 
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indices
+        return x_quant, diff, indice
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
-        codes, ps = pack_one(codes, "* d")
+        code, ps = pack_one(code, "* d")
         # n, m
-        dist = compute_dist(codes, self.codebook.weight)
+        dist = compute_dist(code, self.codebook.weight)
         # n, 1
-        indices = torch.argmin(dist, dim=-1)
-        indices = unpack_one(indices, ps, "*")
+        indice = torch.argmin(dist, dim=-1)
+        indice = unpack_one(indice, ps, "*")
 
-        return indices
+        return indice
 
-    def indice_to_code(self, indices):
-        return self.codebook(indices)
+    def indice_to_code(self, indice):
+        return self.codebook(indice)

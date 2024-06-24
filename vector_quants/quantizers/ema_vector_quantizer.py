@@ -44,11 +44,11 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
         self.codebook.requires_grad_(False)
 
     def forward(self, x):
-        # get indices
-        indices, embed_count_sum, embed_sum = self.latent_to_indice(x)
+        # get indice
+        indice, embed_count_sum, embed_sum = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indice_to_code(indices)
+        x_quant = self.indice_to_code(indice)
 
         if self.training:
             # oom version
@@ -97,7 +97,7 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
 
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indices
+        return x_quant, diff, indice
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
@@ -105,14 +105,14 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
         # n, m
         dist = compute_dist(latent, self.codebook.weight)
         # n, 1
-        indices = torch.argmin(dist, dim=-1)
+        indice = torch.argmin(dist, dim=-1)
         if self.training:
             # n, 1 -> n, V
-            indices_onehot = F.one_hot(indices, self.num_embed)
+            indice_onehot = F.one_hot(indice, self.num_embed)
             # n, V -> V
-            embed_count_sum = indices_onehot.sum(0)
+            embed_count_sum = indice_onehot.sum(0)
             # (V, n), (n, d) -> (V, n)
-            embed_sum = indices_onehot.transpose(0, 1).to(torch.float32) @ latent
+            embed_sum = indice_onehot.transpose(0, 1).to(torch.float32) @ latent
             torch.distributed.all_reduce(
                 embed_count_sum,
             )
@@ -123,9 +123,9 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
             embed_count_sum = None
             embed_sum = None
 
-        indices = unpack_one(indices, ps, "*")
+        indice = unpack_one(indice, ps, "*")
 
-        return indices, embed_count_sum, embed_sum
+        return indice, embed_count_sum, embed_sum
 
-    def indice_to_code(self, indices):
-        return self.codebook(indices)
+    def indice_to_code(self, indice):
+        return self.codebook(indice)

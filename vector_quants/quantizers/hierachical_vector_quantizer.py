@@ -35,6 +35,7 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
     def extra_repr(self):
         return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
 
+
     @property
     def num_embed(self):
         return self._num_embed
@@ -45,11 +46,11 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
             nn.init.uniform_(self.codebook_weights[i], -1 / n, 1 / n)
 
     def forward(self, x):
-        # get indices
-        indices = self.latent_to_indice(x)
+        # get indice
+        indice = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indice_to_code(indices)
+        x_quant = self.indice_to_code(indice)
 
         # compute diff
         diff = F.mse_loss(
@@ -58,33 +59,33 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
 
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indices
+        return x_quant, diff, indice
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         latent = rearrange(latent, "... (g d) -> ... d g", g=self.num_levels)
-        indices_list = []
+        indice_list = []
         for i in range(self.num_levels):
             # n, m
             dist = compute_dist(latent[..., i], self.codebook_weights[i])
             # n, 1
-            indices = torch.argmin(dist, dim=-1)
-            indices_list.append(indices.unsqueeze(-1))
+            indice = torch.argmin(dist, dim=-1)
+            indice_list.append(indice.unsqueeze(-1))
 
-        indices = (
-            (torch.cat(indices_list, dim=-1) * self._basis).sum(dim=-1).to(torch.int32)
+        indice = (
+            (torch.cat(indice_list, dim=-1) * self._basis).sum(dim=-1).to(torch.int32)
         )
-        indices = unpack_one(indices, ps, "*")
+        indice = unpack_one(indice, ps, "*")
 
-        return indices
+        return indice
 
-    def indice_to_code(self, indices):
-        indices = (indices.unsqueeze(-1) // self._basis) % self._levels
-        codes_list = []
+    def indice_to_code(self, indice):
+        indice = (indice.unsqueeze(-1) // self._basis) % self._levels
+        code_list = []
         for i in range(self.num_levels):
-            codes = F.embedding(indices[..., i], self.codebook_weights[i])
-            codes_list.append(codes.unsqueeze(-1))
-        codes = rearrange(torch.cat(codes_list, dim=-1), "... d g -> ... (g d)")
+            code = F.embedding(indice[..., i], self.codebook_weights[i])
+            code_list.append(code.unsqueeze(-1))
+        code = rearrange(torch.cat(code_list, dim=-1), "... d g -> ... (g d)")
 
-        return codes
+        return code

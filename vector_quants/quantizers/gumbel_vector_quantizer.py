@@ -34,11 +34,11 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
-        # get indices
-        indices, kl_loss = self.latent_to_indice(x)
+        # get indice
+        indice, kl_loss = self.latent_to_indice(x)
 
         # quantize
-        x_quant = self.indice_to_code(indices)
+        x_quant = self.indice_to_code(indice)
 
         # compute diff
         # diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x) + kl_loss
@@ -46,7 +46,7 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indices
+        return x_quant, diff, indice
 
     def latent_to_indice(self, latent, eps=1e-10):
         # (b, *, d) -> (n, d)
@@ -55,8 +55,8 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         logits = -compute_dist(latent, self.codebook.weight)
         # n, m
         hard = False if self.training else True
-        indices = F.gumbel_softmax(logits, tau=self.temp, dim=-1, hard=hard)
-        indices = unpack_one(indices, ps, "* m")
+        indice = F.gumbel_softmax(logits, tau=self.temp, dim=-1, hard=hard)
+        indice = unpack_one(indice, ps, "* m")
 
         if self.kl_loss_weight > 0:
             # + kl divergence to the prior (uniform) loss, increase cb usage
@@ -71,7 +71,7 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         else:
             kl_loss = torch.tensor(0.0).cuda().float()
 
-        return indices, kl_loss
+        return indice, kl_loss
 
-    def indice_to_code(self, indices):
-        return torch.einsum("... m, m d -> ... d", indices, self.codebook.weight)
+    def indice_to_code(self, indice):
+        return torch.einsum("... m, m d -> ... d", indice, self.codebook.weight)

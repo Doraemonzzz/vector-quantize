@@ -22,5 +22,5 @@ class BaseVectorQuantizer(ABC, nn.Module):
         pass
 
     @abstractmethod
-    def indice_to_code(self, indices):
+    def indice_to_code(self, indice):
         pass

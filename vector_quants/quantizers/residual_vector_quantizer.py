@@ -29,18 +29,18 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
-        indices_list = []
+        indice_list = []
         loss_list = []
         x_quant = torch.zeros_like(x)
         residual = x.detach().clone()
         diff = 0
 
         for _ in range(self.num_residual):
-            # get indices
-            indices = self.latent_to_indice(residual)
+            # get indice
+            indice = self.latent_to_indice(residual)
 
             # quantize
-            residual_quant = self.indice_to_code(indices)
+            residual_quant = self.indice_to_code(indice)
 
             # compute diff
             loss_list.append(
@@ -51,15 +51,15 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
             # update
             residual = residual - residual_quant
             x_quant = x_quant + residual_quant
-            indices_list.append(indices.unsqueeze(0))
+            indice_list.append(indice.unsqueeze(0))
 
         diff = torch.mean(torch.stack(loss_list))
 
         x_quant = x + (x_quant - x).detach()
 
-        indices = torch.cat(indices_list, dim=0)
+        indice = torch.cat(indice_list, dim=0)
 
-        return x_quant, diff, indices
+        return x_quant, diff, indice
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
@@ -67,10 +67,10 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         # n, m
         dist = compute_dist(latent, self.codebook.weight)
         # n, 1
-        indices = torch.argmin(dist, dim=-1)
-        indices = unpack_one(indices, ps, "*")
+        indice = torch.argmin(dist, dim=-1)
+        indice = unpack_one(indice, ps, "*")
 
-        return indices
+        return indice
 
-    def indice_to_code(self, indices):
-        return self.codebook(indices)
+    def indice_to_code(self, indice):
+        return self.codebook(indice)
