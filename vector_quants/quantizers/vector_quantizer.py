@@ -43,9 +43,9 @@ class VectorQuantizer(BaseVectorQuantizer):
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
-        code, ps = pack_one(code, "* d")
+        latent, ps = pack_one(latent, "* d")
         # n, m
-        dist = compute_dist(code, self.codebook.weight)
+        dist = compute_dist(latent, self.codebook.weight)
         # n, 1
         indice = torch.argmin(dist, dim=-1)
         indice = unpack_one(indice, ps, "*")
