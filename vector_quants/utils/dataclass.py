@@ -34,13 +34,14 @@ class ModelConfig:
                 "Rvq",
                 "Lfq",
                 "Fsq",
+                "Raq",
             ],
         },
     )
     levels: List[int] = field(
         default_factory=lambda: [8, 5, 5, 5], metadata={"help": "FSQ levels"}
     )
-    base: int = field(default=8, metadata={"help": "Base for CVQ"})
+    base: int = field(default=8, metadata={"help": "Base for CVQ,RAQ"})
     num_levels: int = field(default=4, metadata={"help": "Number of levels for CVQ"})
     lfq_dim: int = field(default=10, metadata={"help": "Look up free quantizer dim"})
     embed_dim: int = field(

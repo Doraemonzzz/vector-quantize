@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from .base_vector_quantizer import BaseVectorQuantizer
-from .utils import pack_one, unpack_one
+from .utils import pack_one, round_ste, unpack_one
 
 
 class FiniteScalarQuantizer(BaseVectorQuantizer):
@@ -26,11 +26,6 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
     def num_embed(self):
         return self._num_embed
 
-    def round_ste(self, x):
-        """Round with straight through gradients."""
-        xhat = x.round()
-        return x + (xhat - x).detach()
-
     def forward(self, x):
         x_quant, indice = self.latent_to_code_and_indice(x)
         diff = torch.tensor(0.0).cuda().float()
@@ -39,7 +34,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
 
     def latent_to_code_and_indice(self, latent):
         d = self._levels - 1
-        number = self.round_ste(F.sigmoid(latent) * d)
+        number = round_ste(F.sigmoid(latent) * d)
         code = number / d
         indice = (number * self._basis).sum(dim=-1).to(torch.int32)
 
@@ -48,7 +43,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
-        number = self.round_ste(F.sigmoid(latent) * (self._levels - 1))
+        number = round_ste(F.sigmoid(latent) * (self._levels - 1))
         indice = (number * self._basis).sum(dim=-1).to(torch.int32)
 
         indice = unpack_one(indice, ps, "*")
@@ -78,7 +73,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
     # def latent_to_indice(self, latent):
     #     # (b, *, d) -> (n, d)
     #     latent, ps = pack_one(latent, "* d")
-    #     number = self.round_ste(F.sigmoid(latent) * (self._levels - 1))
+    #     number = round_ste(F.sigmoid(latent) * (self._levels - 1))
     #     indice = (number * self._basis).sum(dim=-1).to(torch.int32)
 
     #     indice = unpack_one(indice, ps, "*")
@@ -106,7 +101,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
     #     """Quantizes z, returns quantized zhat, same shape as z."""
     #     d = self._levels - 1
     #     # [0, L - 1] -> [0, 1]
-    #     quantized = self.round_ste(self.bound(z)) / d
+    #     quantized = round_ste(self.bound(z)) / d
     #     return quantized
 
     # def _scale(self, zhat_normalized: Tensor) -> Tensor:

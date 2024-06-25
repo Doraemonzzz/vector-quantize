@@ -6,6 +6,7 @@ from .group_vector_quantizer import GroupVectorQuantizer
 from .gumbel_vector_quantizer import GumbelVectorQuantizer
 from .hierachical_vector_quantizer import HierachicalVectorQuantizer
 from .lookup_free_quantizer import LookUpFreeQuantizer
+from .radial_quantizer import RadialQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
 from .vector_quantizer import VectorQuantizer
 
@@ -89,5 +90,7 @@ def get_quantizer(args):
         quantizer = FiniteScalarQuantizer(
             levels=args.levels,
         )
+    elif args.quantizer == "Raq":
+        quantizer = RadialQuantizer(base=args.base, embed_dim=args.embed_dim)
 
     return quantizer
