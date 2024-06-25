@@ -25,7 +25,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
     @property
     def num_embed(self):
         return self._num_embed
-    
+
     def round_ste(self, x):
         """Round with straight through gradients."""
         xhat = x.round()

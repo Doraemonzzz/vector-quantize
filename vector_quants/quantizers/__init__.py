@@ -1,13 +1,14 @@
 from .baseline import FSQ, LFQ, SFSQ, RQBottleneck, VectorQuantizeEMA
 from .carry_vector_quantizer import CarryVectorQuantizer
 from .ema_vector_quantizer import EMAVectorQuantizer
+from .finite_scalar_quantizer import FiniteScalarQuantizer
 from .group_vector_quantizer import GroupVectorQuantizer
 from .gumbel_vector_quantizer import GumbelVectorQuantizer
 from .hierachical_vector_quantizer import HierachicalVectorQuantizer
 from .lookup_free_quantizer import LookUpFreeQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
 from .vector_quantizer import VectorQuantizer
-from .finite_scalar_quantizer import FiniteScalarQuantizer
+
 
 def get_quantizer(args):
     if args.quantizer == "ema" or args.quantizer == "origin":

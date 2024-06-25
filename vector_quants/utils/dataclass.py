@@ -33,7 +33,7 @@ class ModelConfig:
                 "Cvq",
                 "Rvq",
                 "Lfq",
-                "Fsq"
+                "Fsq",
             ],
         },
     )
