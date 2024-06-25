@@ -31,21 +31,29 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def forward(self, x):
-        # get indice
-        indice = self.latent_to_indice(x)
+        # # get indice
+        # indice = self.latent_to_indice(x)
 
-        # quantize
-        x_quant = self.indice_to_code(indice)
+        # # quantize
+        # x_quant = self.indice_to_code(indice)
+
+        x_quant, indice = self.latent_to_code_and_indice(x)
 
         diff = torch.tensor(0.0).cuda().float()
         x_quant = x + (x_quant - x).detach()
 
         return x_quant, diff, indice
 
+    def latent_to_code_and_indice(self, latent):
+        mask = latent > 0
+        indice = (mask.int() * self._basis).sum(dim=-1).to(torch.int32)
+        code = torch.where(mask, self.codebook_value, -self.codebook_value)
+
+        return code, indice
+
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
-        print(self._basis, self._levels)
         indice = ((latent > 0).int() * self._basis).sum(dim=-1).to(torch.int32)
 
         indice = unpack_one(indice, ps, "*")
