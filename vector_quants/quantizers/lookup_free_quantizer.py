@@ -45,6 +45,7 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
+        print(self._basis, self._levels)
         indice = ((latent > 0).int() * self._basis).sum(dim=-1).to(torch.int32)
 
         indice = unpack_one(indice, ps, "*")
