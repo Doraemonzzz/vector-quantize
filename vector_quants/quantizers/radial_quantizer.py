@@ -45,9 +45,7 @@ class RadialQuantizer(BaseVectorQuantizer):
         # number = round_ste(
         #     (torch.arcsin(torch.sin(latent)) + torch.pi / 2) / torch.pi * d
         # )
-        number = round_ste(
-            F.sigmoid(latent) * d
-        )
+        number = round_ste(F.sigmoid(latent) * d)
         # [0, c - 1] -> [0, 1] -> [-1/2, 1/2] -> [-pi/2, pi/2]
         # code = torch.sin(torch.pi * (number / d - 0.5))
         code = number / d
