@@ -85,12 +85,17 @@ def get_quantizer(args):
     elif args.quantizer == "Lfq":
         quantizer = LookUpFreeQuantizer(
             embed_dim=args.embed_dim,
+            commitment_loss_weight=args.commitment_loss_weight,
         )
     elif args.quantizer == "Fsq":
         quantizer = FiniteScalarQuantizer(
             levels=args.levels,
         )
     elif args.quantizer == "Raq":
-        quantizer = RadialQuantizer(base=args.base, embed_dim=args.embed_dim)
+        quantizer = RadialQuantizer(
+            base=args.base,
+            embed_dim=args.embed_dim,
+            commitment_loss_weight=args.commitment_loss_weight,
+        )
 
     return quantizer

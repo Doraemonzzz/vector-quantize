@@ -1,11 +1,12 @@
 import torch
+import torch.nn.functional as F
 
 from .base_vector_quantizer import BaseVectorQuantizer
 from .utils import round_ste
 
 
 class RadialQuantizer(BaseVectorQuantizer):
-    def __init__(self, base, embed_dim, codebook_value=1):
+    def __init__(self, base, embed_dim, commitment_loss_weight=0.25):
         super().__init__()
         self.base = base
         num_levels = embed_dim
@@ -20,7 +21,7 @@ class RadialQuantizer(BaseVectorQuantizer):
         self._num_embed = self._levels.prod().item()
         self.num_levels = self._levels.shape[0]
         self.embed_dim = embed_dim
-        self.codebook_value = codebook_value
+        self.commitment_loss_weight = commitment_loss_weight
 
     def extra_repr(self):
         return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
@@ -32,8 +33,8 @@ class RadialQuantizer(BaseVectorQuantizer):
     def forward(self, x):
         x_quant, indice = self.latent_to_code_and_indice(x)
 
-        diff = torch.tensor(0.0).cuda().float()
-        x_quant = x + (x_quant - x).detach()
+        diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        # x_quant = x + (x_quant - x).detach()
 
         return x_quant, diff, indice
 
