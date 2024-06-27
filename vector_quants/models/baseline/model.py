@@ -88,14 +88,15 @@ class VQVAE(nn.Module):
         if self.args.quantizer == "ema" or self.args.quantizer == "origin":
             quant_t, diff_t, id_t = self.quantizer(logits)
             diff_t = diff_t.unsqueeze(0)
-
+            loss_dict = {"codebook_loss": diff_t}
         elif self.args.quantizer in ["fsq", "sfsq"]:
             quant_t, id_t = self.quantizer(logits)
             diff_t = torch.tensor(0.0).cuda().float()
-
+            loss_dict = {"codebook_loss": diff_t}
         elif self.args.quantizer == "lfq":
             # quantized, indices, entropy_aux_loss = quantizer(image_feats)
             quant_t, id_t, diff_t = self.quantizer(logits)
+            loss_dict = {"codebook_loss": diff_t}
         elif self.args.quantizer in [
             "rvq",
             "Vq",
@@ -111,10 +112,10 @@ class VQVAE(nn.Module):
         ]:
 
             logits = rearrange(logits, "b c h w -> b h w c")
-            quant_t, diff_t, id_t = self.quantizer(logits)
+            quant_t, id_t, loss_dict = self.quantizer(logits)
             quant_t = rearrange(quant_t, "b h w c -> b c h w")
 
-        return quant_t, diff_t, id_t
+        return quant_t, id_t, loss_dict
 
     def decode(self, code):
         return self.dec(code)

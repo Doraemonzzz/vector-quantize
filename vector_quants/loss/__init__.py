@@ -58,9 +58,10 @@ class Loss(nn.Module):
         # weight
         l1_loss_weight=1.0,
         l2_loss_weight=0.0,
-        perceptual_loss_weight=0.0,
+        perceptual_loss_weight=1.0,
         adversarial_loss_weight=0.0,
         codebook_loss_weight=1.0,
+        entropy_loss_weight=0.1,
     ):
         super().__init__()
         self.perceptual_loss = get_perceptual_loss(perceptual_loss_type)
@@ -71,30 +72,30 @@ class Loss(nn.Module):
         self.perceptual_loss_weight = perceptual_loss_weight
         self.adversarial_loss_weight = adversarial_loss_weight
         self.codebook_loss_weight = codebook_loss_weight
+        self.entropy_loss_weight = entropy_loss_weight
 
     @property
     def keys(self):
-        keys = [
+        train_keys = [
             "l1_loss",
             "l2_loss",
             "perceptual_loss",
             "adversarial_loss",
             "codebook_loss",
+            "entropy_loss",
             "loss",
-            "valid_l1_loss",
-            "valid_l2_loss",
-            "valid_perceptual_loss",
-            "valid_adversarial_loss",
-            "valid_codebook_loss",
-            "valid_loss",
         ]
+        valid_keys = ["valid_" + key for key in train_keys]
+        keys = train_keys + valid_keys
         return keys
 
-    def forward(self, codebook_loss, images, reconstructions):
+    def forward(self, images, reconstructions, **kwargs):
         l1_loss = self.compute_l1_loss(images, reconstructions)
         l2_loss = self.compute_l2_loss(images, reconstructions)
         perceptual_loss = self.compute_perceptual_loss(images, reconstructions)
         adversarial_loss = self.compute_adversarial_loss(images, reconstructions)
+        codebook_loss = kwargs["codebook_loss"]
+        entropy_loss = kwargs["entropy_loss"]
 
         loss = (
             self.l1_loss_weight * l1_loss
@@ -102,6 +103,7 @@ class Loss(nn.Module):
             + self.perceptual_loss_weight * perceptual_loss
             + self.adversarial_loss_weight * adversarial_loss
             + self.codebook_loss_weight * codebook_loss
+            + self.entropy_loss_weight * entropy_loss
         )
 
         loss_dict = {
@@ -110,6 +112,7 @@ class Loss(nn.Module):
             "perceptual_loss": perceptual_loss.cpu().item(),
             "adversarial_loss": adversarial_loss.cpu().item(),
             "codebook_loss": codebook_loss.cpu().item(),
+            "entropy_loss": entropy_loss.cpu().item(),
             "loss": loss.cpu().item(),
         }
 

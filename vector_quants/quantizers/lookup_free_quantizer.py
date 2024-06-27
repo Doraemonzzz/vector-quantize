@@ -14,9 +14,9 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
         embed_dim = cfg.embed_dim
         use_norm = cfg.use_norm
         commitment_loss_weight = cfg.commitment_loss_weight
-        entropy_loss_weight = cfg.entropy_loss_weight
         entropy_temperature = cfg.entropy_temperature
         entropy_loss_type = cfg.entropy_loss_type
+        entropy_loss_weight = cfg.entropy_loss_weight
         # get params end
 
         # construct base and levels
@@ -38,8 +38,8 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
         self.commitment_loss_weight = commitment_loss_weight
         self.use_norm = use_norm
         self.entropy_temperature = entropy_temperature
-        self.entropy_loss_weight = entropy_loss_weight
         self.entropy_loss_type = entropy_loss_type
+        self.entropy_loss_weight = entropy_loss_weight
 
         # init codebook
         self.init_codebook()
@@ -62,16 +62,21 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
 
         x_quant, indice = self.latent_to_code_and_indice(x)
 
-        diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        codebook_loss = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
 
         if self.entropy_loss_weight > 0:
-            self.entropy_loss_weight * self.entropy_loss(x)
+            entropy_loss = self.entropy_loss(x)
         else:
-            torch.tensor(0.0).cuda().float()
+            entropy_loss = torch.tensor(0.0).cuda().float()
 
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indice
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+            "entropy_loss": entropy_loss,
+        }
+
+        return x_quant, indice, loss_dict
 
     def latent_to_code_and_indice(self, latent):
         mask = latent > 0

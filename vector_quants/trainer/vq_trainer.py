@@ -104,6 +104,7 @@ class VQTrainer(BaseTrainer):
             perceptual_loss_weight=cfg_loss.perceptual_loss_weight,
             adversarial_loss_weight=cfg_loss.adversarial_loss_weight,
             codebook_loss_weight=cfg_loss.codebook_loss_weight,
+            entropy_loss_weight=cfg_model.entropy_loss_weight,
         )
         torch.distributed.barrier()
 
@@ -219,13 +220,13 @@ class VQTrainer(BaseTrainer):
                 # forward
                 input_img = input_img.cuda(torch.cuda.current_device())
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    reconstructions, codebook_loss, _ = self.model(input_img)
+                    reconstructions, indices, loss_dict = self.model(input_img)
                     input_img = self.post_transform(input_img)
                     reconstructions = self.post_transform(reconstructions)
                     loss, loss_dict = self.loss_fn(
-                        codebook_loss,
                         input_img,
                         reconstructions,
+                        **loss_dict,
                     )
 
                 # backward
@@ -312,16 +313,16 @@ class VQTrainer(BaseTrainer):
             with torch.no_grad():
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     input_img = input_img.cuda(torch.cuda.current_device())
-                    reconstructions, codebook_loss, indices = self.model(
+                    reconstructions, indices, loss_dict = self.model(
                         input_img, return_id=True
                     )
                     # rescale to [0, 1]
                     input_img = self.post_transform(input_img)
                     reconstructions = self.post_transform(reconstructions)
                     loss, loss_dict = self.loss_fn(
-                        codebook_loss,
                         input_img,
                         reconstructions,
+                        **loss_dict,
                     )
 
                 loss_dict_total = update_dict(loss_dict_total, loss_dict)
