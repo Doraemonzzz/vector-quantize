@@ -6,8 +6,15 @@ from .utils import pack_one, round_ste, unpack_one
 
 
 class FiniteScalarQuantizer(BaseVectorQuantizer):
-    def __init__(self, levels):
+    def __init__(
+        self,
+        cfg,
+    ):
         super().__init__()
+        # get params start
+        levels = cfg.levels
+        # get params end
+
         _levels = torch.tensor(levels, dtype=torch.int32)
         self.register_buffer("_levels", _levels, persistent=False)
         _basis = torch.cumprod(
@@ -19,6 +26,9 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
         self.num_levels = self._levels.shape[0]
         self.embed_dim = self._levels.shape[0]
 
+        # init codebook
+        self.init_codebook()
+
     def extra_repr(self):
         return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
 
@@ -26,11 +36,18 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
     def num_embed(self):
         return self._num_embed
 
+    def init_codebook(self):
+        codebook = self.indice_to_code(torch.arange(self.num_embed))
+        self.register_buffer("codebook", codebook, persistent=False)
+
     def forward(self, x):
         x_quant, indice = self.latent_to_code_and_indice(x)
-        diff = torch.tensor(0.0).cuda().float()
+        codebook_loss = torch.tensor(0.0).cuda().float()
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+        }
 
-        return x_quant, diff, indice
+        return x_quant, indice, loss_dict
 
     def latent_to_code_and_indice(self, latent):
         d = self._levels - 1

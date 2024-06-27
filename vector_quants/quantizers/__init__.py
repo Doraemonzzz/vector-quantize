@@ -41,9 +41,7 @@ def get_quantizer(args):
             commitment_loss_weight=args.commitment_loss_weight,
         )
     elif args.quantizer == "EmaVq":
-        quantizer = EMAVectorQuantizer(
-            args
-        )
+        quantizer = EMAVectorQuantizer(args)
     elif args.quantizer == "GumbelVq":
         quantizer = GumbelVectorQuantizer(
             num_embed=args.num_embed,
@@ -85,7 +83,8 @@ def get_quantizer(args):
         )
     elif args.quantizer == "Fsq":
         quantizer = FiniteScalarQuantizer(
-            levels=args.levels,
+            # levels=args.levels,
+            args,
         )
     elif args.quantizer == "Raq":
         quantizer = RadialQuantizer(

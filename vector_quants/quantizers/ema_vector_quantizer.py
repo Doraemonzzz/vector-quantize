@@ -7,20 +7,15 @@ from .utils import compute_dist, pack_one, unpack_one
 
 
 class EMAVectorQuantizer(BaseVectorQuantizer):
-    def __init__(
-        self,
-        cfg,
-        epsilon=1e-5
-    ):
+    def __init__(self, cfg, epsilon=1e-5):
         super().__init__()
         # get params start
         num_embed = cfg.num_embed
         embed_dim = cfg.embed_dim
         commitment_loss_weight = cfg.commitment_loss_weight
-        decay=cfg.ema_decay
+        decay = cfg.ema_decay
         # get params end
 
-        
         self._num_embed = num_embed
         self.embed_dim = embed_dim
         self.commitment_loss_weight = commitment_loss_weight
@@ -77,9 +72,8 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
         loss_dict = {
             "codebook_loss": codebook_loss,
         }
-        
 
-        return x_quant,indice, loss_dict
+        return x_quant, indice, loss_dict
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
