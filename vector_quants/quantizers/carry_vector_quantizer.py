@@ -14,8 +14,18 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
     Similar to the Hierarchical Vector Quantizer, the only difference is that it uses the same level and shares the codebook.
     """
 
-    def __init__(self, base, num_levels, embed_dim, commitment_loss_weight=0.25):
+    def __init__(
+        self,
+        cfg,
+    ):
         super().__init__()
+        # get params start
+        base = cfg.base
+        num_levels = cfg.num_levels
+        embed_dim = cfg.embed_dim
+        commitment_loss_weight = cfg.commitment_loss_weight
+        # get params end
+
         self.base = base
         levels = [base] * num_levels
         _levels = torch.tensor(levels, dtype=torch.int32)
@@ -31,11 +41,6 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         self.embed_dim = embed_dim // self._levels.shape[0]
         self.commitment_loss_weight = commitment_loss_weight
 
-        # create the codebook of the desired size
-        self.codebook_weight = nn.Parameter(
-            torch.empty(base, self.embed_dim), requires_grad=True
-        )
-
         self.init_codebook()
 
     def extra_repr(self):
@@ -46,6 +51,9 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def init_codebook(self):
+        self.codebook_weight = nn.Parameter(
+            torch.empty(self.base, self.embed_dim), requires_grad=True
+        )
         nn.init.uniform_(self.codebook_weight, -1 / self.base, 1 / self.base)
 
     def forward(self, x):
@@ -54,15 +62,18 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         # quantize
         x_quant = self.indice_to_code(indice)
+        x_quant = x + (x_quant - x).detach()
 
-        # compute diff
-        diff = F.mse_loss(
+        # compute codebook loss
+        codebook_loss = F.mse_loss(
             x_quant, x.detach()
         ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
 
-        x_quant = x + (x_quant - x).detach()
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+        }
 
-        return x_quant, diff, indice
+        return x_quant, indice, loss_dict
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)

@@ -70,10 +70,7 @@ def get_quantizer(args):
         )
     elif args.quantizer == "Cvq":
         quantizer = CarryVectorQuantizer(
-            base=args.base,
-            num_levels=args.num_levels,
-            embed_dim=args.embed_dim,
-            commitment_loss_weight=args.commitment_loss_weight,
+            args,
         )
     elif args.quantizer == "Rvq":
         quantizer = ResidualVectorQuantizer(

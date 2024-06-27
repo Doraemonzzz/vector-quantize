@@ -61,15 +61,15 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
             x = F.normalize(x, dim=-1)
 
         x_quant, indice = self.latent_to_code_and_indice(x)
+        x_quant = x + (x_quant - x).detach()
 
+        # compute codebook loss
         codebook_loss = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
 
         if self.entropy_loss_weight > 0:
             entropy_loss = self.entropy_loss(x)
         else:
             entropy_loss = torch.tensor(0.0).cuda().float()
-
-        x_quant = x + (x_quant - x).detach()
 
         loss_dict = {
             "codebook_loss": codebook_loss,

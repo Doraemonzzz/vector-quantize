@@ -94,8 +94,8 @@ class Loss(nn.Module):
         l2_loss = self.compute_l2_loss(images, reconstructions)
         perceptual_loss = self.compute_perceptual_loss(images, reconstructions)
         adversarial_loss = self.compute_adversarial_loss(images, reconstructions)
-        codebook_loss = kwargs["codebook_loss"]
-        entropy_loss = kwargs["entropy_loss"]
+        codebook_loss = kwargs.get("codebook_loss", torch.tensor(0.0).cuda().float())
+        entropy_loss = kwargs.get("entropy_loss", torch.tensor(0.0).cuda().float())
 
         loss = (
             self.l1_loss_weight * l1_loss
