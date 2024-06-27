@@ -9,21 +9,25 @@ from .utils import compute_dist, pack_one, unpack_one
 class GumbelVectorQuantizer(BaseVectorQuantizer):
     def __init__(
         self,
-        num_embed,
-        embed_dim,
-        commitment_loss_weight=0.25,
-        temp=1,
-        kl_loss_weight=5e-4,
+        cfg,
     ):
         super().__init__()
+        # get params start
+        num_embed = cfg.num_embed
+        embed_dim = cfg.embed_dim
+        commitment_loss_weight = cfg.commitment_loss_weight
+        temp = cfg.temp
+        kl_loss_weight = cfg.kl_loss_weight
+        # get params end
+
         self._num_embed = num_embed
         self.embed_dim = embed_dim
         self.commitment_loss_weight = commitment_loss_weight
         self.temp = temp
         self.kl_loss_weight = kl_loss_weight
 
-        # create the codebook of the desired size
-        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
+        # init codebook
+
         self.init_codebook()
 
     @property
@@ -31,6 +35,7 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def init_codebook(self):
+        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
@@ -39,14 +44,16 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
         # quantize
         x_quant = self.indice_to_code(indice)
+        x_quant = x + (x_quant - x).detach()
 
         # compute diff
         # diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x) + kl_loss
-        diff = kl_loss
+        codebook_loss = kl_loss
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+        }
 
-        x_quant = x + (x_quant - x).detach()
-
-        return x_quant, diff, indice
+        return x_quant, indice, loss_dict
 
     def latent_to_indice(self, latent, eps=1e-10):
         # (b, *, d) -> (n, d)

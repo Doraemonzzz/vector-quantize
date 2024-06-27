@@ -10,6 +10,19 @@ from .radial_quantizer import RadialQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
 from .vector_quantizer import VectorQuantizer
 
+QUANTIZER_DICT = {
+    "Vq": VectorQuantizer,
+    "EmaVq": EMAVectorQuantizer,
+    "GumbelVq": GumbelVectorQuantizer,
+    "Gvq": GroupVectorQuantizer,
+    "Hvq": HierachicalVectorQuantizer,
+    "Cvq": CarryVectorQuantizer,
+    "Rvq": ResidualVectorQuantizer,
+    "Lfq": LookUpFreeQuantizer,
+    "Fsq": FiniteScalarQuantizer,
+    "Raq": RadialQuantizer,
+}
+
 
 def get_quantizer(args):
     if args.quantizer == "ema" or args.quantizer == "origin":
@@ -34,47 +47,8 @@ def get_quantizer(args):
             decay=args.ema_decay,
             shared_codebook=args.shared_codebook,
         )
-    elif args.quantizer == "Vq":
-        quantizer = VectorQuantizer(
-            args,
-            # num_embed=args.num_embed,
-            # embed_dim=args.embed_dim,
-            # commitment_loss_weight=args.commitment_loss_weight,
-        )
-    elif args.quantizer == "EmaVq":
-        quantizer = EMAVectorQuantizer(args)
-    elif args.quantizer == "GumbelVq":
-        quantizer = GumbelVectorQuantizer(
-            num_embed=args.num_embed,
-            embed_dim=args.embed_dim,
-            commitment_loss_weight=args.commitment_loss_weight,
-            temp=args.temp,
-            kl_loss_weight=args.kl_loss_weight,
-        )
-    elif args.quantizer == "Gvq":
-        quantizer = GroupVectorQuantizer(
-            args,
-        )
-    elif args.quantizer == "Hvq":
-        quantizer = HierachicalVectorQuantizer(
-            args,
-        )
-    elif args.quantizer == "Cvq":
-        quantizer = CarryVectorQuantizer(
-            args,
-        )
-    elif args.quantizer == "Rvq":
-        quantizer = ResidualVectorQuantizer(
-            args,
-        )
-    elif args.quantizer == "Lfq":
-        quantizer = LookUpFreeQuantizer(args)
-    elif args.quantizer == "Fsq":
-        quantizer = FiniteScalarQuantizer(
-            args,
-        )
-    elif args.quantizer == "Raq":
-        quantizer = RadialQuantizer(
+    elif args.quantizer in QUANTIZER_DICT:
+        quantizer = QUANTIZER_DICT[args.quantizer](
             args,
         )
 
