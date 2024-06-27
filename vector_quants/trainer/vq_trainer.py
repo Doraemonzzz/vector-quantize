@@ -14,7 +14,7 @@ from vector_quants.data import get_data_loaders
 from vector_quants.logger import Logger
 from vector_quants.loss import Loss, get_post_transform
 from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
-from vector_quants.models import get_model
+from vector_quants.models import AutoVqVae
 from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
@@ -42,6 +42,7 @@ class VQTrainer(BaseTrainer):
 
         logging_info(pformat(asdict(cfg)))
 
+        self.cfg = cfg
         cfg_model = cfg.model
         cfg_train = cfg.train
         cfg_data = cfg.data
@@ -61,7 +62,7 @@ class VQTrainer(BaseTrainer):
         self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False)
 
         # 2, load model
-        self.model = get_model(cfg_model)
+        self.model = AutoVqVae.from_config(cfg_model)
 
         self.dtype = type_dict[cfg_train.dtype]
         logging_info(self.model)
@@ -204,7 +205,7 @@ class VQTrainer(BaseTrainer):
 
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
-                if num_iter == 1:
+                if num_iter == 1 and self.is_main_process:
                     torch.save(
                         {
                             "epoch": epoch,
@@ -213,9 +214,11 @@ class VQTrainer(BaseTrainer):
                             "optimizer_state_dict": self.optimizer.state_dict(),
                             "scheduler_state_dict": self.lr_scheduler.state_dict(),
                             "scaler_state_dict": self.scaler.state_dict(),
+                            "cfg": self.cfg,
                         },
                         os.path.join(self.save, f"ckpts/{epoch}.pt"),
                     )
+                    logging_info("Finish test saving.")
 
                 # forward
                 input_img = input_img.cuda(torch.cuda.current_device())
@@ -272,7 +275,7 @@ class VQTrainer(BaseTrainer):
             # save checkpoints
             if (
                 epoch % self.save_interval == 0 or (epoch == self.max_train_epochs - 1)
-            ) and self.is_main_process == 0:
+            ) and self.is_main_process:
                 torch.save(
                     {
                         "epoch": epoch + 1,  # next epoch
@@ -281,6 +284,7 @@ class VQTrainer(BaseTrainer):
                         "optimizer_state_dict": self.optimizer.state_dict(),
                         "scheduler_state_dict": self.lr_scheduler.state_dict(),
                         "scaler_state_dict": self.scaler.state_dict(),
+                        "cfg": self.cfg,
                     },
                     os.path.join(self.save, f"ckpts/{epoch}.pt"),
                 )
