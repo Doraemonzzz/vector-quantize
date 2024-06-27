@@ -8,7 +8,7 @@ from .utils import compute_dist, pack_one, unpack_one
 
 class ResidualVectorQuantizer(BaseVectorQuantizer):
     def __init__(
-        self, 
+        self,
         cfg,
     ):
         super().__init__()
@@ -18,7 +18,7 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         num_residual = cfg.num_residual
         commitment_loss_weight = cfg.commitment_loss_weight
         # get params end
-        
+
         self._num_embed = num_embed
         self.embed_dim = embed_dim
         self.num_residual = num_residual
@@ -40,7 +40,6 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         loss_list = []
         x_quant = torch.zeros_like(x)
         residual = x.detach().clone()
-        diff = 0
 
         for _ in range(self.num_residual):
             # get indice
