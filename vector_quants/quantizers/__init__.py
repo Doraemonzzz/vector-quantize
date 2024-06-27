@@ -77,9 +77,7 @@ def get_quantizer(args):
         )
     elif args.quantizer == "Raq":
         quantizer = RadialQuantizer(
-            base=args.base,
-            embed_dim=args.embed_dim,
-            commitment_loss_weight=args.commitment_loss_weight,
+            args,
         )
 
     return quantizer

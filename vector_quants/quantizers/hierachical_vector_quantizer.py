@@ -11,7 +11,6 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
     def __init__(
         self,
         cfg,
-        #  levels, embed_dim, commitment_loss_weight=0.25
     ):
         super().__init__()
         # get params start
@@ -33,11 +32,7 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
         self.embed_dim = embed_dim // self._levels.shape[0]
         self.commitment_loss_weight = commitment_loss_weight
 
-        # create the codebook of the desired size
-        self.codebook_weights = nn.ParameterList(
-            nn.Parameter(torch.empty(n, self.embed_dim), requires_grad=True)
-            for n in levels
-        )
+        # init codebook
         self.init_codebook()
 
     def extra_repr(self):
@@ -48,6 +43,10 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def init_codebook(self):
+        self.codebook_weights = nn.ParameterList(
+            nn.Parameter(torch.empty(n, self.embed_dim), requires_grad=True)
+            for n in self._levels
+        )
         for i in range(self.num_levels):
             n = self._levels[i]
             nn.init.uniform_(self.codebook_weights[i], -1 / n, 1 / n)

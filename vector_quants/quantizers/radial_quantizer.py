@@ -6,8 +6,17 @@ from .utils import round_ste
 
 
 class RadialQuantizer(BaseVectorQuantizer):
-    def __init__(self, base, embed_dim, commitment_loss_weight=0.25):
+    def __init__(
+        self,
+        cfg,
+    ):
         super().__init__()
+        # get params start
+        base = cfg.base
+        embed_dim = cfg.embed_dim
+        commitment_loss_weight = cfg.commitment_loss_weight
+        # get params end
+
         self.base = base
         num_levels = embed_dim
         levels = [base] * num_levels
@@ -23,6 +32,9 @@ class RadialQuantizer(BaseVectorQuantizer):
         self.embed_dim = embed_dim
         self.commitment_loss_weight = commitment_loss_weight
 
+        # init codebook
+        self.init_codebook()
+
     def extra_repr(self):
         return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
 
@@ -30,11 +42,19 @@ class RadialQuantizer(BaseVectorQuantizer):
     def num_embed(self):
         return self._num_embed
 
+    def init_codebook(self):
+        codebook = self.indice_to_code(torch.arange(self.num_embed))
+        self.register_buffer("codebook", codebook, persistent=False)
+
     def forward(self, x):
         x_quant, indice = self.latent_to_code_and_indice(x)
-        diff = torch.tensor(0.0).cuda().float()
+        # compute codebook loss
+        codebook_loss = torch.tensor(0.0).cuda().float()
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+        }
 
-        return x_quant, diff, indice
+        return x_quant, indice, loss_dict
 
     def latent_to_code_and_indice(self, latent):
         # x -> sin(x) -> arcsin(sin(x)) -> [-pi/2, pi/2] -> [0, 1] -> [0, c - 1]
