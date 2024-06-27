@@ -42,6 +42,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         x_quant, indice = self.latent_to_code_and_indice(x)
+        # compute codebook loss
         codebook_loss = torch.tensor(0.0).cuda().float()
         loss_dict = {
             "codebook_loss": codebook_loss,

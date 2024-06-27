@@ -52,10 +52,11 @@ def get_quantizer(args):
         )
     elif args.quantizer == "Gvq":
         quantizer = GroupVectorQuantizer(
-            num_embed=args.num_embed,
-            embed_dim=args.embed_dim,
-            num_group=args.num_group,
-            commitment_loss_weight=args.commitment_loss_weight,
+            args,
+            # num_embed=args.num_embed,
+            # embed_dim=args.embed_dim,
+            # num_group=args.num_group,
+            # commitment_loss_weight=args.commitment_loss_weight,
         )
     elif args.quantizer == "Hvq":
         quantizer = HierachicalVectorQuantizer(
