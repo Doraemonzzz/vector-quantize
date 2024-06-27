@@ -28,6 +28,7 @@ For the complete development logs, please refer to [here](./docs/develop_logs.md
 - [ ] Ema codebook loss bug.
 - [ ] Update evaluation bug.
 - [ ] Gumbel bin count bug.
+- [ ] Update residual in rvq.
 
 Metric check list.
 - [ ] fid.

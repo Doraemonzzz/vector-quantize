@@ -27,6 +27,9 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         # init codebook
         self.init_codebook()
 
+    def extra_repr(self):
+        return f"(num residual): {self.num_residual}"
+
     @property
     def num_embed(self):
         return self._num_embed

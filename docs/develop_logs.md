@@ -47,6 +47,7 @@ Loss:
 - [ ] KL loss.
 - [ ] Entropy loss.
 - [ ] Gan loss.
+- [ ] Orthogonal loss.
 
 Backbone.
 - [ ] Convnet.
@@ -57,13 +58,19 @@ Tradeoff between resolution and number of features.
 - [ ] f8, f32.
 - [ ] Multi scale like var.
 
+Others:
+- [ ] L2 normalize.
 
 ## 240624
 Todo:
 Quant Method:
-- [ ] Rvq.
-- [ ] Fsq.
-- [ ] Lfq.
+- [x] Rvq.
+- [x] Fsq.
+- [x] Lfq.
+- [x] Raq.
+
+Methods for finding the codebook:
+- [ ] Gumbel
 
 Loss:
-- [ ] Gumbel
+- [x] Entropy loss.

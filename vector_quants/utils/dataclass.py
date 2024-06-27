@@ -35,6 +35,7 @@ class ModelConfig:
                 "Lfq",
                 "Fsq",
                 "Raq",
+                "Rfsq",
             ],
         },
     )
