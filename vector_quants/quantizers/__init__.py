@@ -64,10 +64,7 @@ def get_quantizer(args):
         )
     elif args.quantizer == "Rvq":
         quantizer = ResidualVectorQuantizer(
-            num_embed=args.num_embed,
-            embed_dim=args.embed_dim,
-            num_residual=args.num_residual,
-            commitment_loss_weight=args.commitment_loss_weight,
+            args,
         )
     elif args.quantizer == "Lfq":
         quantizer = LookUpFreeQuantizer(args)

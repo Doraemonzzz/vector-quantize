@@ -8,16 +8,23 @@ from .utils import compute_dist, pack_one, unpack_one
 
 class ResidualVectorQuantizer(BaseVectorQuantizer):
     def __init__(
-        self, num_embed, embed_dim, num_residual=1, commitment_loss_weight=0.25
+        self, 
+        cfg,
     ):
         super().__init__()
+        # get params start
+        num_embed = cfg.num_embed
+        embed_dim = cfg.embed_dim
+        num_residual = cfg.num_residual
+        commitment_loss_weight = cfg.commitment_loss_weight
+        # get params end
+        
         self._num_embed = num_embed
         self.embed_dim = embed_dim
         self.num_residual = num_residual
         self.commitment_loss_weight = commitment_loss_weight
 
-        # create the codebook of the desired size
-        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
+        # init codebook
         self.init_codebook()
 
     @property
@@ -25,7 +32,7 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def init_codebook(self):
-        # nn.init.normal_(self.codebook.weight, mean=0, std=self.embed_dim**-0.5)
+        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
@@ -42,7 +49,7 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
             # quantize
             residual_quant = self.indice_to_code(indice)
 
-            # compute diff
+            # compute codebook loss
             loss_list.append(
                 F.mse_loss(residual_quant, x.detach())
                 + self.commitment_loss_weight * F.mse_loss(residual_quant.detach(), x)
@@ -53,13 +60,15 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
             x_quant = x_quant + residual_quant
             indice_list.append(indice.unsqueeze(0))
 
-        diff = torch.mean(torch.stack(loss_list))
+        loss_dict = {
+            "codebook_loss": torch.mean(torch.stack(loss_list)),
+        }
 
         x_quant = x + (x_quant - x).detach()
 
         indice = torch.cat(indice_list, dim=0)
 
-        return x_quant, diff, indice
+        return x_quant, indice, loss_dict
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
