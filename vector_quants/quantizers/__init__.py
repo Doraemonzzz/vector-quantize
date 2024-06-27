@@ -53,16 +53,10 @@ def get_quantizer(args):
     elif args.quantizer == "Gvq":
         quantizer = GroupVectorQuantizer(
             args,
-            # num_embed=args.num_embed,
-            # embed_dim=args.embed_dim,
-            # num_group=args.num_group,
-            # commitment_loss_weight=args.commitment_loss_weight,
         )
     elif args.quantizer == "Hvq":
         quantizer = HierachicalVectorQuantizer(
-            levels=args.levels,
-            embed_dim=args.embed_dim,
-            commitment_loss_weight=args.commitment_loss_weight,
+            args,
         )
     elif args.quantizer == "Cvq":
         quantizer = CarryVectorQuantizer(
@@ -76,15 +70,9 @@ def get_quantizer(args):
             commitment_loss_weight=args.commitment_loss_weight,
         )
     elif args.quantizer == "Lfq":
-        quantizer = LookUpFreeQuantizer(
-            # embed_dim=args.embed_dim,
-            # commitment_loss_weight=args.commitment_loss_weight,
-            # use_norm=args.use_norm,
-            args
-        )
+        quantizer = LookUpFreeQuantizer(args)
     elif args.quantizer == "Fsq":
         quantizer = FiniteScalarQuantizer(
-            # levels=args.levels,
             args,
         )
     elif args.quantizer == "Raq":

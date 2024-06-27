@@ -8,8 +8,17 @@ from .utils import compute_dist, pack_one, unpack_one
 
 
 class HierachicalVectorQuantizer(BaseVectorQuantizer):
-    def __init__(self, levels, embed_dim, commitment_loss_weight=0.25):
+    def __init__(
+        self,
+        cfg,
+        #  levels, embed_dim, commitment_loss_weight=0.25
+    ):
         super().__init__()
+        # get params start
+        levels = cfg.levels
+        embed_dim = cfg.embed_dim
+        commitment_loss_weight = cfg.commitment_loss_weight
+        # get params end
 
         _levels = torch.tensor(levels, dtype=torch.int32)
         self.register_buffer("_levels", _levels, persistent=False)
@@ -49,15 +58,17 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
 
         # quantize
         x_quant = self.indice_to_code(indice)
-
-        # compute diff
-        diff = F.mse_loss(
-            x_quant, x.detach()
-        ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
-
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indice
+        # compute codebook loss
+        codebook_loss = F.mse_loss(
+            x_quant, x.detach()
+        ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+        }
+
+        return x_quant, indice, loss_dict
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
