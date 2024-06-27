@@ -32,9 +32,6 @@ class RadialQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         x_quant, indice = self.latent_to_code_and_indice(x)
-        # loss不降 => 不用diff loss
-        # diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
-        # x_quant = x + (x_quant - x).detach()
         diff = torch.tensor(0.0).cuda().float()
 
         return x_quant, diff, indice
@@ -42,10 +39,6 @@ class RadialQuantizer(BaseVectorQuantizer):
     def latent_to_code_and_indice(self, latent):
         # x -> sin(x) -> arcsin(sin(x)) -> [-pi/2, pi/2] -> [0, 1] -> [0, c - 1]
         d = self._levels - 1
-        # grad nan
-        # number = round_ste(
-        #     (torch.arcsin(torch.sin(latent)) + torch.pi / 2) / torch.pi * d
-        # )
         number = round_ste(F.sigmoid(latent) * d)
         # [0, c - 1] -> [0, 1] -> [-1/2, 1/2] -> [-pi/2, pi/2]
         code = torch.sin(torch.pi * (number / d - 0.5))

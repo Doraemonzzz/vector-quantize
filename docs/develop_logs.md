@@ -10,7 +10,7 @@ Raq debug:
 ```
 diff = 0, number = round_ste(F.sigmoid(latent) * d), code = number / d => ok
 diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x), number = round_ste(F.sigmoid(latent) * d), code = number / d => no ok
-diff = 0, number = round_ste(F.sigmoid(latent) * d), code = torch.sin(torch.pi * (number / d - 0.5)) =>
+diff = 0, number = round_ste(F.sigmoid(latent) * d), code = torch.sin(torch.pi * (number / d - 0.5)) => ok
 ```
 
 Lfq debug:
