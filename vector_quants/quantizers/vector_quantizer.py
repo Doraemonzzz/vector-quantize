@@ -22,7 +22,6 @@ class VectorQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def init_codebook(self):
-        # nn.init.normal_(self.codebook.weight, mean=0, std=self.embed_dim**-0.5)
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
