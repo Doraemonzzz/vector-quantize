@@ -42,10 +42,7 @@ def get_quantizer(args):
         )
     elif args.quantizer == "EmaVq":
         quantizer = EMAVectorQuantizer(
-            num_embed=args.num_embed,
-            embed_dim=args.embed_dim,
-            commitment_loss_weight=args.commitment_loss_weight,
-            decay=args.ema_decay,
+            args
         )
     elif args.quantizer == "GumbelVq":
         quantizer = GumbelVectorQuantizer(

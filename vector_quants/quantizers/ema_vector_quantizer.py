@@ -9,21 +9,24 @@ from .utils import compute_dist, pack_one, unpack_one
 class EMAVectorQuantizer(BaseVectorQuantizer):
     def __init__(
         self,
-        num_embed,
-        embed_dim,
-        commitment_loss_weight=0.25,
-        decay=0.99,
-        epsilon=1e-5,
+        cfg,
+        epsilon=1e-5
     ):
         super().__init__()
+        # get params start
+        num_embed = cfg.num_embed
+        embed_dim = cfg.embed_dim
+        commitment_loss_weight = cfg.commitment_loss_weight
+        decay=cfg.ema_decay
+        # get params end
+
+        
         self._num_embed = num_embed
         self.embed_dim = embed_dim
         self.commitment_loss_weight = commitment_loss_weight
         self.decay = decay
         self.epsilon = epsilon
 
-        # create the codebook of the desired size
-        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
         # ema parameters
         # ema usage count: total count of each embedding trough epochs
         self.register_buffer("ema_count", torch.zeros(num_embed))
@@ -40,6 +43,7 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def init_codebook(self):
+        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
         self.codebook.requires_grad_(False)
 
@@ -49,6 +53,7 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
 
         # quantize
         x_quant = self.indice_to_code(indice)
+        x_quant = x + (x_quant - x).detach()
 
         if self.training:
             # Laplace smoothing of the ema count(avoid zero)
@@ -67,12 +72,14 @@ class EMAVectorQuantizer(BaseVectorQuantizer):
             # use .data!!! otherwise will oom
             self.codebook.weight.data = self.ema_weight / ema_count.unsqueeze(-1)
 
-        # compute diff
-        diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        # compute codebook loss
+        codebook_loss = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+        }
+        
 
-        x_quant = x + (x_quant - x).detach()
-
-        return x_quant, diff, indice
+        return x_quant,indice, loss_dict
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
