@@ -84,9 +84,10 @@ def get_quantizer(args):
         )
     elif args.quantizer == "Lfq":
         quantizer = LookUpFreeQuantizer(
-            embed_dim=args.embed_dim,
-            commitment_loss_weight=args.commitment_loss_weight,
-            use_norm=args.use_norm,
+            # embed_dim=args.embed_dim,
+            # commitment_loss_weight=args.commitment_loss_weight,
+            # use_norm=args.use_norm,
+            args
         )
     elif args.quantizer == "Fsq":
         quantizer = FiniteScalarQuantizer(

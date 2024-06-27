@@ -57,11 +57,17 @@ class ModelConfig:
         default=1, metadata={"help": "The number residual of VQVAE's codebook"}
     )
     model_name: str = field(default="baseline", metadata={"help": "Model name"})
+    # loss weight
     entropy_loss_weight: float = field(
         default=0.0, metadata={"help": "Entropy loss weight"}
     )
     commitment_loss_weight: float = field(
         default=0.0, metadata={"help": "Commitment loss weight"}
+    )
+    kl_loss_weight: float = field(default=5e-4, metadata={"help": "KL loss weight"})
+    # for lfq
+    codebook_value: float = field(
+        default=1.0, metadata={"help": "Codebook value for lfq"}
     )
     # for rq
     ema_decay: float = field(default=0.99, metadata={"help": "Ema decay for codebook"})
@@ -76,7 +82,21 @@ class ModelConfig:
         default=1.0,
         metadata={"help": "Non-negative scalar temperature for gumbel softmax"},
     )
-    kl_loss_weight: float = field(default=5e-4, metadata={"help": "KL loss weight"})
+    # entropy loss
+    entropy_loss_weight: float = field(
+        default=0.1, metadata={"help": "Entropy loss weight"}
+    )
+    entropy_temperature: float = field(
+        default=1.0,
+        metadata={"help": "Non-negative scalar temperature for entropy loss"},
+    )
+    entropy_loss_type: str = field(
+        default="softmax",
+        metadata={
+            "help": "Use which entropy",
+            "choices": ["softmax", "argmax"],
+        },
+    )
     use_norm: bool = field(
         default=True, metadata={"help": "Whether to use normalize in Quantizer"}
     )

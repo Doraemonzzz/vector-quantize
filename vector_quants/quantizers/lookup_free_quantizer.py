@@ -6,11 +6,20 @@ from .utils import pack_one, unpack_one
 
 
 class LookUpFreeQuantizer(BaseVectorQuantizer):
-    def __init__(
-        self, embed_dim, codebook_value=1.0, commitment_loss_weight=0.25, use_norm=True
-    ):
+    def __init__(self, cfg):
         super().__init__()
+        # get params start
         base = 2
+        codebook_value = cfg.codebook_value
+        embed_dim = cfg.embed_dim
+        use_norm = cfg.use_norm
+        commitment_loss_weight = cfg.commitment_loss_weight
+        entropy_loss_weight = cfg.entropy_loss_weight
+        entropy_temperature = cfg.entropy_temperature
+        entropy_loss_type = cfg.entropy_loss_type
+        # get params end
+
+        # construct base and levels
         self.base = base
         num_levels = embed_dim
         levels = [base] * num_levels
@@ -21,12 +30,19 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
         )
         self.register_buffer("_basis", _basis, persistent=False)
 
+        # other params
         self._num_embed = self._levels.prod().item()
         self.num_levels = self._levels.shape[0]
         self.embed_dim = embed_dim
         self.codebook_value = codebook_value
         self.commitment_loss_weight = commitment_loss_weight
         self.use_norm = use_norm
+        self.entropy_temperature = entropy_temperature
+        self.entropy_loss_weight = entropy_loss_weight
+        self.entropy_loss_type = entropy_loss_type
+
+        # init codebook
+        self.init_codebook()
 
     def extra_repr(self):
         return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
@@ -35,13 +51,11 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
     def num_embed(self):
         return self._num_embed
 
+    def init_codebook(self):
+        codebook = self.indice_to_code(torch.arange(self.num_embed))
+        self.register_buffer("codebook", codebook, persistent=False)
+
     def forward(self, x):
-        # # get indice
-        # indice = self.latent_to_indice(x)
-
-        # # quantize
-        # x_quant = self.indice_to_code(indice)
-
         # add normalize
         if self.use_norm:
             x = F.normalize(x, dim=-1)
@@ -49,6 +63,12 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
         x_quant, indice = self.latent_to_code_and_indice(x)
 
         diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+
+        if self.entropy_loss_weight > 0:
+            self.entropy_loss_weight * self.entropy_loss(x)
+        else:
+            torch.tensor(0.0).cuda().float()
+
         x_quant = x + (x_quant - x).detach()
 
         return x_quant, diff, indice
