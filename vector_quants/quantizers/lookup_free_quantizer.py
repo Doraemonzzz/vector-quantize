@@ -6,7 +6,9 @@ from .utils import pack_one, unpack_one
 
 
 class LookUpFreeQuantizer(BaseVectorQuantizer):
-    def __init__(self, embed_dim, codebook_value=1.0, commitment_loss_weight=0.25):
+    def __init__(
+        self, embed_dim, codebook_value=1.0, commitment_loss_weight=0.25, use_norm=True
+    ):
         super().__init__()
         base = 2
         self.base = base
@@ -24,6 +26,7 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
         self.embed_dim = embed_dim
         self.codebook_value = codebook_value
         self.commitment_loss_weight = commitment_loss_weight
+        self.use_norm = use_norm
 
     def extra_repr(self):
         return f"(num embedding): {self.num_embed}\n(embed size): {self.embed_dim}"
@@ -38,6 +41,10 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
 
         # # quantize
         # x_quant = self.indice_to_code(indice)
+
+        # add normalize
+        if self.use_norm:
+            x = F.normalize(x, dim=-1)
 
         x_quant, indice = self.latent_to_code_and_indice(x)
 

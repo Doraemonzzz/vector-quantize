@@ -77,6 +77,9 @@ class ModelConfig:
         metadata={"help": "Non-negative scalar temperature for gumbel softmax"},
     )
     kl_loss_weight: float = field(default=5e-4, metadata={"help": "KL loss weight"})
+    use_norm: bool = field(
+        default=True, metadata={"help": "Whether to use normalize in Quantizer"}
+    )
 
 
 @dataclass
