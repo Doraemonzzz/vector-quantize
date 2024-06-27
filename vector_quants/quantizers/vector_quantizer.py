@@ -7,14 +7,22 @@ from .utils import compute_dist, pack_one, unpack_one
 
 
 class VectorQuantizer(BaseVectorQuantizer):
-    def __init__(self, num_embed, embed_dim, commitment_loss_weight=0.25):
+    def __init__(
+        self,
+        cfg,
+    ):
         super().__init__()
+        # get params start
+        num_embed = cfg.num_embed
+        embed_dim = cfg.embed_dim
+        commitment_loss_weight = cfg.commitment_loss_weight
+        # get params end
+
         self._num_embed = num_embed
         self.embed_dim = embed_dim
         self.commitment_loss_weight = commitment_loss_weight
 
-        # create the codebook of the desired size
-        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
+        # init codebook
         self.init_codebook()
 
     @property
@@ -22,6 +30,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         return self._num_embed
 
     def init_codebook(self):
+        self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
@@ -30,15 +39,17 @@ class VectorQuantizer(BaseVectorQuantizer):
 
         # quantize
         x_quant = self.indice_to_code(indice)
-
-        # compute diff
-        diff = F.mse_loss(
-            x_quant, x.detach()
-        ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
-
         x_quant = x + (x_quant - x).detach()
 
-        return x_quant, diff, indice
+        # compute codebook loss
+        codebook_loss = F.mse_loss(
+            x_quant, x.detach()
+        ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        loss_dict = {
+            "codebook_loss": codebook_loss,
+        }
+
+        return x_quant, indice, loss_dict
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)

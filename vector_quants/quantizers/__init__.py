@@ -36,9 +36,10 @@ def get_quantizer(args):
         )
     elif args.quantizer == "Vq":
         quantizer = VectorQuantizer(
-            num_embed=args.num_embed,
-            embed_dim=args.embed_dim,
-            commitment_loss_weight=args.commitment_loss_weight,
+            args,
+            # num_embed=args.num_embed,
+            # embed_dim=args.embed_dim,
+            # commitment_loss_weight=args.commitment_loss_weight,
         )
     elif args.quantizer == "EmaVq":
         quantizer = EMAVectorQuantizer(args)
