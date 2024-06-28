@@ -39,7 +39,6 @@ class VectorQuantizer(BaseVectorQuantizer):
 
         # quantize
         x_quant = self.indice_to_code(indice)
-        x_quant = x + (x_quant - x).detach()
 
         # compute codebook loss
         codebook_loss = F.mse_loss(
@@ -49,6 +48,8 @@ class VectorQuantizer(BaseVectorQuantizer):
         loss_dict = {
             "codebook_loss": codebook_loss,
         }
+
+        x_quant = x + (x_quant - x).detach()
 
         return x_quant, indice, loss_dict
 

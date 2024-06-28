@@ -44,7 +44,6 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
         # quantize
         x_quant = self.indice_to_code(indice)
-        x_quant = x + (x_quant - x).detach()
 
         # compute diff
         # diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x) + kl_loss
@@ -52,6 +51,8 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         loss_dict = {
             "codebook_loss": codebook_loss,
         }
+
+        x_quant = x + (x_quant - x).detach()
 
         return x_quant, indice, loss_dict
 
