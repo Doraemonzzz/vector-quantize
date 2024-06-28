@@ -7,8 +7,6 @@ from typing import List, Optional
 from omegaconf import OmegaConf
 from simple_parsing import ArgumentParser
 
-from .utils import get_num_embed
-
 
 @dataclass
 class ModelConfig:
@@ -332,22 +330,11 @@ def process_args(args):
     output_name = args.train.output_name
     if output_name is None:
         output_name = f"{args.model.quantizer}-is{args.data.img_size}-bs{total_batch_size}-lr{args.train.lr}-wd{args.train.weight_decay}"
-    save = f"{args.train.output_dir}/{output_name}"
-    postfix = ""
+    args.train.save = f"{args.train.output_dir}/{output_name}"
     quantizer = args.model.quantizer
 
-    if quantizer == "lfq":
-        args.model.embed_dim = args.model.lfq_dim
-        postfix = f"-entropy_weights-{args.loss.entropy_loss_weight}-codebook_weights-{args.loss.codebook_loss_weight}-lfq_dim-{args.model.lfq_dim}"
-
-    elif quantizer in ["fsq", "sfsq", "Fsq"]:
+    if quantizer in ["Cvq", "Fsq", "Rfsq"]:
         args.model.embed_dim = len(args.model.levels)
-        postfix = f"-num_embed-{get_num_embed(args.model)}"
-
-    else:
-        postfix = f"-num_embed-{get_num_embed(args.model)}"
-
-    args.train.save = save + postfix
 
     return args
 

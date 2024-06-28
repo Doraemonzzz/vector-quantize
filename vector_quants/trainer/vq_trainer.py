@@ -20,7 +20,6 @@ from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
     compute_grad_norm,
     get_metrics_list,
-    get_num_embed,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
@@ -42,7 +41,6 @@ class VQTrainer(BaseTrainer):
 
         logging_info(pformat(asdict(cfg)))
 
-        self.cfg = cfg
         cfg_model = cfg.model
         cfg_train = cfg.train
         cfg_data = cfg.data
@@ -54,8 +52,6 @@ class VQTrainer(BaseTrainer):
         cfg_train.distributed = True
         cfg_train.gpu = int(os.environ["LOCAL_RANK"])
         cfg_train.world_size = int(os.environ["WORLD_SIZE"])
-
-        mkdir_ckpt_dirs(cfg_train)
 
         # 1, load dataset
         self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
@@ -110,7 +106,7 @@ class VQTrainer(BaseTrainer):
         torch.distributed.barrier()
 
         # 5. resume
-        self.start_epoch, self.num_iter = self.resume(cfg_train.ckpt_path)
+        self.start_epoch, self.num_iter = self.resume(cfg_train.ckpt_path_stage1)
         logging_info(f"Start epoch: {self.start_epoch}")
 
         num_embed = self.model.num_embed
@@ -125,7 +121,7 @@ class VQTrainer(BaseTrainer):
             device=torch.cuda.current_device(),
         )
 
-        self.num_embed = num_embed if num_embed != -1 else get_num_embed(cfg_model)
+        self.num_embed = num_embed
         self.codebook_metric = CodeBookMetric(self.num_embed)
 
         # logger
@@ -142,7 +138,15 @@ class VQTrainer(BaseTrainer):
             wandb_cache_dir=cfg_train.wandb_cache_dir,
         )
 
+        # save dir
+        # update save here !!!!
+        cfg.train.save = cfg.train.save + f"-num_embed-{self.num_embed}"
+        cfg_train.save = cfg.train.save
+        # update save here !!!!
+        mkdir_ckpt_dirs(cfg_train)
+
         # other params
+        self.cfg = cfg
         self.max_train_epochs = cfg_train.max_train_epochs
         self.log_interval = cfg_train.log_interval
         self.eval_interval = cfg_train.eval_interval
@@ -153,6 +157,7 @@ class VQTrainer(BaseTrainer):
             cfg_loss.post_transform_type, data_set=cfg_data.data_set
         )
         self.clip_grad = cfg_train.clip_grad
+        self.cfg = cfg
 
     @property
     def is_main_process(self):

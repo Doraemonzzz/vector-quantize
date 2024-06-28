@@ -166,18 +166,6 @@ def print_dict(res_dict):
         logging_info(f"{key}: {res_dict[key]}")
 
 
-def get_num_embed(args):
-    if args.quantizer in ["ema", "origin"]:
-        result = args.num_embed
-    else:
-        result = 1
-        for x in args.levels:
-            result = result * x
-        return result
-
-    return result
-
-
 def get_metrics_list(metrics_list):
     if metrics_list == "":
         return []

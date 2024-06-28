@@ -20,7 +20,6 @@ from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
     compute_grad_norm,
     get_metrics_list,
-    get_num_embed,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
@@ -43,7 +42,7 @@ class ARTrainer(BaseTrainer):
         logging_info(pformat(asdict(cfg)))
 
         self.cfg = cfg
-        cfg_model = cfg.model
+        cfg.model
         cfg_model_stage2 = cfg.model_stage2
         cfg_train = cfg.train
         cfg_data = cfg.data
@@ -124,7 +123,7 @@ class ARTrainer(BaseTrainer):
             device=torch.cuda.current_device(),
         )
 
-        self.num_embed = num_embed if num_embed != -1 else get_num_embed(cfg_model)
+        self.num_embed = num_embed
         self.codebook_metric = CodeBookMetric(self.num_embed)
 
         # logger
