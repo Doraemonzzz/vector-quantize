@@ -125,6 +125,7 @@ It seems that there are no major issues with mixed-precision training under fsq,
 3. https://github.com/zh460045050/VQGAN-LC/
 4. https://github.com/kakaobrain/rq-vae-transformer/
 5. https://github.com/SerezD/vqvae-vqgan-pytorch-lightning
+6. https://github.com/dome272/VQGAN-pytorch
 
 
 ## Reference
