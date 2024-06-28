@@ -104,6 +104,55 @@ class ModelConfig:
 
 
 @dataclass
+class ModelStage2Config:
+    model_name: str = field(default="llama", metadata={"help": "Model name for stage2"})
+    vocab_size: int = field(default=1024, metadata={"help": "Size of codebook"})
+    embed_dim: int = field(
+        default=512, metadata={"help": "The embedding dimension of stage2 model"}
+    )
+    mid_dim: int = field(
+        default=512, metadata={"help": "The mid dimension of stage2 model"}
+    )
+    num_layers: int = field(
+        default=12, metadata={"help": "The number of layers of stage2 model"}
+    )
+    num_heads: int = field(
+        default=4, metadata={"help": "Number of heads in attention/linear attention"}
+    )
+    kv_heads: int = field(
+        default=-1,
+        metadata={
+            "help": "Number of kv heads in attention/linear attention, only use this in MQA,GQA"
+        },
+    )
+    bias: bool = field(
+        default=False, metadata={"help": "Whether use bias in nn.linear or not"}
+    )
+    use_lrpe: bool = field(default=True, metadata={"help": "Whether use lrpe or not"})
+    lrpe_type: int = field(
+        default=1, metadata={"help": "Lrpe type for attentin/linear attention"}
+    )
+    base: int = field(default=1000, metadata={"help": "Lrpe base"})
+    norm_type: str = field(
+        default="layernorm",
+        metadata={
+            "help": "Normalization type",
+            "choices": ["layernorm", "simplermsnorm"],
+        },
+    )
+
+    glu_activation: str = field(
+        default="swish",
+        metadata={
+            "help": "Activation function type",
+            "choices": [
+                "swish",
+            ],
+        },
+    )
+
+
+@dataclass
 class TrainingConfig:
     experiment_name: str = field(
         default="VQVAE",
@@ -181,6 +230,9 @@ class TrainingConfig:
     ckpt_path: Optional[str] = field(
         default=None, metadata={"help": "Path to checkpoint path"}
     )
+    ckpt_path_stage2: Optional[str] = field(
+        default=None, metadata={"help": "Path to checkpoint path of stage2"}
+    )
     eval_only: bool = field(default=False, metadata={"help": "Evaluation only"})
     eval_interval: int = field(default=5, metadata={"help": "Evaluation interval"})
     use_wandb: bool = field(default=False, metadata={"help": "Use wandb"})
@@ -215,6 +267,7 @@ class DataConfig:
     num_workers: int = field(
         default=8, metadata={"help": "Number of workers to use for dataloading"}
     )
+    use_lrpe: bool = field(default=True, metadata={"help": "Whether use lrpe or not"})
 
 
 @dataclass
@@ -249,6 +302,7 @@ class Config:
     train: TrainingConfig = TrainingConfig()
     data: DataConfig = DataConfig()
     loss: LossConfig = LossConfig()
+    model_stage2: ModelStage2Config = ModelStage2Config()
     cfg_path: str = field(default="", metadata={"help": "Config path"})
 
 

@@ -6,6 +6,7 @@ DATASET_CONFIGS = {
         "std": (0.3081, 0.3081, 0.3081),
         "samples": 60000,
         "data_keys": ["image", "label"],
+        "num_class": 10,
     },
     "cifar10": {
         "image_size": 32,
@@ -13,6 +14,7 @@ DATASET_CONFIGS = {
         "std": (0.2470, 0.2435, 0.2616),
         "samples": 50000,
         "data_keys": ["img", "label"],
+        "num_class": 10,
     },
     "cifar100": {
         "image_size": 32,
@@ -20,6 +22,7 @@ DATASET_CONFIGS = {
         "std": (0.2675, 0.2565, 0.2761),
         "samples": 50000,
         "data_keys": ["img", "fine_label"],
+        "num_class": 100,
     },
     "imagenet-1k": {
         "image_size": 224,
@@ -27,6 +30,7 @@ DATASET_CONFIGS = {
         "std": (0.229, 0.224, 0.225),
         "samples": 1281167,
         "data_keys": ["image", "label"],
+        "num_class": 1000,
     },
     "celeba-hq": {
         "image_size": 256,

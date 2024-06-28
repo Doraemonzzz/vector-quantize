@@ -8,7 +8,7 @@ AUTO_VQVAE_MAPPING = {"baseline": VQVAE}
 
 def get_state_dict(path):
     pkg = torch.load(path, map_location="cpu")
-
+    print(pkg.keys())
     assert (
         "cfg" in pkg or "model_cfg" in pkg
     ), "At least one of cfg or model_cfg must be included in the ckpt."
@@ -25,9 +25,6 @@ def get_state_dict(path):
 class AutoVqVae:
     @classmethod
     def from_config(cls, vqvae_config, **kwargs):
-        if isinstance(vqvae_config, dict):
-            vqvae_config = AutoVectorQuantizationConfig.from_dict(vqvae_config)
-
         model_name = vqvae_config.model_name
 
         if model_name not in AUTO_VQVAE_MAPPING.keys():
