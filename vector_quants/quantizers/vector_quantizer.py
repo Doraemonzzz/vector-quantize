@@ -51,7 +51,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         codebook_loss = F.mse_loss(
             x_quant, x.detach()
         ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
-        
+
         if self.entropy_loss_weight > 0:
             entropy_loss = self.entropy_loss(x)
         else:
@@ -61,7 +61,6 @@ class VectorQuantizer(BaseVectorQuantizer):
             "codebook_loss": codebook_loss,
             "entropy_loss": entropy_loss,
         }
-
 
         return x_quant, indice, loss_dict
 
