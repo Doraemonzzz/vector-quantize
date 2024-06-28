@@ -37,12 +37,12 @@ class BaseVectorQuantizer(ABC, nn.Module):
         ), "At least one of latent or dist needs to be specified."
         if dist is None:
             if isinstance(self.codebook, nn.Module):
-                self.codebook.weight
+                codebook = self.codebook.weight
             else:
-                self.codebook
+                codebook = self.codebook
             # (b, *, d) -> (n, d)
             latent, ps = pack_one(latent, "* d")
-            dist = compute_dist(latent, self.codebook)
+            dist = compute_dist(latent, codebook)
 
         loss = entropy_loss(dist, self.entropy_temperature, self.entropy_loss_type)
 
