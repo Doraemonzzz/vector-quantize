@@ -16,17 +16,11 @@ class VectorQuantizer(BaseVectorQuantizer):
         num_embed = cfg.num_embed
         embed_dim = cfg.embed_dim
         commitment_loss_weight = cfg.commitment_loss_weight
-        entropy_temperature = cfg.entropy_temperature
-        entropy_loss_type = cfg.entropy_loss_type
-        entropy_loss_weight = cfg.entropy_loss_weight
         # get params end
 
         self._num_embed = num_embed
         self.embed_dim = embed_dim
         self.commitment_loss_weight = commitment_loss_weight
-        self.entropy_temperature = entropy_temperature
-        self.entropy_loss_type = entropy_loss_type
-        self.entropy_loss_weight = entropy_loss_weight
 
         # init codebook
         self.init_codebook()
@@ -52,14 +46,8 @@ class VectorQuantizer(BaseVectorQuantizer):
             x_quant, x.detach()
         ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
 
-        if self.entropy_loss_weight > 0:
-            entropy_loss = self.entropy_loss(x)
-        else:
-            entropy_loss = torch.tensor(0.0).cuda().float()
-
         loss_dict = {
             "codebook_loss": codebook_loss,
-            "entropy_loss": entropy_loss,
         }
 
         return x_quant, indice, loss_dict
