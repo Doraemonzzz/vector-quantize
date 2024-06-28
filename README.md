@@ -122,6 +122,9 @@ It seems that there are no major issues with mixed-precision training under fsq,
 
 1. Our code is adapt from [FSQ-pytorch](https://github.com/duchenzhuang/FSQ-pytorch), and we would like to thank these teams for their selfless sharing.
 2. https://github.com/karpathy/deep-vector-quantization for origin VQVAE.
+3. https://github.com/zh460045050/VQGAN-LC/
+4. https://github.com/kakaobrain/rq-vae-transformer/
+5. https://github.com/SerezD/vqvae-vqgan-pytorch-lightning
 
 
 ## Reference
