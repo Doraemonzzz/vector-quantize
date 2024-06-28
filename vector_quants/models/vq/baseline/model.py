@@ -73,17 +73,14 @@ class VQVAE(nn.Module):
             return -1
 
     def forward(self, input, return_id=True):
-        (
-            quant_t,
-            diff,
-            id_t,
-        ) = self.encode(input)
+        (quant_t, id_t, loss_dict) = self.encode_(input)
         dec = self.dec(quant_t)
-        if return_id:
-            return dec, diff, id_t
-        return dec, diff, _
 
-    def encode(self, input):
+        if return_id:
+            return dec, id_t, loss_dict
+        return dec, loss_dict, _
+
+    def encode_(self, input):
         logits = self.enc(input)
         if self.args.quantizer == "ema" or self.args.quantizer == "origin":
             quant_t, diff_t, id_t = self.quantizer(logits)
@@ -118,12 +115,15 @@ class VQVAE(nn.Module):
 
         return quant_t, id_t, loss_dict
 
-    def decode(self, code):
-        return self.dec(code)
+    def encode(self, input):
+        latent = self.enc(input)
+        latent = rearrange(latent, "b c h w -> b h w c")
+        indice = self.quantizer.latent_to_indice(latent)
 
-    def decode_code(self, code_t):
-        quant_t = self.quantizer.embed_code(code_t)
-        quant_t = quant_t.permute(0, 3, 1, 2)
-        dec = self.dec(quant_t)
+        return indice
 
-        return dec
+    def decode(self, indice):
+        code = self.quantizer.indice_to_code(indice)
+        output = self.dec(code)
+
+        return output

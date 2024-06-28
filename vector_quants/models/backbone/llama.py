@@ -1,4 +1,6 @@
+import torch
 import torch.nn as nn
+from einops import repeat
 from xmixers.models import LlamaLayer
 from xmixers.modules import get_norm_fn
 
@@ -35,14 +37,12 @@ class LlamaModel(nn.Module):
     ):
         b = x.shape[0]
         if y == None:
-            y = repeat(torch.tensor([self.num_embed]).cuda(), "... -> b ...", b=b)
+            y = repeat(torch.tensor([self.num_embed - 1]).cuda(), "... -> b ...", b=b)
 
         # (b, *)
         x, ps = pack_one(x, "b *")
-
-        token = torch.cat([y, x], dim=0)
+        token = torch.cat([y, x], dim=-1)
         hidden_states = self.embed_tokens(token)
-
         for idx, layer in enumerate(self.layers):
             layer_outputs = layer(
                 hidden_states,
@@ -51,8 +51,7 @@ class LlamaModel(nn.Module):
             hidden_states = layer_outputs[0]
 
         hidden_states = self.final_norm(hidden_states)
-        logits = self.lm_head(hidden_states)
-
-        logits = unpack_one(logits, ps, "*")
+        logits = self.lm_head(hidden_states)[:, :-1]
+        logits = unpack_one(logits, ps, "b * d")
 
         return logits

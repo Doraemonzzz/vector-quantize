@@ -227,7 +227,7 @@ class TrainingConfig:
     output_dir: str = field(default="checkpoints", metadata={"help": "Output dir"})
     output_name: Optional[str] = field(default=None, metadata={"help": "Output name"})
     loss_type: int = field(default=1, metadata={"help": "Loss type"})
-    ckpt_path: Optional[str] = field(
+    ckpt_path_stage1: Optional[str] = field(
         default=None, metadata={"help": "Path to checkpoint path"}
     )
     ckpt_path_stage2: Optional[str] = field(

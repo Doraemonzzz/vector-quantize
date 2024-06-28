@@ -63,13 +63,16 @@ class ARTrainer(BaseTrainer):
         self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False)
 
         # 2, load model
-        self.vqvae = AutoVqVae.from_pretrained(cfg_train.ckpt_path)
+        self.dtype = type_dict[cfg_train.dtype]
+        self.vqvae = AutoVqVae.from_pretrained(cfg_train.ckpt_path_stage1).to(
+            self.dtype
+        )
+        self.vqvae.cuda(torch.cuda.current_device())
         logging_info(self.vqvae)
         cfg_model_stage2.num_class = DATASET_CONFIGS[cfg_data.data_set]["num_class"]
         cfg_model_stage2.vocab_size = self.vqvae.num_embed
         self.model = AutoRegressiveModel.from_config(cfg_model_stage2)
 
-        self.dtype = type_dict[cfg_train.dtype]
         logging_info(self.model)
 
         logging_info(
@@ -221,11 +224,13 @@ class ARTrainer(BaseTrainer):
                 input_img = input_img.cuda(torch.cuda.current_device())
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
-                        _, indices = self.vqvae(input_img)
+                        indices = self.vqvae.encode(input_img)
                     logits = self.model(indices)
-                    loss = self.loss_fn(logits, indices)
+                    loss = self.loss_fn(
+                        logits.view(-1, logits.shape[-1]), indices.view(-1)
+                    )
                     loss_dict = {
-                        "loss": loss.item().cpu(),
+                        "loss": loss.item(),
                     }
 
                 # backward
