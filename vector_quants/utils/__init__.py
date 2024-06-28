@@ -4,7 +4,6 @@ from .distributed import enable
 from .utils import (
     compute_grad_norm,
     get_metrics_list,
-    get_num_embed,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,

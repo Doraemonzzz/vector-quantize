@@ -12,7 +12,6 @@ from vector_quants.metrics import CodeBookMetric, Metrics
 from vector_quants.models import AutoVqVae
 from vector_quants.utils import (
     get_metrics_list,
-    get_num_embed,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
@@ -99,7 +98,7 @@ class VQEvaluator(BaseEvaluator):
             device=torch.cuda.current_device(),
         )
 
-        self.num_embed = num_embed if num_embed != -1 else get_num_embed(cfg_model)
+        self.num_embed = num_embed
         self.codebook_metric = CodeBookMetric(self.num_embed)
 
         # other params
