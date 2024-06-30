@@ -97,3 +97,6 @@ Loss:
 Add ar:
 - [ ] Model.
 - [ ] Training.
+
+Others:
+- [ ] L2 norm.

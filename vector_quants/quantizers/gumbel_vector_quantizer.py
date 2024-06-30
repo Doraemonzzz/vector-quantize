@@ -106,7 +106,6 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         indice = unpack_one(indice, ps, "* m")
 
         kl_loss = self.kl_loss(latent=None, dist=logits)
-
         return indice, kl_loss
 
     def indice_to_code(self, indice):

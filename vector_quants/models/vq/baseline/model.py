@@ -99,6 +99,7 @@ class VQVAE(nn.Module):
             "Vq",
             "EmaVq",
             "GumbelVq",
+            "SoftmaxVq",
             "Gvq",
             "Hvq",
             "Cvq",

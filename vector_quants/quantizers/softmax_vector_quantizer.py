@@ -6,7 +6,7 @@ from .base_vector_quantizer import BaseVectorQuantizer
 from .utils import compute_dist, pack_one, unpack_one
 
 
-class VectorQuantizer(BaseVectorQuantizer):
+class SoftmaxVectorQuantizer(BaseVectorQuantizer):
     def __init__(
         self,
         cfg,
@@ -46,19 +46,10 @@ class VectorQuantizer(BaseVectorQuantizer):
         # quantize
         x_quant = self.indice_to_code(indice)
 
-        # compute codebook loss
-        codebook_loss = F.mse_loss(
-            x_quant, x.detach()
-        ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
-
-        entropy_loss = self.entropy_loss(x)
-
+        codebook_loss = torch.tensor(0.0).cuda().float()
         loss_dict = {
             "codebook_loss": codebook_loss,
-            "entropy_loss": entropy_loss,
         }
-
-        x_quant = x + (x_quant - x).detach()
 
         return x_quant, indice, loss_dict
 
@@ -68,10 +59,17 @@ class VectorQuantizer(BaseVectorQuantizer):
         # n, m
         dist = compute_dist(latent, self.codebook.weight)
         # n, 1
-        indice = torch.argmin(dist, dim=-1)
-        indice = unpack_one(indice, ps, "*")
+        if self.training:
+            indice = F.softmax(dist, dim=-1)
+            indice = unpack_one(indice, ps, "* m")
+        else:
+            indice = torch.argmin(dist, dim=-1)
+            indice = unpack_one(indice, ps, "*")
 
         return indice
 
     def indice_to_code(self, indice):
-        return self.codebook(indice)
+        if self.training:
+            return torch.einsum("... m, m d -> ... d", indice, self.codebook.weight)
+        else:
+            return self.codebook(indice)
