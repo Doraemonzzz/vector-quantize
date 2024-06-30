@@ -62,6 +62,7 @@ class Loss(nn.Module):
         adversarial_loss_weight=0.0,
         codebook_loss_weight=1.0,
         entropy_loss_weight=0.1,
+        kl_loss_weight=5e-4,
     ):
         super().__init__()
         self.perceptual_loss = get_perceptual_loss(perceptual_loss_type)
@@ -73,6 +74,7 @@ class Loss(nn.Module):
         self.adversarial_loss_weight = adversarial_loss_weight
         self.codebook_loss_weight = codebook_loss_weight
         self.entropy_loss_weight = entropy_loss_weight
+        self.kl_loss_weight = kl_loss_weight
 
     @property
     def keys(self):
@@ -83,6 +85,7 @@ class Loss(nn.Module):
             "adversarial_loss",
             "codebook_loss",
             "entropy_loss",
+            "kl_loss",
             "loss",
         ]
         valid_keys = ["valid_" + key for key in train_keys]
@@ -96,6 +99,7 @@ class Loss(nn.Module):
         adversarial_loss = self.compute_adversarial_loss(images, reconstructions)
         codebook_loss = kwargs.get("codebook_loss", torch.tensor(0.0).cuda().float())
         entropy_loss = kwargs.get("entropy_loss", torch.tensor(0.0).cuda().float())
+        kl_loss = kwargs.get("kl_loss", torch.tensor(0.0).cuda().float())
 
         loss = (
             self.l1_loss_weight * l1_loss
@@ -104,6 +108,7 @@ class Loss(nn.Module):
             + self.adversarial_loss_weight * adversarial_loss
             + self.codebook_loss_weight * codebook_loss
             + self.entropy_loss_weight * entropy_loss
+            + self.kl_loss_weight * kl_loss
         )
 
         loss_dict = {
@@ -113,6 +118,7 @@ class Loss(nn.Module):
             "adversarial_loss": adversarial_loss.cpu().item(),
             "codebook_loss": codebook_loss.cpu().item(),
             "entropy_loss": entropy_loss.cpu().item(),
+            "kl_loss": kl_loss.cpu().item(),
             "loss": loss.cpu().item(),
         }
 

@@ -102,6 +102,7 @@ class VQTrainer(BaseTrainer):
             adversarial_loss_weight=cfg_loss.adversarial_loss_weight,
             codebook_loss_weight=cfg_loss.codebook_loss_weight,
             entropy_loss_weight=cfg_model.entropy_loss_weight,
+            kl_loss_weight=cfg_model.kl_loss_weight,
         )
         torch.distributed.barrier()
 

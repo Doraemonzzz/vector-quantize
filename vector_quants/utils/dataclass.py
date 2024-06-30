@@ -58,7 +58,7 @@ class ModelConfig:
     model_name: str = field(default="baseline", metadata={"help": "Model name"})
     # loss weight
     commitment_loss_weight: float = field(
-        default=0.0, metadata={"help": "Commitment loss weight"}
+        default=1.0, metadata={"help": "Commitment loss weight"}
     )
     kl_loss_weight: float = field(default=5e-4, metadata={"help": "KL loss weight"})
     # entropy loss
@@ -89,7 +89,7 @@ class ModelConfig:
         },
     )
     # for gumbel vq
-    temp: float = field(
+    kl_temperature: float = field(
         default=1.0,
         metadata={"help": "Non-negative scalar temperature for gumbel softmax"},
     )
