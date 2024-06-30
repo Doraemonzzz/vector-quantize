@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 
 from .base_vector_quantizer import BaseVectorQuantizer
-from .utils import compute_dist, pack_one, unpack_one
+from .utils import pack_one, unpack_one
 
 
 class GumbelVectorQuantizer(BaseVectorQuantizer):
@@ -30,6 +31,8 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
         self.init_codebook()
 
+        self.proj = nn.Conv2d(self.embed_dim, self.num_embed, 1)
+
     @property
     def num_embed(self):
         return self._num_embed
@@ -46,27 +49,46 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         x_quant = self.indice_to_code(indice)
 
         # compute codebook loss
-        codebook_loss = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        # codebook_loss = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
         loss_dict = {
-            "codebook_loss": codebook_loss,
+            # "codebook_loss": codebook_loss,
             "kl_loss": kl_loss,
         }
 
-        x_quant = x + (x_quant - x).detach()
+        # x_quant = x + (x_quant - x).detach()
+
+        indice = indice.argmax(dim=-1).detach()
 
         return x_quant, indice, loss_dict
 
+    # not converge
+    # def latent_to_indice(self, latent, eps=1e-10):
+    #     # (b, *, d) -> (n, d)
+    #     latent, ps = pack_one(latent, "* d")
+    #     # n, m
+    #     dist = compute_dist(latent, self.codebook.weight)
+    #     # n, m
+    #     hard = False if self.training else True
+    #     indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
+    #     indice = unpack_one(indice, ps, "* m")
+
+    #     kl_loss = self.kl_loss(latent=None, dist=dist)
+
+    #     return indice, kl_loss
+
     def latent_to_indice(self, latent, eps=1e-10):
+        latent = rearrange(latent, "b h w c -> b c h w")
+        logits = self.proj(latent)
         # (b, *, d) -> (n, d)
-        latent, ps = pack_one(latent, "* d")
-        # n, m
-        dist = compute_dist(latent, self.codebook.weight)
+        logits, ps = pack_one(logits, "* d")
         # n, m
         hard = False if self.training else True
-        indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
+        # indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
+        indice = F.gumbel_softmax(logits, tau=self.kl_temperature, dim=-1, hard=hard)
         indice = unpack_one(indice, ps, "* m")
+        indice = rearrange(indice, "b m h w -> b h w m")
 
-        kl_loss = self.kl_loss(latent=None, dist=dist)
+        kl_loss = self.kl_loss(latent=None, dist=logits)
 
         return indice, kl_loss
 

@@ -47,25 +47,29 @@ class BaseVectorQuantizer(ABC, nn.Module):
         # E[H(p)] - H[E(p)]
         if not hasattr(self, "entropy_loss_weight") or self.entropy_loss_weight == 0:
             loss = torch.tensor(0.0).cuda().float()
-        assert (
-            latent is not None or dist is not None
-        ), "At least one of latent or dist needs to be specified."
-        if dist is None:
-            dist = self.get_dist(latent)
-        loss = entropy_loss_fn(-dist, self.entropy_temperature, self.entropy_loss_type)
+        else:
+            assert (
+                latent is not None or dist is not None
+            ), "At least one of latent or dist needs to be specified."
+            if dist is None:
+                dist = self.get_dist(latent)
+            loss = entropy_loss_fn(
+                -dist, self.entropy_temperature, self.entropy_loss_type
+            )
 
         return loss
 
     def kl_loss(self, latent=None, dist=None):
-        # kl(p || uniform) = entropy(p) + c
+        # kl(p || uniform) = -entropy(p) + c
         if not hasattr(self, "kl_loss_weight") or self.kl_loss_weight == 0:
             loss = torch.tensor(0.0).cuda().float()
-        assert (
-            latent is not None or dist is not None
-        ), "At least one of latent or dist needs to be specified."
-        if dist is None:
-            dist = self.get_dist(latent)
+        else:
+            assert (
+                latent is not None or dist is not None
+            ), "At least one of latent or dist needs to be specified."
+            if dist is None:
+                dist = self.get_dist(latent)
 
-        loss = kl_loss_fn(-dist)
+            loss = kl_loss_fn(-dist)
 
         return loss

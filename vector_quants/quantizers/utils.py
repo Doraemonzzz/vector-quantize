@@ -91,9 +91,9 @@ def entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
 
 
 def kl_loss_fn(affinity, eps=1e-5):
-    # kl(p || uniform) = entropy(p) + c
+    # kl(p || uniform) = -entropy(p) + c
     log_probs = F.log_softmax(affinity + eps, dim=-1)
-    torch.exp(log_probs)
-    kl_loss = torch.mean(torch.sum(torch.exp(log_probs) * log_probs, dim=-1))
+    probs = torch.exp(log_probs)
+    kl_loss = torch.mean(torch.sum(probs * log_probs, dim=-1))
 
     return kl_loss

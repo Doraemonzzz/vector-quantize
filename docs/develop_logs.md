@@ -13,6 +13,28 @@ Here is a list of the development logs.
 ## Here is a list of the features that need to be added.
 
 Indice has some bug.
+gumbel debug:
+```
+-dist as logit not converge
+
+conv2d(input) as logit converge.
+
+use linear(input) as logit.
+
+kl loss(need to use -?)
+```
+
+Need check:
+```
+entropy loss(rerun fsq, vq), old version use dist as logits, test -dist.
+kl loss(need to use -?)
+```
+
+Need clear:
+```
+vector_quants/quantizers/utils.py
+gumbel_vector_quantizer
+```
 
 Quant Method:
 - [x] Vq.
@@ -58,7 +80,20 @@ Quant Method:
 - [x] Raq.
 
 Methods for finding the codebook:
-- [ ] Gumbel
+- [ ] Gumbel.
 
 Loss:
 - [x] Entropy loss.
+
+## 240701
+Methods for finding the codebook:
+- [ ] Gumbel.
+- [ ] Training softmax, inference onehot.
+
+Loss:
+- [ ] Gan loss.
+- [ ] KL loss.
+
+Add ar:
+- [ ] Model.
+- [ ] Training.

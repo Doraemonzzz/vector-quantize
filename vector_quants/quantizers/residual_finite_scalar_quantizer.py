@@ -35,14 +35,12 @@ class ResidualFiniteScalarQuantizer(BaseVectorQuantizer):
     def forward(self, x):
         indice_list = []
         x_quant = torch.zeros_like(x)
-        # residual = x.detach().clone() # v1
         residual = x
 
         for _ in range(self.num_residual):
             residual_quant, indice, loss_dict = self.fsq(residual)
 
             # update
-            # residual = residual - residual_quant # v1
             residual = residual - residual_quant.detach()
             x_quant = x_quant + residual_quant
             indice_list.append(indice)
