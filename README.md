@@ -22,13 +22,13 @@ For the complete development logs, please refer to [here](./docs/develop_logs.md
 - [x] Update code book usage.
 - [x] Use dataclass and YAML to manage config.
 - [x] Update eval
-- [ ] Update resume, add yaml file
+- [x] Update resume, add yaml file
 - [ ] Residual vq bug.
 - [ ] Ema gradient acc.
-- [ ] Ema codebook loss bug.
+- [x] Ema codebook loss bug.
 - [ ] Update evaluation bug.
 - [ ] Gumbel bin count bug.
-- [ ] Update residual in rvq.
+- [x] Update residual in rvq.
 
 Metric check list.
 - [ ] fid.

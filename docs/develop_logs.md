@@ -2,38 +2,26 @@
 
 Here is a list of the development logs.
 
+## Here are some summarized experiences:
+
+1. Group/Residual Vq is the most useful;
+2. Entropy loss: $\mathbb{E}[H(p(\mathbf{z}))] - H[\mathbb{E}(p(\mathbf{z}))]$:
+   1. For each sample, minimizing entropy ensures determinism (the first term);
+   2. For each class, maximizing entropy indicates a uniform distribution (the second term);
+   3. It is very useful for Lfq but not very effective for Vq.
+
 ## Here is a list of the features that need to be added.
 
 Indice has some bug.
-
-Raq debug:
-```
-diff = 0, number = round_ste(F.sigmoid(latent) * d), code = number / d => ok
-diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x), number = round_ste(F.sigmoid(latent) * d), code = number / d => no ok
-diff = 0, number = round_ste(F.sigmoid(latent) * d), code = torch.sin(torch.pi * (number / d - 0.5)) => ok
-```
-
-Lfq debug:
-```
-diff = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x), x_quant = x + (x_quant - x).detach() => fid太高
-+l2 norm
-```
-
-Entropy loss:
-Jenson不等式：
-$$
-\mathcal{L}_{\text {entropy }}=\mathbb{E}[H(q(\mathbf{z}))]-H[\mathbb{E}(q(\mathbf{z}))]\ge 0
-$$
-等号成立当且仅当$q(z)=\frac 1 n$。
 
 Quant Method:
 - [x] Vq.
 - [x] Gvq.
 - [x] Hvq.
 - [x] Cvq.
-- [ ] Rvq.
-- [ ] Fsq.
-- [ ] Lfq.
+- [x] Rvq.
+- [x] Fsq.
+- [x] Lfq.
 
 Methods for finding the codebook.
 - [x] Kmeans.
@@ -41,11 +29,11 @@ Methods for finding the codebook.
 - [ ] Gumbel.
 
 Loss:
-- [ ] L1 loss.
-- [ ] L2 loss.
-- [ ] Perceptual loss.
+- [x] L1 loss.
+- [x] L2 loss.
+- [x] Perceptual loss.
 - [ ] KL loss.
-- [ ] Entropy loss.
+- [x] Entropy loss.
 - [ ] Gan loss.
 - [ ] Orthogonal loss.
 
