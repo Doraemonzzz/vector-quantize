@@ -75,7 +75,7 @@ class SoftmaxVectorQuantizer(BaseVectorQuantizer):
         latent, ps = pack_one(latent, "* d")
         d = latent.shape[-1]
         # n, m
-        dist = compute_dist(latent, self.codebook.weight) / (d ** 0.5)
+        dist = compute_dist(latent, self.codebook.weight) / (d**0.5)
         # n, 1
         if self.training:
             indice = F.softmax(-dist, dim=-1)
