@@ -53,6 +53,23 @@ class SoftmaxVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, indice, loss_dict
 
+    # v1
+    # def latent_to_indice(self, latent):
+    #     # (b, *, d) -> (n, d)
+    #     latent, ps = pack_one(latent, "* d")
+    #     # n, m
+    #     dist = compute_dist(latent, self.codebook.weight)
+    #     # n, 1
+    #     if self.training:
+    #         indice = F.softmax(dist, dim=-1)
+    #         indice = unpack_one(indice, ps, "* m")
+    #     else:
+    #         indice = torch.argmin(dist, dim=-1)
+    #         indice = unpack_one(indice, ps, "*")
+
+    #     return indice
+
+    # v2
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
@@ -60,7 +77,7 @@ class SoftmaxVectorQuantizer(BaseVectorQuantizer):
         dist = compute_dist(latent, self.codebook.weight)
         # n, 1
         if self.training:
-            indice = F.softmax(dist, dim=-1)
+            indice = F.softmax(-dist, dim=-1)
             indice = unpack_one(indice, ps, "* m")
         else:
             indice = torch.argmin(dist, dim=-1)

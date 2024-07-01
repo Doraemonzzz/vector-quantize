@@ -18,6 +18,7 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         commitment_loss_weight = cfg.commitment_loss_weight
         kl_temperature = cfg.kl_temperature
         kl_loss_weight = cfg.kl_loss_weight
+        bias = cfg.bias
         # get params end
 
         self._num_embed = num_embed
@@ -32,6 +33,8 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
         # v2
         # self.proj = nn.Conv2d(self.embed_dim, self.num_embed, 1)
+        # v4
+        self.proj = nn.Linear(self.embed_dim, self.num_embed, bias=bias)
 
     @property
     def num_embed(self):
@@ -94,14 +97,27 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
     #     return indice, kl_loss
 
-    # v3: seem ok
+    # # v3: seem not work
+    # def latent_to_indice(self, latent, eps=1e-10):
+    #     logits = torch.einsum("... d, m d -> ... m", latent, self.codebook.weight)
+    #     # (b, *, d) -> (n, d)
+    #     logits, ps = pack_one(logits, "* d")
+    #     # n, m
+    #     hard = False if self.training else True
+    #     # indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
+    #     indice = F.gumbel_softmax(logits, tau=self.kl_temperature, dim=-1, hard=hard)
+    #     indice = unpack_one(indice, ps, "* m")
+
+    #     kl_loss = self.kl_loss(latent=None, dist=logits)
+    #     return indice, kl_loss
+
+    # v4
     def latent_to_indice(self, latent, eps=1e-10):
-        logits = torch.einsum("... d, m d -> ... m", latent, self.codebook.weight)
         # (b, *, d) -> (n, d)
-        logits, ps = pack_one(logits, "* d")
+        latent, ps = pack_one(latent, "* d")
+        logits = self.proj(latent)
         # n, m
         hard = False if self.training else True
-        # indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
         indice = F.gumbel_softmax(logits, tau=self.kl_temperature, dim=-1, hard=hard)
         indice = unpack_one(indice, ps, "* m")
 

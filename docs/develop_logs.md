@@ -15,13 +15,22 @@ Here is a list of the development logs.
 Indice has some bug.
 gumbel debug:
 ```
--dist as logit not converge
+-dist as logit not converge(v1)
 
-conv2d(input) as logit converge.
+conv2d(input) as logit converge.(v2)
 
-use linear(input) as logit.
+use F.linear(input, codebookweight) as logit, not converge(v2)
+
+use linear(input) as logit, not converge(v4)
 
 kl loss(need to use -?)
+```
+
+softmax debug:
+```
+dist as logit not converge(v1)
+
+-dist as logit(v2)
 ```
 
 Need check:

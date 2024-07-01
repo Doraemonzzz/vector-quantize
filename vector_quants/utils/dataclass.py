@@ -97,6 +97,9 @@ class ModelConfig:
     use_norm: bool = field(
         default=True, metadata={"help": "Whether to use normalize in Quantizer"}
     )
+    bias: bool = field(
+        default=False, metadata={"help": "Whether use bias in nn.linear or not"}
+    )
 
 
 @dataclass
