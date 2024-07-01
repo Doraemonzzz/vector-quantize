@@ -334,7 +334,7 @@ def process_args(args):
     args.train.save = f"{args.train.output_dir}/{output_name}"
     quantizer = args.model.quantizer
 
-    if quantizer in ["Lfq", "Cvq", "Fsq", "Rfsq"]:
+    if quantizer in ["Cvq", "Fsq", "Rfsq"]:
         args.model.embed_dim = len(args.model.levels)
 
     return args

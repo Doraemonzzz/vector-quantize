@@ -32,35 +32,6 @@ def round_ste(x):
     return x + (xhat - x).detach()
 
 
-# def entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
-#     """
-#     Increase codebook usage by maximizing entropy
-
-#     affinity: 2D tensor of size Dim, n_classes
-#     """
-
-#     n_classes = affinity.shape[-1]
-
-#     affinity = torch.div(affinity, temperature)
-#     probs = F.softmax(affinity, dim=-1)
-#     log_probs = F.log_softmax(affinity + eps, dim=-1)
-
-#     if loss_type == "softmax":
-#         target_probs = probs
-#     elif loss_type == "argmax":
-#         codes = torch.argmax(affinity, dim=-1)
-#         one_hots = F.one_hot(codes, n_classes).to(codes)
-#         one_hots = probs - (probs - one_hots).detach()
-#         target_probs = one_hots
-#     else:
-#         raise ValueError("Entropy loss {} not supported".format(loss_type))
-
-#     avg_probs = torch.mean(target_probs, dim=0)
-#     avg_entropy = -torch.sum(avg_probs * torch.log(avg_probs + 1e-5))
-#     sample_entropy = -torch.mean(torch.sum(target_probs * log_probs, dim=-1))
-#     return sample_entropy - avg_entropy
-
-
 def entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
     """
     Increase codebook usage by maximizing entropy
@@ -71,8 +42,8 @@ def entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
     n_classes = affinity.shape[-1]
 
     affinity = torch.div(affinity, temperature)
+    probs = F.softmax(affinity, dim=-1)
     log_probs = F.log_softmax(affinity + eps, dim=-1)
-    probs = torch.exp(log_probs)
 
     if loss_type == "softmax":
         target_probs = probs
@@ -88,6 +59,35 @@ def entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
     avg_entropy = -torch.sum(avg_probs * torch.log(avg_probs + 1e-5))
     sample_entropy = -torch.mean(torch.sum(target_probs * log_probs, dim=-1))
     return sample_entropy - avg_entropy
+
+
+# def entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
+#     """
+#     Increase codebook usage by maximizing entropy
+
+#     affinity: 2D tensor of size Dim, n_classes
+#     """
+
+#     n_classes = affinity.shape[-1]
+
+#     affinity = torch.div(affinity, temperature)
+#     log_probs = F.log_softmax(affinity + eps, dim=-1)
+#     probs = torch.exp(log_probs)
+
+#     if loss_type == "softmax":
+#         target_probs = probs
+#     elif loss_type == "argmax":
+#         codes = torch.argmax(affinity, dim=-1)
+#         one_hots = F.one_hot(codes, n_classes).to(codes)
+#         one_hots = probs - (probs - one_hots).detach()
+#         target_probs = one_hots
+#     else:
+#         raise ValueError("Entropy loss {} not supported".format(loss_type))
+
+#     avg_probs = torch.mean(target_probs, dim=0)
+#     avg_entropy = -torch.sum(avg_probs * torch.log(avg_probs + 1e-5))
+#     sample_entropy = -torch.mean(torch.sum(target_probs * log_probs, dim=-1))
+#     return sample_entropy - avg_entropy
 
 
 def kl_loss_fn(affinity, eps=1e-5):
