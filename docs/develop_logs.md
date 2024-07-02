@@ -32,6 +32,7 @@ Need clear:
 ```
 vector_quants/quantizers/utils.py
 gumbel_vector_quantizer
+ModelConfig
 ```
 
 Quant Method:

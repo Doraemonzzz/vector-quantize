@@ -143,3 +143,4 @@ vqvae gumbel
 11. https://github.com/archinetai/bitcodes-pytorch/
 12. https://github.com/guglielmocamporese/deep-vector-quantization
 13. https://minyoungg.github.io/vqtorch/
+14. https://drscotthawley.github.io/blog/posts/2023-06-12-RVQ.html

@@ -10,8 +10,8 @@ from simple_parsing import ArgumentParser
 
 @dataclass
 class ModelConfig:
-    in_channel: int = field(default=3, metadata={"help": "Input Channel"})
-    channel: int = field(default=512, metadata={"help": "Middle Channel"})
+    in_channels: int = field(default=3, metadata={"help": "Input Channel"})
+    hidden_channels: int = field(default=512, metadata={"help": "Hidden Channel"})
     quantizer: str = field(
         default="ema",
         metadata={
@@ -49,7 +49,18 @@ class ModelConfig:
     num_residual: int = field(
         default=1, metadata={"help": "The number residual of VQVAE's codebook"}
     )
-    model_name: str = field(default="baseline", metadata={"help": "Model name"})
+    model_name: str = field(
+        default="baseline",
+        metadata={
+            "help": "Model name",
+            "choices": [
+                "baseline",
+                "baseline_conv",
+                "basic_conv",
+                "res_conv",
+            ],
+        },
+    )
     # loss weight
     commitment_loss_weight: float = field(
         default=1.0, metadata={"help": "Commitment loss weight"}
@@ -99,6 +110,12 @@ class ModelConfig:
             "help": "if True, will one-hot quantize, but still differentiate as if it is the soft sample"
         },
     )
+    ##### backbone start
+    num_conv_blocks: int = field(
+        default=2,
+        metadata={"help": "Number of conv blocks in BasicConvEncoder/Decoder"},
+    )
+    ##### backbone end
     # others
     use_norm: bool = field(
         default=True, metadata={"help": "Whether to use normalize in Quantizer"}

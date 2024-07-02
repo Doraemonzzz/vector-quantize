@@ -1,14 +1,18 @@
-# from vector_quantizer.utils import Config
 import torch
 
-from .baseline import VQVAE
+from .baseline import VQVAE  # baseline version, only for test
+from .vqvae import VqVae
 
-AUTO_VQVAE_MAPPING = {"baseline": VQVAE}
+AUTO_VQVAE_MAPPING = {
+    "baseline": VQVAE,
+    "baseline_conv": VqVae,
+    "basic_conv": VqVae,
+    "res_conv": VqVae,
+}
 
 
 def get_state_dict(path):
     pkg = torch.load(path, map_location="cpu")
-    print(pkg.keys())
     assert (
         "cfg" in pkg or "model_cfg" in pkg
     ), "At least one of cfg or model_cfg must be included in the ckpt."

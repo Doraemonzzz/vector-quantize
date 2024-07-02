@@ -5,22 +5,22 @@ from vector_quants.quantizers import get_quantizer
 
 
 class Encoder(nn.Module):
-    def __init__(self, args):
+    def __init__(self, cfg):
         super().__init__()
-        in_channel = args.in_channel
-        channel = args.channel
-        embed_dim = args.embed_dim
+        in_channels = cfg.in_channels
+        hidden_channels = cfg.hidden_channels
+        embed_dim = cfg.embed_dim
 
         blocks = [
-            nn.Conv2d(in_channel, channel, 4, stride=2, padding=1),
+            nn.Conv2d(in_channels, hidden_channels, 4, stride=2, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(channel, channel, 4, stride=2, padding=1),
+            nn.Conv2d(hidden_channels, hidden_channels, 4, stride=2, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(channel, channel, 4, stride=2, padding=1),
+            nn.Conv2d(hidden_channels, hidden_channels, 4, stride=2, padding=1),
         ]
 
         blocks.append(nn.ReLU(inplace=True))
-        blocks.append(nn.Conv2d(channel, embed_dim, 1))
+        blocks.append(nn.Conv2d(hidden_channels, embed_dim, 1))
         self.blocks = nn.Sequential(*blocks)
 
     def forward(self, input):
@@ -28,24 +28,28 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, args):
+    def __init__(self, cfg):
         super().__init__()
 
-        in_channel = args.embed_dim
-        out_channel = args.in_channel
-        channel = args.channel
+        in_channels = cfg.embed_dim
+        out_channel = cfg.in_channels
+        hidden_channels = cfg.hidden_channels
 
         blocks = [
-            nn.ConvTranspose2d(in_channel, channel, 4, stride=2, padding=1),
+            nn.ConvTranspose2d(in_channels, hidden_channels, 4, stride=2, padding=1),
         ]
         blocks.append(nn.ReLU(inplace=True))
         blocks.extend(
             [
-                nn.ConvTranspose2d(channel, channel, 4, stride=2, padding=1),
+                nn.ConvTranspose2d(
+                    hidden_channels, hidden_channels, 4, stride=2, padding=1
+                ),
                 nn.ReLU(inplace=True),
-                nn.ConvTranspose2d(channel, channel, 4, stride=2, padding=1),
+                nn.ConvTranspose2d(
+                    hidden_channels, hidden_channels, 4, stride=2, padding=1
+                ),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(channel, out_channel, 1),
+                nn.Conv2d(hidden_channels, out_channel, 1),
             ]
         )
         self.blocks = nn.Sequential(*blocks)
@@ -55,14 +59,28 @@ class Decoder(nn.Module):
 
 
 class VQVAE(nn.Module):
-    def __init__(self, args):
+    def __init__(self, cfg):
         super().__init__()
-        self.args = args
+        self.cfg = cfg
 
-        self.quantizer = get_quantizer(args)
+        self.quantizer = get_quantizer(cfg)
 
-        self.enc = Encoder(args)
-        self.dec = Decoder(args)
+        self.enc = Encoder(cfg)
+        self.dec = Decoder(cfg)
+
+        assert self.cfg.quantizer in [
+            "Vq",
+            "EmaVq",
+            "GumbelVq",
+            "Gvq",
+            "Hvq",
+            "Cvq",
+            "Rvq",
+            "Lfq",
+            "Fsq",
+            "Raq",
+            "Rfsq",
+        ], f"quantizer {self.cfg.quantizer} does not support!"
 
     @property
     def num_embed(self):
@@ -81,19 +99,6 @@ class VQVAE(nn.Module):
 
     def encode_(self, input):
         logits = self.enc(input)
-        assert self.args.quantizer in [
-            "Vq",
-            "EmaVq",
-            "GumbelVq",
-            "Gvq",
-            "Hvq",
-            "Cvq",
-            "Rvq",
-            "Lfq",
-            "Fsq",
-            "Raq",
-            "Rfsq",
-        ], f"quantizer {self.args.quantizer} does not support!"
 
         logits = rearrange(logits, "b c h w -> b h w c")
         quant_t, id_t, loss_dict = self.quantizer(logits)
