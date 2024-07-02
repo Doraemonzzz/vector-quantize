@@ -55,6 +55,12 @@ class ModelConfig:
         default=1.0, metadata={"help": "Commitment loss weight"}
     )
     kl_loss_weight: float = field(default=5e-4, metadata={"help": "KL loss weight"})
+    sample_entropy_loss_weight: float = field(
+        default=0.0, metadata={"help": "Sample entropy loss weight"}
+    )
+    codebook_entropy_loss_weight: float = field(
+        default=0.0, metadata={"help": "Codebook entropy loss weight"}
+    )
     # entropy loss
     entropy_loss_weight: float = field(
         default=0.0, metadata={"help": "Entropy loss weight"}

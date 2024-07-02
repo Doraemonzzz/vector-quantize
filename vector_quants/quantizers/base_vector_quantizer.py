@@ -3,7 +3,13 @@ from abc import ABC, abstractmethod
 import torch
 from torch import nn
 
-from .utils import compute_dist, entropy_loss_fn, kl_loss_fn, pack_one
+from .utils import (
+    compute_dist,
+    entropy_loss_fn,
+    kl_loss_fn,
+    pack_one,
+    sample_entropy_loss_fn,
+)
 
 
 class BaseVectorQuantizer(ABC, nn.Module):
@@ -43,18 +49,62 @@ class BaseVectorQuantizer(ABC, nn.Module):
 
         return dist
 
-    def entropy_loss(self, latent=None, dist=None):
+    def entropy_loss(self, latent=None, logits=None, is_distance=True):
         # E[H(p)] - H[E(p)]
         if not hasattr(self, "entropy_loss_weight") or self.entropy_loss_weight == 0:
             loss = torch.tensor(0.0).cuda().float()
         else:
             assert (
-                latent is not None or dist is not None
+                latent is not None or logits is not None
             ), "At least one of latent or dist needs to be specified."
-            if dist is None:
-                dist = self.get_dist(latent)
+            if logits is None:
+                logits = self.get_dist(latent)
+            # if we get logits by distance, we use -logits as logits, else, we use logits
+            flag = -1 if is_distance else 1
             loss = entropy_loss_fn(
-                -dist, self.entropy_temperature, self.entropy_loss_type
+                flag * logits, self.entropy_temperature, self.entropy_loss_type
+            )
+
+        return loss
+
+    def sample_entropy_loss(self, latent=None, logits=None, is_distance=True):
+        # E[H(p)]
+        if (
+            not hasattr(self, "sample_entropy_loss_weight")
+            or self.sample_entropy_loss_weight == 0
+        ):
+            loss = torch.tensor(0.0).cuda().float()
+        else:
+            assert (
+                latent is not None or logits is not None
+            ), "At least one of latent or dist needs to be specified."
+            if logits is None:
+                logits = self.get_dist(latent)
+            # if we get logits by distance, we use -logits as logits, else, we use logits
+            flag = -1 if is_distance else 1
+            loss = sample_entropy_loss_fn(
+                flag * logits, self.entropy_temperature, self.entropy_loss_type
+            )
+
+        return loss
+
+    def codebook_entropy_loss(self, latent=None, logits=None, is_distance=True):
+        # - H[E(p)]
+        if (
+            not hasattr(self, "codebook_entropy_loss_weight")
+            or self.codebook_entropy_loss_weight == 0
+        ):
+            loss = torch.tensor(0.0).cuda().float()
+        else:
+            assert (
+                latent is not None or logits is not None
+            ), "At least one of latent or dist needs to be specified."
+            if logits is None:
+                logits = self.get_dist(latent)
+            # if we get logits by distance, we use -logits as logits, else, we use logits
+            flag = -1 if is_distance else 1
+            loss = sample_entropy_loss_fn(
+                flag * logits, self.entropy_temperature, self.entropy_loss_type
             )
 
         return loss

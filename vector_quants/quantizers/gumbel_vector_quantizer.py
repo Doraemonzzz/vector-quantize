@@ -20,6 +20,10 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         kl_loss_weight = cfg.kl_loss_weight
         bias = cfg.bias
         straight_through = cfg.straight_through
+        entropy_temperature = cfg.entropy_temperature
+        entropy_loss_type = cfg.entropy_loss_type
+        sample_entropy_loss_weight = cfg.sample_entropy_loss_weight
+        codebook_entropy_loss_weight = cfg.codebook_entropy_loss_weight
         # get params end
 
         self._num_embed = num_embed
@@ -27,6 +31,10 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         self.commitment_loss_weight = commitment_loss_weight
         self.kl_temperature = kl_temperature
         self.kl_loss_weight = kl_loss_weight
+        self.entropy_temperature = entropy_temperature
+        self.entropy_loss_type = entropy_loss_type
+        self.sample_entropy_loss_weight = sample_entropy_loss_weight
+        self.codebook_entropy_loss_weight = codebook_entropy_loss_weight
         self.straight_through = straight_through
         # init codebook
 
@@ -44,14 +52,10 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         # get indice
-        indice, kl_loss = self.latent_to_indice(x)
+        indice, loss_dict = self.latent_to_indice(x)
 
         # quantize
         x_quant = self.indice_to_code(indice)
-
-        loss_dict = {
-            "kl_loss": kl_loss,
-        }
 
         indice = indice.argmax(dim=-1).detach()
 
@@ -67,8 +71,17 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         indice = F.gumbel_softmax(logits, tau=self.kl_temperature, dim=-1, hard=hard)
         indice = unpack_one(indice, ps, "* m")
 
-        kl_loss = self.kl_loss(logits=logits)
-        return indice, kl_loss
+        loss_dict = {
+            "kl_loss": self.kl_loss(logits=logits),
+            "sample_entropy_loss": self.sample_entropy_loss(
+                latent=None, logits=logits, is_distance=False
+            ),
+            "codebook_entropy_loss": self.codebook_entropy_loss(
+                latent=None, logits=logits, is_distance=False
+            ),
+        }
+
+        return indice, loss_dict
 
     def indice_to_code(self, indice):
         return torch.einsum("... m, m d -> ... d", indice, self.codebook.weight)

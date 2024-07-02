@@ -68,3 +68,55 @@ def kl_loss_fn(affinity, eps=1e-5):
     kl_loss = torch.mean(torch.sum(probs * log_probs, dim=-1))
 
     return kl_loss
+
+
+def sample_entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
+    """
+    Sample entropy: E(H(p(z))).
+    For each sample, minimizing entropy ensures determinism.
+    """
+
+    n_classes = affinity.shape[-1]
+
+    affinity = torch.div(affinity, temperature)
+    probs = F.softmax(affinity, dim=-1)
+    log_probs = F.log_softmax(affinity + eps, dim=-1)
+
+    if loss_type == "softmax":
+        target_probs = probs
+    elif loss_type == "argmax":
+        codes = torch.argmax(affinity, dim=-1)
+        one_hots = F.one_hot(codes, n_classes).to(codes)
+        one_hots = probs - (probs - one_hots).detach()
+        target_probs = one_hots
+    else:
+        raise ValueError("Entropy loss {} not supported".format(loss_type))
+
+    sample_entropy = -torch.mean(torch.sum(target_probs * log_probs, dim=-1))
+    return sample_entropy
+
+
+def codebook_entropy_loss_fn(affinity, temperature, loss_type="softmax", eps=1e-5):
+    """
+    Codebook entropy: H(E(p(z))).
+    For each codebook, maximizing entropy indicates a uniform distribution.
+    """
+
+    n_classes = affinity.shape[-1]
+
+    affinity = torch.div(affinity, temperature)
+    probs = F.softmax(affinity, dim=-1)
+
+    if loss_type == "softmax":
+        target_probs = probs
+    elif loss_type == "argmax":
+        codes = torch.argmax(affinity, dim=-1)
+        one_hots = F.one_hot(codes, n_classes).to(codes)
+        one_hots = probs - (probs - one_hots).detach()
+        target_probs = one_hots
+    else:
+        raise ValueError("Entropy loss {} not supported".format(loss_type))
+
+    avg_probs = torch.mean(target_probs, dim=0)
+    avg_entropy = -torch.sum(avg_probs * torch.log(avg_probs + 1e-5))
+    return -avg_entropy
