@@ -17,12 +17,6 @@ class ModelConfig:
         metadata={
             "help": "Use which quantizer",
             "choices": [
-                "ema",
-                "origin",
-                "fsq",
-                "sfsq",
-                "lfq",
-                "rvq",
                 "Vq",
                 "EmaVq",
                 "GumbelVq",
