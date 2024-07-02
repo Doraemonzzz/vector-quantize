@@ -139,3 +139,7 @@ vqvae gumbel
 7. https://github.com/luv91/VQGAN_Project/
 8. https://github.com/S-aiueo32/lpips-pytorch/
 9. https://github.com/pytorch/torchtitan
+10. https://github.com/GoGoDuck912/pytorch-vector-quantization/
+11. https://github.com/archinetai/bitcodes-pytorch/
+12. https://github.com/guglielmocamporese/deep-vector-quantization
+13. https://minyoungg.github.io/vqtorch/

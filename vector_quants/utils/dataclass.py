@@ -94,6 +94,13 @@ class ModelConfig:
         default=1.0,
         metadata={"help": "Non-negative scalar temperature for gumbel softmax"},
     )
+    straight_through: bool = field(
+        default=True,
+        metadata={
+            "help": "if True, will one-hot quantize, but still differentiate as if it is the soft sample"
+        },
+    )
+    # others
     use_norm: bool = field(
         default=True, metadata={"help": "Whether to use normalize in Quantizer"}
     )

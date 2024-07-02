@@ -2,8 +2,7 @@ import logging
 
 import torch.optim as optim
 
-logger = logging.getLogger(__name__)
-
+from vector_quants.utils import logging_info
 
 OPTIM_DICT = {"adamw": optim.AdamW, "adam": optim.Adam}
 
@@ -15,7 +14,7 @@ def add_weight_decay(model, weight_decay=1e-5, skip_list=()):
         if not param.requires_grad:
             continue  # frozen weights
         if len(param.shape) == 1 or name.endswith(".bias") or name in skip_list:
-            logger.info(f"no decay: {name}")
+            logging_info(f"no decay: {name}")
             no_decay.append(param)
         else:
             decay.append(param)

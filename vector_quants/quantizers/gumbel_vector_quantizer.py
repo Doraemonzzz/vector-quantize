@@ -19,6 +19,7 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         kl_temperature = cfg.kl_temperature
         kl_loss_weight = cfg.kl_loss_weight
         bias = cfg.bias
+        straight_through = cfg.straight_through
         # get params end
 
         self._num_embed = num_embed
@@ -26,14 +27,11 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         self.commitment_loss_weight = commitment_loss_weight
         self.kl_temperature = kl_temperature
         self.kl_loss_weight = kl_loss_weight
-
+        self.straight_through = straight_through
         # init codebook
 
         self.init_codebook()
 
-        # v2
-        # self.proj = nn.Conv2d(self.embed_dim, self.num_embed, 1)
-        # v4
         self.proj = nn.Linear(self.embed_dim, self.num_embed, bias=bias)
 
     @property
@@ -51,77 +49,25 @@ class GumbelVectorQuantizer(BaseVectorQuantizer):
         # quantize
         x_quant = self.indice_to_code(indice)
 
-        # compute codebook loss
-        # codebook_loss = self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
         loss_dict = {
-            # "codebook_loss": codebook_loss,
             "kl_loss": kl_loss,
         }
-
-        # x_quant = x + (x_quant - x).detach()
 
         indice = indice.argmax(dim=-1).detach()
 
         return x_quant, indice, loss_dict
 
-    # v1
-    # not converge
-    # def latent_to_indice(self, latent, eps=1e-10):
-    #     # (b, *, d) -> (n, d)
-    #     latent, ps = pack_one(latent, "* d")
-    #     # n, m
-    #     dist = compute_dist(latent, self.codebook.weight)
-    #     # n, m
-    #     hard = False if self.training else True
-    #     indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
-    #     indice = unpack_one(indice, ps, "* m")
-
-    #     kl_loss = self.kl_loss(latent=None, dist=dist)
-
-    #     return indice, kl_loss
-
-    # # v2: seem ok
-    # def latent_to_indice(self, latent, eps=1e-10):
-    #     latent = rearrange(latent, "b h w c -> b c h w")
-    #     logits = self.proj(latent)
-    #     # (b, *, d) -> (n, d)
-    #     logits, ps = pack_one(logits, "* d")
-    #     # n, m
-    #     hard = False if self.training else True
-    #     # indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
-    #     indice = F.gumbel_softmax(logits, tau=self.kl_temperature, dim=-1, hard=hard)
-    #     indice = unpack_one(indice, ps, "* m")
-    #     indice = rearrange(indice, "b m h w -> b h w m")
-
-    #     kl_loss = self.kl_loss(latent=None, dist=logits)
-
-    #     return indice, kl_loss
-
-    # # v3: seem not work
-    # def latent_to_indice(self, latent, eps=1e-10):
-    #     logits = torch.einsum("... d, m d -> ... m", latent, self.codebook.weight)
-    #     # (b, *, d) -> (n, d)
-    #     logits, ps = pack_one(logits, "* d")
-    #     # n, m
-    #     hard = False if self.training else True
-    #     # indice = F.gumbel_softmax(-dist, tau=self.kl_temperature, dim=-1, hard=hard)
-    #     indice = F.gumbel_softmax(logits, tau=self.kl_temperature, dim=-1, hard=hard)
-    #     indice = unpack_one(indice, ps, "* m")
-
-    #     kl_loss = self.kl_loss(latent=None, dist=logits)
-    #     return indice, kl_loss
-
-    # v4
     def latent_to_indice(self, latent, eps=1e-10):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         logits = self.proj(latent)
         # n, m
-        hard = False if self.training else True
+        hard = self.straight_through if self.training else True
+
         indice = F.gumbel_softmax(logits, tau=self.kl_temperature, dim=-1, hard=hard)
         indice = unpack_one(indice, ps, "* m")
 
-        kl_loss = self.kl_loss(latent=None, dist=logits)
+        kl_loss = self.kl_loss(logits=logits)
         return indice, kl_loss
 
     def indice_to_code(self, indice):

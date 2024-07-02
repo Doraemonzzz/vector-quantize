@@ -59,17 +59,11 @@ class BaseVectorQuantizer(ABC, nn.Module):
 
         return loss
 
-    def kl_loss(self, latent=None, dist=None):
+    def kl_loss(self, logits):
         # kl(p || uniform) = -entropy(p) + c
         if not hasattr(self, "kl_loss_weight") or self.kl_loss_weight == 0:
             loss = torch.tensor(0.0).cuda().float()
         else:
-            assert (
-                latent is not None or dist is not None
-            ), "At least one of latent or dist needs to be specified."
-            if dist is None:
-                dist = self.get_dist(latent)
-
-            loss = kl_loss_fn(-dist)
+            loss = kl_loss_fn(logits)
 
         return loss

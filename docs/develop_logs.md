@@ -13,25 +13,12 @@ Here is a list of the development logs.
 ## Here is a list of the features that need to be added.
 
 Indice has some bug.
-gumbel debug:
+gumbel:
 ```
--dist as logit not converge(v1)
-
-conv2d(input) as logit converge.(v2)
-
-use F.linear(input, codebookweight) as logit, not converge(v2)
-
-use linear(input) as logit, not converge(v4)
-
 kl loss(need to use -?)
+ce loss
 ```
 
-softmax debug:
-```
-dist as logit not converge(v1)
-
--dist as logit(v2)
-```
 
 Need check:
 ```

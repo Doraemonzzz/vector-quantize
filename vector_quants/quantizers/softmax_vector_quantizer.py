@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .base_vector_quantizer import BaseVectorQuantizer
-from .utils import compute_dist, pack_one, unpack_one
+from .utils import pack_one, unpack_one
 
 
 class SoftmaxVectorQuantizer(BaseVectorQuantizer):
@@ -19,6 +19,7 @@ class SoftmaxVectorQuantizer(BaseVectorQuantizer):
         entropy_temperature = cfg.entropy_temperature
         entropy_loss_type = cfg.entropy_loss_type
         entropy_loss_weight = cfg.entropy_loss_weight
+        bias = cfg.bias
         # get params end
 
         self._num_embed = num_embed
@@ -30,6 +31,7 @@ class SoftmaxVectorQuantizer(BaseVectorQuantizer):
 
         # init codebook
         self.init_codebook()
+        self.proj = nn.Linear(self.embed_dim, self.num_embed, bias=bias)
 
     @property
     def num_embed(self):
@@ -69,19 +71,35 @@ class SoftmaxVectorQuantizer(BaseVectorQuantizer):
 
     #     return indice
 
-    # v2
+    # # v2, not work
+    # def latent_to_indice(self, latent):
+    #     # (b, *, d) -> (n, d)
+    #     latent, ps = pack_one(latent, "* d")
+    #     d = latent.shape[-1]
+    #     # n, m
+    #     dist = compute_dist(latent, self.codebook.weight) / (d**0.5)
+    #     # n, 1
+    #     if self.training:
+    #         indice = F.softmax(-dist, dim=-1)
+    #         indice = unpack_one(indice, ps, "* m")
+    #     else:
+    #         indice = torch.argmin(dist, dim=-1)
+    #         indice = unpack_one(indice, ps, "*")
+
+    #     return indice
+
+    # v3
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
-        d = latent.shape[-1]
         # n, m
-        dist = compute_dist(latent, self.codebook.weight) / (d**0.5)
+        logits = self.proj(latent)
         # n, 1
         if self.training:
-            indice = F.softmax(-dist, dim=-1)
+            indice = F.softmax(logits, dim=-1)
             indice = unpack_one(indice, ps, "* m")
         else:
-            indice = torch.argmin(dist, dim=-1)
+            indice = torch.argmax(logits, dim=-1)
             indice = unpack_one(indice, ps, "*")
 
         return indice
