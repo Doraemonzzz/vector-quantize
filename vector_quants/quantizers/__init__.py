@@ -8,14 +8,12 @@ from .lookup_free_quantizer import LookUpFreeQuantizer
 from .radial_quantizer import RadialQuantizer
 from .residual_finite_scalar_quantizer import ResidualFiniteScalarQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
-from .softmax_vector_quantizer import SoftmaxVectorQuantizer
 from .vector_quantizer import VectorQuantizer
 
 QUANTIZER_DICT = {
     "Vq": VectorQuantizer,
     "EmaVq": EMAVectorQuantizer,
     "GumbelVq": GumbelVectorQuantizer,
-    "SoftmaxVq": SoftmaxVectorQuantizer,
     "Gvq": GroupVectorQuantizer,
     "Hvq": HierachicalVectorQuantizer,
     "Cvq": CarryVectorQuantizer,

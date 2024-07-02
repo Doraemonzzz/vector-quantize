@@ -26,7 +26,6 @@ class ModelConfig:
                 "Vq",
                 "EmaVq",
                 "GumbelVq",
-                "SoftmaxVq",
                 "Gvq",
                 "Hvq",
                 "Cvq",

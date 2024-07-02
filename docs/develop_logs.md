@@ -9,6 +9,8 @@ Here is a list of the development logs.
    1. For each sample, minimizing entropy ensures determinism (the first term);
    2. For each class, maximizing entropy indicates a uniform distribution (the second term);
    3. It is very useful for Lfq but not very effective for Vq.
+3. During training, Gumbel VQ needs to use hard=True to yield reasonable results. There was a bug version run in between that performed normalization on the "b c h w" dimension's w axis with hard=False, and it still produced relatively reasonable results, with an initial FID of around 5. However, as training progressed, the FID increased to 20.
+4. Softmax VQ doesn't work at all. The current hypothesis is that it is best to use the one-hot form during the training phase; otherwise, the training and inference phases will be inconsistent.
 
 ## Here is a list of the features that need to be added.
 
