@@ -122,7 +122,8 @@ class ModelConfig:
         },
     )
     channel_multipliers: List[int] = field(
-        default_factory=lambda: [1, 2, 4, 8], metadata={"help": "FSQ levels"}
+        default_factory=lambda: [1, 2, 4, 8],
+        metadata={"help": "channel multipliers of ResConvEncoder/Decoder"},
     )
     ##### backbone end
     # others
@@ -400,7 +401,7 @@ def get_cfg(args_list=sys.argv[1:]):
                         "--" + key, action="store_true" if val else "store_false"
                     )
                 else:
-                    if key == "levels":
+                    if key in ["levels", "channel_multipliers"]:
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))

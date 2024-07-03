@@ -6,6 +6,8 @@ from torch import nn
 
 from .utils import GroupNorm
 
+NUM_GROUPS = 1
+
 
 class ResBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int = None, bias: bool = False):
@@ -23,12 +25,12 @@ class ResBlock(nn.Module):
                 in_channels, out_channels, kernel_size=1, padding="same", bias=bias
             )
 
-        self.norm1 = GroupNorm(num_groups=32, num_channels=in_channels)
+        self.norm1 = GroupNorm(num_groups=NUM_GROUPS, num_channels=in_channels)
         self.conv1 = nn.Conv2d(
             in_channels, out_channels, kernel_size=3, padding="same", bias=bias
         )
 
-        self.norm2 = GroupNorm(num_groups=32, num_channels=out_channels)
+        self.norm2 = GroupNorm(num_groups=NUM_GROUPS, num_channels=out_channels)
         self.conv2 = nn.Conv2d(
             out_channels, out_channels, kernel_size=3, padding="same", bias=bias
         )
@@ -118,7 +120,7 @@ class ResConvEncoder(nn.Module):
             *[ResBlock(ch_in, ch_in, bias) for _ in range(num_res_blocks)]
         )
 
-        self.norm = GroupNorm(num_groups=32, num_channels=ch_in)
+        self.norm = GroupNorm(num_groups=NUM_GROUPS, num_channels=ch_in)
         self.conv_out = nn.Conv2d(
             ch_in, embed_dim, kernel_size=1, padding="same", bias=bias
         )
@@ -166,7 +168,7 @@ class ResConvDecoder(nn.Module):
 
         self.blocks = nn.Sequential(*blocks)
 
-        self.norm = GroupNorm(num_groups=32, num_channels=channels)
+        self.norm = GroupNorm(num_groups=NUM_GROUPS, num_channels=channels)
         self.conv_out = nn.Conv2d(
             channels, 3, kernel_size=3, stride=1, padding=1, bias=bias
         )
