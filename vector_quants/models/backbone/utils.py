@@ -38,4 +38,4 @@ class GroupNorm(nn.Module):
         return x
 
     def extra_repr(self) -> str:
-        return f'{self.num_groups}, {self.num_channels}, eps={self.eps}'
+        return f"{self.num_groups}, {self.num_channels}, eps={self.eps}"
