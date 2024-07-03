@@ -325,9 +325,7 @@ class VQTrainer(BaseTrainer):
             with torch.no_grad():
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     input_img = input_img.cuda(torch.cuda.current_device())
-                    reconstructions, indices, loss_dict = self.model(
-                        input_img, return_id=True
-                    )
+                    reconstructions, indices, loss_dict = self.model(input_img)
                     # rescale to [0, 1]
                     input_img = self.post_transform(input_img)
                     reconstructions = self.post_transform(reconstructions)

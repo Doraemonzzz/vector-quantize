@@ -70,13 +70,8 @@ class VqVae(nn.Module):
         if self.is_conv:
             logits = rearrange(logits, "b c h w -> b h w c")
 
-        if self.training:
-            quant_logits, indice, loss_dict = self.quantizer(logits)
-        else:
-            indice = self.quantizer.latent_to_indice(latent)
-            quant_logits = None
-            loss_dict = None
-
+        # update this later? when evaluation, we does not need loss_dict
+        quant_logits, indice, loss_dict = self.quantizer(logits)
         if self.is_conv:
             quant_logits = rearrange(quant_logits, "b h w c -> b c h w")
 
@@ -86,3 +81,12 @@ class VqVae(nn.Module):
         output = self.decoder(x_quant)
 
         return output
+
+    def latent_to_indice(self, x):
+        logits = self.encoder(x)
+        if self.is_conv:
+            logits = rearrange(logits, "b c h w -> b h w c")
+
+        indice = self.quantizer.latent_to_indice(logits)
+
+        return indice
