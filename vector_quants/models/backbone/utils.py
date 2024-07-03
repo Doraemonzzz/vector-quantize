@@ -15,6 +15,7 @@ class GroupNorm(nn.Module):
             raise ValueError("num_channels must be divisible by num_groups")
 
         self.num_groups = num_groups
+        self.num_channels = num_channels
         self.eps = eps
 
         self.weight = nn.Parameter(torch.ones(1, num_channels, 1, 1))
@@ -35,3 +36,6 @@ class GroupNorm(nn.Module):
         x = x * self.weight + self.bias
 
         return x
+
+    def extra_repr(self) -> str:
+        return f'{self.num_groups}, {self.num_channels}, eps={self.eps}'

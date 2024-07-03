@@ -115,6 +115,13 @@ class ModelConfig:
         default=2,
         metadata={"help": "Number of conv blocks in BasicConvEncoder/Decoder"},
     )
+    num_res_blocks: int = field(
+        default=2,
+        metadata={"help": "Number of residual blocks in every stage of ResConvEncoder/Decoder"},
+    )
+    channel_multipliers: List[int] = field(
+        default_factory=lambda: [1, 2, 4, 8], metadata={"help": "FSQ levels"}
+    )
     ##### backbone end
     # others
     use_norm: bool = field(
