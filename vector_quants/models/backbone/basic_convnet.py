@@ -1,5 +1,7 @@
 import torch.nn as nn
 
+from .utils import GroupNorm
+
 
 class BasicConvEncoder(nn.Module):
     def __init__(self, cfg):
@@ -19,7 +21,7 @@ class BasicConvEncoder(nn.Module):
         for _ in range(num_conv_blocks):
             # b d h w -> b d h/2 w/2
             blocks += [
-                nn.GroupNorm(num_groups=32, num_channels=hidden_channels),
+                GroupNorm(num_groups=32, num_channels=hidden_channels),
                 nn.SiLU(inplace=True),
                 nn.Conv2d(
                     hidden_channels, hidden_channels, 4, stride=2, padding=1, bias=bias
@@ -27,7 +29,7 @@ class BasicConvEncoder(nn.Module):
             ]
 
         # b d h w -> b e h w
-        blocks.append(nn.GroupNorm(num_groups=32, num_channels=hidden_channels))
+        blocks.append(GroupNorm(num_groups=32, num_channels=hidden_channels))
         blocks.append(nn.SiLU(inplace=True))
         blocks.append(nn.Conv2d(hidden_channels, embed_dim, 1, bias=bias))
         self.blocks = nn.Sequential(*blocks)
@@ -54,7 +56,7 @@ class BasicConvDecoder(nn.Module):
         for _ in range(num_conv_blocks):
             # b d h w -> b d 2h 2w
             blocks += [
-                nn.GroupNorm(num_groups=32, num_channels=hidden_channels),
+                GroupNorm(num_groups=32, num_channels=hidden_channels),
                 nn.SiLU(inplace=True),
                 nn.ConvTranspose2d(
                     hidden_channels, hidden_channels, 4, stride=2, padding=1, bias=bias
@@ -62,7 +64,7 @@ class BasicConvDecoder(nn.Module):
             ]
 
         # b d h w -> b e h w
-        blocks.append(nn.GroupNorm(num_groups=32, num_channels=hidden_channels))
+        blocks.append(GroupNorm(num_groups=32, num_channels=hidden_channels))
         blocks.append(nn.SiLU(inplace=True))
         blocks.append(nn.Conv2d(hidden_channels, in_channels, 1, bias=bias))
         self.blocks = nn.Sequential(*blocks)
