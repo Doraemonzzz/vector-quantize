@@ -10,6 +10,7 @@ from vector_quants.modules import (
     ReversePatchEmbed,
     SinCosPe,
 )
+from vector_quants.utils import print_module
 
 
 class TransformerLayer(nn.Module):
@@ -95,8 +96,11 @@ class TransformerEncoder(nn.Module):
         self.num_extra_token = num_extra_token
         if self.num_extra_token:
             self.extra_token = nn.Parameter(
-                torch.randn(1, self.num_extra_token, embed_dim)
+                torch.randn(self.num_extra_token, embed_dim)
             )
+
+    def extra_repr(self):
+        return print_module(self)
 
     def forward(
         self,
@@ -111,7 +115,8 @@ class TransformerEncoder(nn.Module):
         x = rearrange(x, "b h w c -> b (h w) c")
 
         if self.num_extra_token > 0:
-            x = torch.cat([self.extra_token, x], dim=1)
+            extra_token = repeat(self.extra_token, "n d -> b n d", b=x.shape[0])
+            x = torch.cat([extra_token, x], dim=1)
         for layer in self.layers:
             x = layer(
                 x,
@@ -120,7 +125,7 @@ class TransformerEncoder(nn.Module):
         if self.num_extra_token > 0:
             x = x[:, : self.num_extra_token]
 
-        x = rearrange(self.out_proj(x), "b (h w) c -> b c h w", w=shape[-1])
+        x = self.out_proj(x)
 
         return x
 
@@ -164,23 +169,25 @@ class TransformerDecoder(nn.Module):
         self.num_extra_token = num_extra_token
         if self.num_extra_token > 0:
             self.mask_token = nn.Parameter(torch.randn(embed_dim))
-        # self.shape = (self.reverse_patch_embed.num_h_patch, self.reverse_patch_embed.num_w_patch)
+
+    def extra_repr(self):
+        return print_module(self)
 
     def forward(
         self,
         x,
     ):
-
-        x = rearrange(x, "b c h w -> b h w c")
-        b = x.shape[0]
-        shape = x.shape[1:-1]
         x = self.in_proj(x)
-
-        x = rearrange(x, "b h w c -> b (h w) c")
+        b = x.shape[0]
+        n = x.shape[1]
+        shape = [
+            self.reverse_patch_embed.num_h_patch,
+            self.reverse_patch_embed.num_w_patch,
+        ]
 
         if self.num_extra_token > 0:
-            # if num extra token > 0, we use cls token to reconstruct
-            mask_tokens = repeat(self.mask_token, "d -> b n d", b=b, n=shape.numel())
+            # if num extra token > 0, we use mask token to reconstruct
+            mask_tokens = repeat(self.mask_token, "d -> b n d", b=b, n=n)
             if self.use_ape:
                 mask_tokens = self.pe(mask_tokens, shape=shape)
 
@@ -196,7 +203,7 @@ class TransformerDecoder(nn.Module):
             )
 
         if self.num_extra_token > 0:
-            x = x[:, self.num_extra_token]
+            x = x[:, self.num_extra_token :]
 
         x = self.reverse_patch_embed(x)
 

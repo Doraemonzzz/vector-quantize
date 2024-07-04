@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from einops import pack
 
+from vector_quants.utils import print_module
+
 
 class SinCosPe(nn.Module):
     def __init__(
@@ -20,6 +22,9 @@ class SinCosPe(nn.Module):
         self.register_buffer("theta", theta, persistent=False)
         self.embed_dim = embed_dim
         self.pe = torch.empty(0)
+
+    def extra_repr(self):
+        return print_module(self)
 
     def get_pe(self, x, shape=None):
         # x: b, ... , d

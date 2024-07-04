@@ -71,13 +71,13 @@ class VqVae(nn.Module):
     def encode(self, x):
         logits = self.encoder(x)
 
-        # if self.is_conv:
-        logits = rearrange(logits, "b c h w -> b h w c")
+        if self.is_conv:
+            logits = rearrange(logits, "b c h w -> b h w c")
 
         # update this later? when evaluation, we does not need loss_dict
         quant_logits, indice, loss_dict = self.quantizer(logits)
-        # if self.is_conv:
-        quant_logits = rearrange(quant_logits, "b h w c -> b c h w")
+        if self.is_conv:
+            quant_logits = rearrange(quant_logits, "b h w c -> b c h w")
 
         return quant_logits, indice, loss_dict
 
