@@ -58,6 +58,7 @@ class ModelConfig:
                 "baseline_conv",
                 "basic_conv",
                 "res_conv",
+                "transformer",
             ],
         },
     )
@@ -111,6 +112,7 @@ class ModelConfig:
         },
     )
     ##### backbone start
+    # resnet
     num_conv_blocks: int = field(
         default=2,
         metadata={"help": "Number of conv blocks in BasicConvEncoder/Decoder"},
@@ -124,6 +126,69 @@ class ModelConfig:
     channel_multipliers: List[int] = field(
         default_factory=lambda: [1, 2, 4, 8],
         metadata={"help": "channel multipliers of ResConvEncoder/Decoder"},
+    )
+    # transformer
+    use_ape: bool = field(
+        default=True,
+        metadata={"help": "Whether to use ape in transformer or linear transformer."},
+    )
+    base: int = field(default=1000, metadata={"help": "Lrpe base"})
+    num_extra_token: int = field(
+        default=0, metadata={"help": "Number extra token used in transformer"}
+    )
+    norm_type: str = field(
+        default="layernorm",
+        metadata={
+            "help": "Normalization type",
+            "choices": ["layernorm", "simplermsnorm"],
+        },
+    )
+    num_layers: int = field(
+        default=12, metadata={"help": "The number of layers of transformer model"}
+    )
+    num_heads: int = field(
+        default=4, metadata={"help": "Number of heads in attention/linear attention"}
+    )
+    patch_size: int = field(
+        default=14, metadata={"help": "Patch size of transformer or linear transformer"}
+    )
+    channel_act: str = field(
+        default="silu",
+        metadata={
+            "help": "Channel Mixer Activation function type",
+            "choices": [
+                "silu",
+            ],
+        },
+    )
+    use_lrpe: bool = field(default=True, metadata={"help": "Whether use lrpe or not"})
+    lrpe_type: int = field(
+        default=1, metadata={"help": "Lrpe type for attentin/linear attention"}
+    )
+    causal: bool = field(
+        default=False, metadata={"help": "Whether use causal attention or not"}
+    )
+    mid_dim: int = field(
+        default=512, metadata={"help": "The mid dimension of stage2 model"}
+    )
+    token_mixer: str = field(
+        default="softmax",
+        metadata={
+            "help": "Token Mixer type",
+            "choices": [
+                "softmax",
+            ],
+        },
+    )
+    channel_mixer: str = field(
+        default="glu",
+        metadata={
+            "help": "Channel Mixer type",
+            "choices": [
+                "ffn",
+                "glu",
+            ],
+        },
     )
     ##### backbone end
     # others
@@ -174,11 +239,11 @@ class ModelStage2Config:
     )
 
     glu_activation: str = field(
-        default="swish",
+        default="silu",
         metadata={
             "help": "Activation function type",
             "choices": [
-                "swish",
+                "silu",
             ],
         },
     )
@@ -295,7 +360,7 @@ class DataConfig:
         metadata={"help": "Dataset path", "choices": ["cifar100", "imagenet-1k"]},
     )
     data_path: str = field(default="./images/", metadata={"help": "Dataset path"})
-    img_size: int = field(default=128, metadata={"help": "Size of image for dataset"})
+    image_size: int = field(default=128, metadata={"help": "Size of image for dataset"})
     num_workers: int = field(
         default=8, metadata={"help": "Number of workers to use for dataloading"}
     )

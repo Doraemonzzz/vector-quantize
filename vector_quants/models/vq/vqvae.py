@@ -10,17 +10,21 @@ from ..backbone import (
     BasicConvEncoder,
     ResConvDecoder,
     ResConvEncoder,
+    TransformerDecoder,
+    TransformerEncoder,
 )
 
 AUTO_ENCODER_MAPPING = {
     "baseline_conv": BaselineConvEncoder,
     "basic_conv": BasicConvEncoder,
     "res_conv": ResConvEncoder,
+    "transformer": TransformerEncoder,
 }
 AUTO_DECODER_MAPPING = {
     "baseline_conv": BaselineConvDecoder,
     "basic_conv": BasicConvDecoder,
     "res_conv": ResConvDecoder,
+    "transformer": TransformerDecoder,
 }
 
 
@@ -67,13 +71,13 @@ class VqVae(nn.Module):
     def encode(self, x):
         logits = self.encoder(x)
 
-        if self.is_conv:
-            logits = rearrange(logits, "b c h w -> b h w c")
+        # if self.is_conv:
+        logits = rearrange(logits, "b c h w -> b h w c")
 
         # update this later? when evaluation, we does not need loss_dict
         quant_logits, indice, loss_dict = self.quantizer(logits)
-        if self.is_conv:
-            quant_logits = rearrange(quant_logits, "b h w c -> b c h w")
+        # if self.is_conv:
+        quant_logits = rearrange(quant_logits, "b h w c -> b c h w")
 
         return quant_logits, indice, loss_dict
 

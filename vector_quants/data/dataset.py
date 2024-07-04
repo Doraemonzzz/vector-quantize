@@ -9,8 +9,8 @@ from .constants import get_mean_std_from_dataset_name
 def get_transform(args):
     # Train and Val share the same transform
     imagenet_transform = [
-        transforms.Resize(args.img_size),
-        transforms.CenterCrop(args.img_size),
+        transforms.Resize(args.image_size),
+        transforms.CenterCrop(args.image_size),
         transforms.ToTensor(),
         transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set)),
     ]

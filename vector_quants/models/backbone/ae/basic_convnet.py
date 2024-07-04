@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from .utils import GroupNorm
+from ..utils import GroupNorm
 
 
 class BasicConvEncoder(nn.Module):

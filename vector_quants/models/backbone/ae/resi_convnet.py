@@ -4,7 +4,7 @@
 import torch.nn.functional as F
 from torch import nn
 
-from .utils import GroupNorm
+from ..utils import GroupNorm
 
 NUM_GROUPS = 1
 

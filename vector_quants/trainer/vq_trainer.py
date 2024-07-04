@@ -45,6 +45,8 @@ class VQTrainer(BaseTrainer):
         cfg_train = cfg.train
         cfg_data = cfg.data
         cfg_loss = cfg.loss
+        # for transformer
+        cfg_model.image_size = cfg_data.image_size
 
         set_random_seed(cfg_train.seed)
 

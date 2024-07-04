@@ -1,4 +1,11 @@
-from .baseline_convnet import BaselineConvDecoder, BaselineConvEncoder
-from .basic_convnet import BasicConvDecoder, BasicConvEncoder
+from .ae import (
+    BaselineConvDecoder,
+    BaselineConvEncoder,
+    BasicConvDecoder,
+    BasicConvEncoder,
+    ResConvDecoder,
+    ResConvEncoder,
+    TransformerDecoder,
+    TransformerEncoder,
+)
 from .llama import LlamaModel
-from .resi_convnet import ResConvDecoder, ResConvEncoder

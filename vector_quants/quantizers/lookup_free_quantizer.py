@@ -77,6 +77,7 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
 
     def latent_to_code_and_indice(self, latent):
         mask = latent > 0
+
         indice = (mask.int() * self._basis).sum(dim=-1).to(torch.int32)
         code = torch.where(mask, self.codebook_value, -self.codebook_value)
 

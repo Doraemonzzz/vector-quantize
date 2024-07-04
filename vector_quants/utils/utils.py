@@ -212,3 +212,27 @@ def print_module(module):
             )
 
     return string_repr.rstrip("\n")
+
+
+def print_params(**kwargs) -> None:
+    if is_main_process():
+        logging_info(f"start print config of {kwargs['__class__']}")
+        for key in kwargs:
+            if key in ["__class__", "self"]:
+                continue
+            logging_info(f"{key}: {kwargs[key]}")
+        logging_info(f"end print config of {kwargs['__class__']}")
+
+
+def print_config(config) -> None:
+    if is_main_process():
+        logging_info(f"start print config of {config['__class__']}")
+        for key in config:
+            if key in ["__class__", "self"]:
+                continue
+            logging_info(f"{key}: {config[key]}")
+        logging_info(f"end print config of {config['__class__']}")
+
+
+def pair(t):
+    return t if isinstance(t, tuple) else (t, t)
