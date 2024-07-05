@@ -4,7 +4,6 @@ from einops import rearrange
 
 from ..base_vector_quantizer import BaseVectorQuantizer
 from ..finite_scalar_quantizer import FiniteScalarQuantizer
-from ..utils import pack_one, unpack_one
 
 
 class ResidualCoefQuantizer(BaseVectorQuantizer):
@@ -21,7 +20,8 @@ class ResidualCoefQuantizer(BaseVectorQuantizer):
         # get params end
 
         self.num_residual = num_residual
-        cfg.levels = num_patch * cfg.levels
+        # cfg.levels = num_patch * cfg.levels
+        self.num_patch = num_patch
         n = int(num_patch**0.5)
         self.fsq = FiniteScalarQuantizer(cfg)
         self._num_embed = self.fsq.num_embed
@@ -63,16 +63,14 @@ class ResidualCoefQuantizer(BaseVectorQuantizer):
 
     def forward(self, x):
         indice_list = []
-        # (b, *, d) -> (b, e)
-        x, ps = pack_one(x, "b *")
         x_quant = torch.zeros_like(x)
         residual = x
-        bases = rearrange(self.net(self.index), "h w k d -> k (h w d)")
+        bases = rearrange(self.net(self.index), "h w k d -> k (h w) d")
 
         for i in range(self.num_residual):
-            residual_quant, indice, loss_dict = self.fsq(residual)
+            residual_quant, indice, loss_dict = self.fsq(residual.mean(dim=1))
             base = bases[i]
-            # update
+            residual_quant = residual_quant.unsqueeze(1)
             residual = residual - residual_quant.detach() * base.detach()
             x_quant = x_quant + residual_quant * base
             indice_list.append(indice)
@@ -83,8 +81,6 @@ class ResidualCoefQuantizer(BaseVectorQuantizer):
         }
 
         indice = torch.cat(indice_list, dim=0)
-
-        x_quant = unpack_one(x_quant, ps, "b *")
 
         return x_quant, indice, loss_dict
 
