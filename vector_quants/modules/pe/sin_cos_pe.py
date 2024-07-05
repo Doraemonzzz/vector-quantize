@@ -62,7 +62,6 @@ class SinCosPe(nn.Module):
     def forward(self, x, shape=None):
         if self.pe.shape[0] == 0:
             self.get_pe(x, shape)
-
         x = x + self.pe
 
         return x

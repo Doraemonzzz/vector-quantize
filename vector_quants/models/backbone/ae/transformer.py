@@ -179,15 +179,16 @@ class TransformerDecoder(nn.Module):
     ):
         x = self.in_proj(x)
         b = x.shape[0]
-        n = x.shape[1]
         shape = [
             self.reverse_patch_embed.num_h_patch,
             self.reverse_patch_embed.num_w_patch,
         ]
+        n = shape[0] * shape[1]
 
         if self.num_extra_token > 0:
             # if num extra token > 0, we use mask token to reconstruct
             mask_tokens = repeat(self.mask_token, "d -> b n d", b=b, n=n)
+
             if self.use_ape:
                 mask_tokens = self.pe(mask_tokens, shape=shape)
 
