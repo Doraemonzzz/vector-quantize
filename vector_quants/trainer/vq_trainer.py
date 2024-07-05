@@ -19,6 +19,7 @@ from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
     compute_grad_norm,
+    compute_num_patch,
     get_metrics_list,
     is_main_process,
     logging_info,
@@ -47,6 +48,7 @@ class VQTrainer(BaseTrainer):
         cfg_loss = cfg.loss
         # for transformer
         cfg_model.image_size = cfg_data.image_size
+        cfg_model.num_patch = compute_num_patch(cfg_model)
 
         set_random_seed(cfg_train.seed)
 

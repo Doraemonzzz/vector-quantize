@@ -28,6 +28,7 @@ class ModelConfig:
                 "Fsq",
                 "Raq",
                 "Rfsq",
+                "Rcq",
             ],
         },
     )
@@ -48,6 +49,9 @@ class ModelConfig:
     )
     num_residual: int = field(
         default=1, metadata={"help": "The number residual of VQVAE's codebook"}
+    )
+    num_patch: int = field(
+        default=1, metadata={"help": "Number of patches to the quantizer"}
     )
     model_name: str = field(
         default="baseline",
@@ -432,7 +436,7 @@ def process_args(args):
     args.train.save = f"{args.train.output_dir}/{output_name}"
     quantizer = args.model.quantizer
 
-    if quantizer in ["Cvq", "Fsq", "Rfsq"]:
+    if quantizer in ["Cvq", "Fsq", "Rfsq", "Rcq"]:
         args.model.embed_dim = len(args.model.levels)
 
     return args

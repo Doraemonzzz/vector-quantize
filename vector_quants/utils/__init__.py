@@ -4,6 +4,7 @@ from .dataclass import get_cfg
 from .distributed import enable
 from .utils import (
     compute_grad_norm,
+    compute_num_patch,
     get_metrics_list,
     is_main_process,
     logging_info,

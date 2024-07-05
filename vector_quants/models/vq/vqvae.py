@@ -53,6 +53,7 @@ class VqVae(nn.Module):
             "Fsq",
             "Raq",
             "Rfsq",
+            "Rcq",
         ], f"quantizer {self.cfg.quantizer} does not support!"
 
     @property

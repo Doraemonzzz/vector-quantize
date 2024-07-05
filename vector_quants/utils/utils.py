@@ -19,30 +19,6 @@ type_dict = {
 }
 
 
-def initialize_distributed(args):
-    args.rank = int(os.environ["RANK"])
-    args.world_size = int(os.environ["WORLD_SIZE"])
-    args.gpu = int(os.environ["LOCAL_RANK"])
-
-    args.distributed = True
-
-    torch.cuda.set_device(args.gpu)
-    args.dist_backend = "nccl"
-    print(
-        "| distributed init (rank {}): {}, gpu {}".format(
-            args.rank, args.dist_url, args.gpu
-        ),
-        flush=True,
-    )
-    torch.distributed.init_process_group(
-        backend=args.dist_backend,
-        init_method=args.dist_url,
-        world_size=args.world_size,
-        rank=args.rank,
-    )
-    torch.distributed.barrier()
-
-
 def set_random_seed(seed):
     """Set random seed for reproducability."""
 
@@ -236,3 +212,14 @@ def print_config(config) -> None:
 
 def pair(t):
     return t if isinstance(t, tuple) else (t, t)
+
+
+def compute_num_patch(cfg_model):
+    model_name = cfg_model.model_name
+    if "transformer" in model_name:
+        num_patch = (cfg_model.image_size // cfg_model.patch_size) ** 2
+    else:
+        num_patch = 0
+        assert False
+
+    return num_patch

@@ -131,6 +131,43 @@ $$
 
 
 
+## 其他量化方式
+
+对于常用的量化，是将$h\times w\times d$量化为$h\times w$个code，并且每个位置共享codebook，公式可以表示为（记$\mathbf X$为输入，$\tilde {\mathbf X}$为量化后的结果）：
+$$
+\tilde {\mathbf X}_{ijk}= \mathbf a_{ij} \mathbf b_{k},   \mathbf a_{ij}\in \mathbb R^{1\times V},  \mathbf b_{ k}\in \mathbb R^{V\times 1}.
+$$
+一个扩展是不同位置不共享codebook，此时：
+$$
+\tilde {\mathbf X}_{ijk}= \mathbf a_{ij} \mathbf b_{ijk},   \mathbf a_{ij}\in \mathbb R^{1\times V},  \mathbf b_{ijk}\in \mathbb R^{V\times 1}.
+$$
+以下再给出几个方式。
+
+第一种是codebook size直接变成$h\times w \times d$，即：
+$$
+\tilde {\mathbf X}_{ijk}= \mathbf a_{\mathbf X}  \mathbf  b_{ijk}, a_{\mathbf X}\in \mathbb R^{1\times V},  \mathbf b_{ijk}\in \mathbb R^{V\times 1}.
+$$
+这种情况一张图对应一个code，肯定不太可取，作为一个折中方案，考虑第二种方式：
+$$
+\tilde {\mathbf X}_{ijk}= \mathbf  c_{\mathbf X} \mathbf a_k   \mathbf b_{ijk}, \mathbf c_{\mathbf X} \in \mathbb R^{1\times V}, \mathbf a_{k}\in \mathbb R^{V\times 1},  \mathbf b_{ijk}\in \mathbb R.
+$$
+这里$\mathbf b_{ijk}$不是codebook，可以理解为图像的某种平均量，我们量化关于该平均量的系数部分。
+
+
+
+
+
+| 量化系数    | codebook                       | 说明                                  |
+| ----------- | ------------------------------ | ------------------------------------- |
+| $h\times w$ | $V\times d$                    | 不同位置共享codebook                  |
+| $h\times w$ | $(h\times w\times V)\times d$  | 每个位置一个codebook                  |
+| $1$         | $V\times (h\times w \times d)$ | codebook size变成$h\times w \times d$ |
+| $1$         | $V\times d$                    | 额外添加一个平均值$\mathbf b_{ijk}$   |
+
+
+
+
+
 ## 如何计算argmin
 
 
