@@ -165,7 +165,7 @@ class ModelConfig:
             ],
         },
     )
-    use_lrpe: bool = field(default=True, metadata={"help": "Whether use lrpe or not"})
+    use_lrpe: bool = field(default=False, metadata={"help": "Whether use lrpe or not"})
     lrpe_type: int = field(
         default=1, metadata={"help": "Lrpe type for attentin/linear attention"}
     )
@@ -229,7 +229,7 @@ class ModelStage2Config:
     bias: bool = field(
         default=False, metadata={"help": "Whether use bias in nn.linear or not"}
     )
-    use_lrpe: bool = field(default=True, metadata={"help": "Whether use lrpe or not"})
+    use_lrpe: bool = field(default=False, metadata={"help": "Whether use lrpe or not"})
     lrpe_type: int = field(
         default=1, metadata={"help": "Lrpe type for attentin/linear attention"}
     )
@@ -368,7 +368,6 @@ class DataConfig:
     num_workers: int = field(
         default=8, metadata={"help": "Number of workers to use for dataloading"}
     )
-    use_lrpe: bool = field(default=True, metadata={"help": "Whether use lrpe or not"})
 
 
 @dataclass
