@@ -70,7 +70,7 @@ class TransformerEncoder(nn.Module):
         out_dim = cfg.embed_dim
         base = cfg.base
         num_extra_token = cfg.num_extra_token
-        cfg.norm_type
+        norm_type = cfg.norm_type
         # get params end
 
         self.patch_embed = PatchEmbed(
@@ -91,6 +91,7 @@ class TransformerEncoder(nn.Module):
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
 
+        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
 
         self.num_extra_token = num_extra_token
@@ -125,7 +126,7 @@ class TransformerEncoder(nn.Module):
         if self.num_extra_token > 0:
             x = x[:, : self.num_extra_token]
 
-        x = self.out_proj(x)
+        x = self.out_proj(self.final_norm(x))
 
         return x
 
@@ -144,7 +145,7 @@ class TransformerDecoder(nn.Module):
         in_dim = cfg.embed_dim
         base = cfg.base
         num_extra_token = cfg.num_extra_token
-        cfg.norm_type
+        norm_type = cfg.norm_type
         # get params end
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
@@ -157,6 +158,7 @@ class TransformerDecoder(nn.Module):
         self.layers = nn.ModuleList(
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
+        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.reverse_patch_embed = ReversePatchEmbed(
             image_size=image_size,
             patch_size=patch_size,
@@ -206,6 +208,6 @@ class TransformerDecoder(nn.Module):
         if self.num_extra_token > 0:
             x = x[:, self.num_extra_token :]
 
-        x = self.reverse_patch_embed(x)
+        x = self.reverse_patch_embed(self.final_norm(x))
 
         return x
