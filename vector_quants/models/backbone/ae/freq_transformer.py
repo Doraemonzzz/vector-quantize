@@ -105,9 +105,14 @@ class FreqTransformerEncoder(nn.Module):
         self,
         x,
     ):
+        # # (b c h w)
+        # x = self.patch_embed(x)
+        # x = rearrange(dct_2d(x), "b c h w -> b (h w) c")
+
         # (b c h w)
-        x = self.patch_embed(x)
-        x = rearrange(dct_2d(x), "b c h w -> b (h w) c")
+        x = self.patch_embed(dct_2d(x))
+        x = rearrange(x, "b c h w -> b (h w) c")
+
         # convert to zigzag order
         x = x[:, self.indices, :]
 
@@ -185,12 +190,18 @@ class FreqTransformerDecoder(nn.Module):
                 x,
             )
 
-        x = rearrange(
-            idct_2d(x[:, self.reverse_indices]),
-            "b (h w) c -> b (h w) c ",
-            h=self.reverse_patch_embed.num_h_patch,
-        )
+        # x = rearrange(
+        #     idct_2d(x[:, self.reverse_indices]),
+        #     "b (h w) c -> b (h w) c ",
+        #     h=self.reverse_patch_embed.num_h_patch,
+        # )
+
+        # x = self.reverse_patch_embed(self.final_norm(x))
+
+        x = x[:, self.reverse_indices]
 
         x = self.reverse_patch_embed(self.final_norm(x))
+
+        x = idct_2d(x)
 
         return x
