@@ -8,6 +8,8 @@ from ..backbone import (
     BaselineConvEncoder,
     BasicConvDecoder,
     BasicConvEncoder,
+    FreqTransformerDecoder,
+    FreqTransformerEncoder,
     ResConvDecoder,
     ResConvEncoder,
     TransformerDecoder,
@@ -19,12 +21,14 @@ AUTO_ENCODER_MAPPING = {
     "basic_conv": BasicConvEncoder,
     "res_conv": ResConvEncoder,
     "transformer": TransformerEncoder,
+    "freq_transformer": FreqTransformerEncoder,
 }
 AUTO_DECODER_MAPPING = {
     "baseline_conv": BaselineConvDecoder,
     "basic_conv": BasicConvDecoder,
     "res_conv": ResConvDecoder,
     "transformer": TransformerDecoder,
+    "freq_transformer": FreqTransformerDecoder,
 }
 
 

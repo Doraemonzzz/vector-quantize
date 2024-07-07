@@ -9,6 +9,7 @@ AUTO_VQVAE_MAPPING = {
     "basic_conv": VqVae,
     "res_conv": VqVae,
     "transformer": VqVae,
+    "freq_transformer": VqVae,
 }
 
 
