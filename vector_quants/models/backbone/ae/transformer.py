@@ -23,7 +23,7 @@ class TransformerLayer(nn.Module):
         channel_act = cfg.channel_act
         use_lrpe = cfg.use_lrpe
         lrpe_type = cfg.lrpe_type
-        base = cfg.base
+        base = cfg.theta_base
         causal = cfg.causal
         mid_dim = cfg.mid_dim
         token_mixer = cfg.token_mixer
@@ -68,7 +68,7 @@ class TransformerEncoder(nn.Module):
         use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
         out_dim = cfg.embed_dim
-        base = cfg.base
+        base = cfg.theta_base
         num_extra_token = cfg.num_extra_token
         norm_type = cfg.norm_type
         # get params end
@@ -99,6 +99,10 @@ class TransformerEncoder(nn.Module):
             self.extra_token = nn.Parameter(
                 torch.randn(self.num_extra_token, embed_dim)
             )
+            self.extra_token_pe = SinCosPe(
+                embed_dim=embed_dim,
+                base=base,
+            )
 
     def extra_repr(self):
         return print_module(self)
@@ -117,6 +121,8 @@ class TransformerEncoder(nn.Module):
 
         if self.num_extra_token > 0:
             extra_token = repeat(self.extra_token, "n d -> b n d", b=x.shape[0])
+            extra_token_shape = (self.num_extra_token,)
+            extra_token = self.extra_token_pe(extra_token, extra_token_shape)
             x = torch.cat([extra_token, x], dim=1)
         for layer in self.layers:
             x = layer(
@@ -143,7 +149,7 @@ class TransformerDecoder(nn.Module):
         use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
         in_dim = cfg.embed_dim
-        base = cfg.base
+        base = cfg.theta_base
         num_extra_token = cfg.num_extra_token
         norm_type = cfg.norm_type
         # get params end
@@ -171,6 +177,10 @@ class TransformerDecoder(nn.Module):
         self.num_extra_token = num_extra_token
         if self.num_extra_token > 0:
             self.mask_token = nn.Parameter(torch.randn(embed_dim))
+            self.extra_token_pe = SinCosPe(
+                embed_dim=embed_dim,
+                base=base,
+            )
 
     def extra_repr(self):
         return print_module(self)
@@ -189,11 +199,14 @@ class TransformerDecoder(nn.Module):
 
         if self.num_extra_token > 0:
             # if num extra token > 0, we use mask token to reconstruct
+            # see the difference between repeat and expand: https://github.com/arogozhnikov/einops/issues/202
             mask_tokens = repeat(self.mask_token, "d -> b n d", b=b, n=n)
 
             if self.use_ape:
                 mask_tokens = self.pe(mask_tokens, shape=shape)
 
+            extra_token_shape = (self.num_extra_token,)
+            x = self.extra_token_pe(x, extra_token_shape)
             x = torch.cat([x, mask_tokens], dim=1)
         else:
             if self.use_ape:

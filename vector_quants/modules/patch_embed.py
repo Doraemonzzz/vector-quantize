@@ -18,8 +18,6 @@ class PatchEmbed(nn.Module):
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
 
-        channels * patch_height * patch_width
-
         self.to_patch_embedding = nn.Conv2d(
             channels, embed_dim, kernel_size=patch_size, stride=patch_size, bias=bias
         )
@@ -50,8 +48,6 @@ class ReversePatchEmbed(nn.Module):
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
-
-        channels * patch_height * patch_width
 
         self.reverse_patch_embedding = nn.ConvTranspose2d(
             in_channels=embed_dim,

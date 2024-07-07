@@ -136,7 +136,9 @@ class ModelConfig:
         default=True,
         metadata={"help": "Whether to use ape in transformer or linear transformer."},
     )
-    base: int = field(default=1000, metadata={"help": "Lrpe base"})
+    theta_base: int = field(
+        default=10000, metadata={"help": "Theta base for SinCosPe and Lrpe"}
+    )
     num_extra_token: int = field(
         default=0, metadata={"help": "Number extra token used in transformer"}
     )
@@ -233,7 +235,9 @@ class ModelStage2Config:
     lrpe_type: int = field(
         default=1, metadata={"help": "Lrpe type for attentin/linear attention"}
     )
-    base: int = field(default=1000, metadata={"help": "Lrpe base"})
+    theta_base: int = field(
+        default=10000, metadata={"help": "Theta base for SinCosPe and Lrpe"}
+    )
     norm_type: str = field(
         default="layernorm",
         metadata={
