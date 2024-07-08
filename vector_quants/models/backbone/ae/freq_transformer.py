@@ -1,15 +1,14 @@
 import torch.nn as nn
-from einops import rearrange
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
     AUTO_NORM_MAPPING,
+    AUTO_PATCH_EMBED_MAPPING,
+    AUTO_REVERSE_PATCH_EMBED_MAPPING,
     AUTO_TOKEN_MIXER_MAPPING,
-    PatchEmbed,
-    ReversePatchEmbed,
     SinCosPe,
 )
-from vector_quants.ops import dct_2d, idct_2d, zigzag_indices
+from vector_quants.ops import zigzag_indices
 from vector_quants.utils import print_module
 
 
@@ -70,9 +69,10 @@ class FreqTransformerEncoder(nn.Module):
         out_dim = cfg.embed_dim
         base = cfg.theta_base
         norm_type = cfg.norm_type
+        patch_embed_name = cfg.patch_embed_name
         # get params end
 
-        self.patch_embed = PatchEmbed(
+        self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -105,17 +105,22 @@ class FreqTransformerEncoder(nn.Module):
         self,
         x,
     ):
-        # (b c h w)
-        x = self.patch_embed(x)
-        x = rearrange(dct_2d(x), "b c h w -> b (h w) c")
+        # # v1
+        # # (b c h w)
+        # x = self.patch_embed(x)
+        # x = rearrange(dct_2d(x), "b c h w -> b (h w) c")
+        # # convert to zigzag order
+        # x = x[:, self.indices, :]
 
         # # v2
         # # (b c h w)
         # x = self.patch_embed(dct_2d(x))
         # x = rearrange(x, "b c h w -> b (h w) c")
 
-        # convert to zigzag order
-        x = x[:, self.indices, :]
+        # # convert to zigzag order
+        # x = x[:, self.indices, :]
+
+        x = self.patch_embed(x)
 
         shape = x.shape[1:-1]
 
@@ -146,6 +151,7 @@ class FreqTransformerDecoder(nn.Module):
         in_dim = cfg.embed_dim
         base = cfg.theta_base
         norm_type = cfg.norm_type
+        patch_embed_name = cfg.patch_embed_name
         # get params end
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
@@ -159,7 +165,7 @@ class FreqTransformerDecoder(nn.Module):
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        self.reverse_patch_embed = ReversePatchEmbed(
+        self.reverse_patch_embed = AUTO_REVERSE_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -191,10 +197,10 @@ class FreqTransformerDecoder(nn.Module):
                 x,
             )
 
-        # v1
-        x = idct_2d(x[:, self.reverse_indices])
+        # # v1
+        # x = idct_2d(x[:, self.reverse_indices])
 
-        x = self.reverse_patch_embed(self.final_norm(x))
+        # x = self.reverse_patch_embed(self.final_norm(x))
 
         # # v2
         # x = x[:, self.reverse_indices]
@@ -202,5 +208,8 @@ class FreqTransformerDecoder(nn.Module):
         # x = self.reverse_patch_embed(self.final_norm(x))
 
         # x = idct_2d(x)
+
+        # v3
+        x = self.reverse_patch_embed(self.final_norm(x))
 
         return x

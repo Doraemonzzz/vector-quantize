@@ -13,6 +13,7 @@ class PatchEmbed(nn.Module):
         channels=3,
         flatten=True,
         bias=False,
+        **kwargs,
     ):
         super().__init__()
         image_height, image_width = pair(image_size)
@@ -44,6 +45,7 @@ class ReversePatchEmbed(nn.Module):
         channels=3,
         flatten=True,
         bias=False,
+        **kwargs,
     ):
         super().__init__()
         image_height, image_width = pair(image_size)

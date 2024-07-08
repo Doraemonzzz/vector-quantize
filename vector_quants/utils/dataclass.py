@@ -67,6 +67,16 @@ class ModelConfig:
             ],
         },
     )
+    patch_embed_name: str = field(
+        default="vanilla",
+        metadata={
+            "help": "Patch embed name",
+            "choices": [
+                "vanilla",
+                "freq",
+            ],
+        },
+    )
     # loss weight
     commitment_loss_weight: float = field(
         default=1.0, metadata={"help": "Commitment loss weight"}

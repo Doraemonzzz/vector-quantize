@@ -5,9 +5,9 @@ from einops import rearrange, repeat
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
     AUTO_NORM_MAPPING,
+    AUTO_PATCH_EMBED_MAPPING,
+    AUTO_REVERSE_PATCH_EMBED_MAPPING,
     AUTO_TOKEN_MIXER_MAPPING,
-    PatchEmbed,
-    ReversePatchEmbed,
     SinCosPe,
 )
 from vector_quants.utils import print_module
@@ -71,9 +71,10 @@ class TransformerEncoder(nn.Module):
         base = cfg.theta_base
         num_extra_token = cfg.num_extra_token
         norm_type = cfg.norm_type
+        patch_embed_name = cfg.patch_embed_name
         # get params end
 
-        self.patch_embed = PatchEmbed(
+        self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -152,6 +153,7 @@ class TransformerDecoder(nn.Module):
         base = cfg.theta_base
         num_extra_token = cfg.num_extra_token
         norm_type = cfg.norm_type
+        patch_embed_name = cfg.patch_embed_name
         # get params end
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
@@ -165,7 +167,7 @@ class TransformerDecoder(nn.Module):
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        self.reverse_patch_embed = ReversePatchEmbed(
+        self.reverse_patch_embed = AUTO_REVERSE_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
             patch_size=patch_size,
             embed_dim=embed_dim,
