@@ -1,4 +1,5 @@
 import torch.nn as nn
+from einops import rearrange
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
@@ -8,10 +9,9 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.ops import zigzag_indices, dct_2d, idct_2d
+from vector_quants.ops import dct_2d, idct_2d, zigzag_indices
 from vector_quants.utils import print_module
-from einops import rearrange
-import torch
+
 
 class TransformerLayer(nn.Module):
     def __init__(self, cfg):
@@ -98,7 +98,6 @@ class FreqTransformerEncoder(nn.Module):
             self.patch_embed.num_h_patch, self.patch_embed.num_w_patch
         )
         self.register_buffer("indices", indices, persistent=False)
-        
 
     def extra_repr(self):
         return print_module(self)
@@ -114,7 +113,6 @@ class FreqTransformerEncoder(nn.Module):
         x = self.final_norm(x)
         # convert to zigzag order
         x = x[:, self.indices, :]
-
 
         # # v2
         # # (b c h w)
