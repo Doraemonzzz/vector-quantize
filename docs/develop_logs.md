@@ -86,16 +86,18 @@ Loss:
 
 ## 240701
 Methods for finding the codebook:
-- [ ] Gumbel.
-- [ ] Training softmax, inference onehot.
+- [x] Gumbel.
+- [x] Training softmax, inference onehot.
+  - [ ] Not work.
 
 Loss:
 - [ ] Gan loss.
-- [ ] KL loss.
+- [x] KL loss.
 
 Add ar:
 - [ ] Model.
 - [ ] Training.
 
 Others:
-- [ ] L2 norm.
+- [x] L2 norm.
+  - [x] No use.
