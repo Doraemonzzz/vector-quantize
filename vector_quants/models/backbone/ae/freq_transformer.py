@@ -1,5 +1,4 @@
 import torch.nn as nn
-from einops import rearrange
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
@@ -9,7 +8,7 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.ops import dct_2d, idct_2d, zigzag_indices
+from vector_quants.ops import zigzag_indices
 from vector_quants.utils import print_module
 
 
@@ -106,13 +105,13 @@ class FreqTransformerEncoder(nn.Module):
         self,
         x,
     ):
-        # v1
-        # (b c h w)
-        x = self.patch_embed(x)
-        x = rearrange(dct_2d(x, norm="ortho"), "b c h w -> b (h w) c")
-        x = self.final_norm(x)
-        # convert to zigzag order
-        x = x[:, self.indices, :]
+        # # v1
+        # # (b c h w)
+        # x = self.patch_embed(x)
+        # x = rearrange(dct_2d(x, norm="ortho"), "b c h w -> b (h w) c")
+        # x = self.final_norm(x)
+        # # convert to zigzag order
+        # x = x[:, self.indices, :]
 
         # # v2
         # # (b c h w)
@@ -122,8 +121,8 @@ class FreqTransformerEncoder(nn.Module):
         # # convert to zigzag order
         # x = x[:, self.indices, :]
 
-        # # v3
-        # x = self.patch_embed(x)
+        # v3
+        x = self.patch_embed(x)
 
         shape = x.shape[1:-1]
 
@@ -200,10 +199,10 @@ class FreqTransformerDecoder(nn.Module):
                 x,
             )
 
-        # v1
-        x = idct_2d(x[:, self.reverse_indices], norm="ortho")
+        # # v1
+        # x = idct_2d(x[:, self.reverse_indices], norm="ortho")
 
-        x = self.reverse_patch_embed(self.final_norm(x))
+        # x = self.reverse_patch_embed(self.final_norm(x))
 
         # # v2
         # x = x[:, self.reverse_indices]
@@ -212,7 +211,7 @@ class FreqTransformerDecoder(nn.Module):
 
         # x = idct_2d(x)
 
-        # # v3
-        # x = self.reverse_patch_embed(self.final_norm(x))
+        # v3
+        x = self.reverse_patch_embed(self.final_norm(x))
 
         return x

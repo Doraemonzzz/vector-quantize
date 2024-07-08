@@ -88,11 +88,12 @@ Loss:
 Methods for finding the codebook:
 - [x] Gumbel.
 - [x] Training softmax, inference onehot.
-  - [ ] Not work.
+  - [x] Not work.
 
 Loss:
 - [ ] Gan loss.
 - [x] KL loss.
+  - [ ] Add summary
 
 Add ar:
 - [ ] Model.
@@ -101,3 +102,11 @@ Add ar:
 Others:
 - [x] L2 norm.
   - [x] No use.
+
+
+## 240707
+
+- [ ] Test freq ar.
+- [ ] Test vit + extra token.
+- [ ] Test rcq.
+- [ ] Add Gan loss.
