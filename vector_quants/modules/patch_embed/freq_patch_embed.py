@@ -37,7 +37,8 @@ class FreqPatchEmbed(nn.Module):
             w=self.num_w_patch,
         )
         y = dct_2d(y)
-        y = rearrange(y, "b d h w -> b (h w) d")[:, self.indices]
+        # y = rearrange(y, "b d h w -> b (h w) d")[:, self.indices]
+        y = rearrange(y, "b d h w -> b (h w) d")
         y = self.to_patch_embedding(y)
 
         return y
@@ -70,7 +71,8 @@ class ReverseFreqPatchEmbed(nn.Module):
         self.register_buffer("reverse_indices", reverse_indices, persistent=False)
 
     def forward(self, x):
-        y = self.reverse_patch_embedding(x)[:, self.reverse_indices]
+        # y = self.reverse_patch_embedding(x)[:, self.reverse_indices]
+        y = self.reverse_patch_embedding(x)
         y = rearrange(
             y,
             "b (h w) d -> b d h w",
