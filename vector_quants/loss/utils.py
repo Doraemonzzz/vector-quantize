@@ -23,11 +23,20 @@ def get_post_transform(post_transform_type, data_set="imagenet-1k"):
         logging_info(f"Post Transform: None")
         post_transform = lambda x: x
     elif post_transform_type == 1:
-        logging_info(f"Post Transform: fsq_pytorch default")
-        post_transform = transform_rev
+        logging_info(f"Post Transform: rescale to [0, 1]")
+        norm_mean, norm_std = get_mean_std_from_dataset_name(data_set)
+        post_transform = lambda x: rescale_image_tensor(x, norm_mean, norm_std)
     else:
         logging_info(f"Post Transform: rescale to [0, 1]")
         norm_mean, norm_std = get_mean_std_from_dataset_name(data_set)
         post_transform = lambda x: rescale_image_tensor(x, norm_mean, norm_std)
+
+    # elif post_transform_type == 1:
+    #     logging_info(f"Post Transform: fsq_pytorch default")
+    #     post_transform = transform_rev
+    # else:
+    #     logging_info(f"Post Transform: rescale to [0, 1]")
+    #     norm_mean, norm_std = get_mean_std_from_dataset_name(data_set)
+    #     post_transform = lambda x: rescale_image_tensor(x, norm_mean, norm_std)
 
     return post_transform
