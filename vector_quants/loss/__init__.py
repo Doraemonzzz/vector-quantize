@@ -138,6 +138,8 @@ class Loss(nn.Module):
         loss_dict = {
             "l1_loss": l1_loss.cpu().item(),
             "l2_loss": l2_loss.cpu().item(),
+            "freq_l1_loss": freq_l1_loss.cpu().item(),
+            "freq_l2_loss": freq_l2_loss.cpu().item(),
             "perceptual_loss": perceptual_loss.cpu().item(),
             "adversarial_loss": adversarial_loss.cpu().item(),
             "codebook_loss": codebook_loss.cpu().item(),
