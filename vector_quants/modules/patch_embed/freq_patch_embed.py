@@ -30,6 +30,7 @@ class FreqPatchEmbed(nn.Module):
         indices, reverse_indices = zigzag_indices(image_height, image_width)
         self.register_buffer("indices", indices, persistent=False)
 
+    # # v1
     # def forward(self, x):
     #     y = rearrange(
     #         x,
@@ -43,13 +44,25 @@ class FreqPatchEmbed(nn.Module):
 
     #     return y
 
+    # # v2
+    # def forward(self, x):
+    #     y = rearrange(
+    #         x,
+    #         "b c h w -> b c (h w)",
+    #     )[:, :, self.indices]
+
+    #     y = rearrange(y, "b c (n d) -> b n (d c)", n=self.num_patch)
+    #     y = self.to_patch_embedding(y)
+
+    #     return y
+
     def forward(self, x):
         y = rearrange(
             x,
-            "b c h w -> b c (h w)",
-        )[:, :, self.indices]
-
-        y = rearrange(y, "b c (n d) -> b n (d c)", n=self.num_patch)
+            "b c (h p1) (w p2) -> b (h w) (p1 p2 c)",
+            h=self.num_h_patch,
+            w=self.num_w_patch,
+        )
         y = self.to_patch_embedding(y)
 
         return y
@@ -75,6 +88,7 @@ class ReverseFreqPatchEmbed(nn.Module):
         self.num_w_patch = image_width // patch_width
         self.num_patch = self.num_h_patch * self.num_w_patch
         self.image_height = image_height
+        self.image_width = image_width
 
         self.reverse_patch_embedding = nn.Linear(
             embed_dim, channels * patch_height * patch_width, bias=bias
@@ -83,6 +97,7 @@ class ReverseFreqPatchEmbed(nn.Module):
         indices, reverse_indices = zigzag_indices(image_height, image_width)
         self.register_buffer("reverse_indices", reverse_indices, persistent=False)
 
+    # # v1
     # def forward(self, x):
     #     y = self.reverse_patch_embedding(x)[:, self.reverse_indices]
     #     y = rearrange(
@@ -101,11 +116,25 @@ class ReverseFreqPatchEmbed(nn.Module):
 
     #     return y
 
+    # # v2
+    # def forward(self, x):
+    #     y = self.reverse_patch_embedding(x)
+    #     y = rearrange(
+    #         y, "b n (d c) -> b c (n d)", d=self.patch_height * self.patch_width
+    #     )[:, :, self.reverse_indices]
+    #     y = rearrange(y, "b c (h w) -> b c h w", h=self.image_height)
+
+    #     return y
+
     def forward(self, x):
         y = self.reverse_patch_embedding(x)
         y = rearrange(
-            y, "b n (d c) -> b c (n d)", d=self.patch_height * self.patch_width
-        )[:, :, self.reverse_indices]
-        y = rearrange(y, "b c (h w) -> b c h w", h=self.image_height)
+            y,
+            " b (h w) (p1 p2 c) -> b c (h p1) (w p2)",
+            h=self.num_h_patch,
+            w=self.num_w_patch,
+            p1=self.patch_height,
+            p2=self.patch_width,
+        )
 
         return y
