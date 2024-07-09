@@ -244,9 +244,9 @@ class VQTrainer(BaseTrainer):
                     if self.use_dct:
                         input = dct_2d(input_img, norm="ortho")
                     else:
-                        pass
+                        input = input_img
 
-                    output, indices, loss_dict = self.model(input_img)
+                    output, indices, loss_dict = self.model(input)
 
                     if self.use_dct:
                         reconstructions_freq = output
@@ -356,9 +356,9 @@ class VQTrainer(BaseTrainer):
                     if self.use_dct:
                         input = dct_2d(input_img, norm="ortho")
                     else:
-                        pass
+                        input = input_img
 
-                    output, indices, loss_dict = self.model(input_img)
+                    output, indices, loss_dict = self.model(input)
 
                     if self.use_dct:
                         reconstructions_freq = output
