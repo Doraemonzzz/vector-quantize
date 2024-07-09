@@ -2,6 +2,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from einops import rearrange
 
 
 def dct1_rfft_impl(x):
@@ -161,6 +162,22 @@ def idct_2d(X, norm=None):
     x1 = idct(X, norm=norm)
     x2 = idct(x1.transpose(-1, -2), norm=norm)
     return x2.transpose(-1, -2)
+
+
+def block_dct_2d(x, norm=None, block_size=8):
+    x = rearrange(x, "b c (h p1) (w p2) -> b c h w p1 p2", p1=block_size, p2=block_size)
+    x = dct_2d(x, norm=norm)
+    x = rearrange(x, "b c h w p1 p2 -> b c (h p1) (w p2)")
+
+    return x
+
+
+def block_idct_2d(x, norm=None, block_size=8):
+    x = rearrange(x, "b c (h p1) (w p2) -> b c h w p1 p2", p1=block_size, p2=block_size)
+    x = idct_2d(x, norm=norm)
+    x = rearrange(x, "b c h w p1 p2 -> b c (h p1) (w p2)")
+
+    return x
 
 
 def dct_3d(x, norm=None):

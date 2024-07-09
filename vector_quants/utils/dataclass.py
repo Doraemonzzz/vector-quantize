@@ -370,6 +370,8 @@ class TrainingConfig:
     adam_epsilon: float = field(
         default=1e-8, metadata={"help": "Epsilon for Adam optimizer."}
     )
+    # dct
+    dct_block_size: int = field(default=-1, metadata={"help": "DCT block size"})
 
 
 @dataclass
