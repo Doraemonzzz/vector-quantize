@@ -12,7 +12,7 @@ from vector_quants.utils import (
     type_dict,
 )
 
-from .utils import get_post_transform, get_revd_perceptual, transform_rev
+from .utils import get_post_transform  # , get_revd_perceptual, transform_rev
 
 perceptual_loss_type_dict = {2: "alex", 3: "squeeze", 4: "vgg"}
 

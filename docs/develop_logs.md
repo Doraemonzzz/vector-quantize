@@ -12,6 +12,66 @@ Here is a list of the development logs.
 3. During training, Gumbel VQ needs to use hard=True to yield reasonable results. There was a bug version run in between that performed normalization on the "b c h w" dimension's w axis with hard=False, and it still produced relatively reasonable results, with an initial FID of around 5. However, as training progressed, the FID increased to 20.
 4. Softmax VQ doesn't work at all. The current hypothesis is that it is best to use the one-hot form during the training phase; otherwise, the training and inference phases will be inconsistent.
 
+## Notes
+FreqPatchEmbed:
+```
+    # # v1
+    # def forward(self, x):
+    #     y = rearrange(
+    #         x,
+    #         "b c (p1 h) (p2 w) -> b (p1 p2 c) h w",
+    #         h=self.num_h_patch,
+    #         w=self.num_w_patch,
+    #     )
+    #     y = dct_2d(y, norm="ortho")
+    #     y = rearrange(y, "b d h w -> b (h w) d")[:, self.indices]
+    #     y = self.to_patch_embedding(y)
+
+    #     return y
+
+    # # v2
+    # def forward(self, x):
+    #     y = rearrange(
+    #         x,
+    #         "b c h w -> b c (h w)",
+    #     )[:, :, self.indices]
+
+    #     y = rearrange(y, "b c (n d) -> b n (d c)", n=self.num_patch)
+    #     y = self.to_patch_embedding(y)
+
+    #     return y
+
+    def forward(self, x):
+        y = rearrange(
+            x,
+            "b c (h p1) (w p2) -> b (h w) (p1 p2 c)",
+            h=self.num_h_patch,
+            w=self.num_w_patch,
+        )
+        y = self.to_patch_embedding(y)
+
+        return y
+```
+
+FreqTransformer:
+```
+        # # v1
+        # # (b c h w)
+        # x = self.patch_embed(x)
+        # x = rearrange(dct_2d(x, norm="ortho"), "b c h w -> b (h w) c")
+        # x = self.final_norm(x)
+        # # convert to zigzag order
+        # x = x[:, self.indices, :]
+
+        # # v2
+        # # (b c h w)
+        # x = self.patch_embed(dct_2d(x))
+        # x = rearrange(x, "b c h w -> b (h w) c")
+
+        # # convert to zigzag order
+        # x = x[:, self.indices, :]
+```
+
 ## Here is a list of the features that need to be added.
 
 Indice has some bug.
