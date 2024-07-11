@@ -40,6 +40,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x):
+
         # get indice
         indice = self.latent_to_indice(x)
 

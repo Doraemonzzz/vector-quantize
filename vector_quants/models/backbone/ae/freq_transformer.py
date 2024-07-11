@@ -8,7 +8,6 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.ops import zigzag_indices
 from vector_quants.utils import print_module
 
 
@@ -99,12 +98,12 @@ class FreqTransformerEncoder(nn.Module):
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
 
-        indices, reverse_indices = zigzag_indices(
-            self.patch_embed.num_h_patch, self.patch_embed.num_w_patch
-        )
-        self.register_buffer("indices", indices, persistent=False)
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
+
+    @property
+    def num_patch(self):
+        return self.patch_embed.num_patch
 
     def extra_repr(self):
         return print_module(self)
@@ -187,16 +186,16 @@ class FreqTransformerDecoder(nn.Module):
             use_zigzag=use_zigzag,
             use_freq_patch=use_freq_patch,
         )
-        indices, reverse_indices = zigzag_indices(
-            self.reverse_patch_embed.num_h_patch, self.reverse_patch_embed.num_w_patch
-        )
-        self.register_buffer("reverse_indices", reverse_indices, persistent=False)
 
         # use in md lrpe
         self.input_shape = [
             self.reverse_patch_embed.num_h_patch,
             self.reverse_patch_embed.num_w_patch,
         ]
+
+    @property
+    def num_patch(self):
+        return self.reverse_patch_embed.num_patch
 
     def extra_repr(self):
         return print_module(self)

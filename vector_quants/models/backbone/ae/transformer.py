@@ -108,6 +108,10 @@ class TransformerEncoder(nn.Module):
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
 
+    @property
+    def num_patch(self):
+        return self.patch_embed.num_patch
+
     def extra_repr(self):
         return print_module(self)
 
@@ -190,6 +194,10 @@ class TransformerDecoder(nn.Module):
             self.reverse_patch_embed.num_h_patch,
             self.reverse_patch_embed.num_w_patch,
         ]
+
+    @property
+    def num_patch(self):
+        return self.reverse_patch_embed.num_patch
 
     def extra_repr(self):
         return print_module(self)

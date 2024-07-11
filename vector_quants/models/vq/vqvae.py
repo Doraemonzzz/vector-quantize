@@ -40,7 +40,7 @@ class VqVae(nn.Module):
 
         self.is_conv = "conv" in model_name
 
-        self.quantizer = get_quantizer(cfg)
+        self.quant_spatial = cfg.quant_spatial
 
         self.encoder = AUTO_ENCODER_MAPPING[model_name](cfg)
         self.decoder = AUTO_DECODER_MAPPING[model_name](cfg)
@@ -60,6 +60,14 @@ class VqVae(nn.Module):
             "Rcq",
         ], f"quantizer {self.cfg.quantizer} does not support!"
 
+        if self.is_conv and self.quant_spatial:
+            assert False, "quant_spatial does not support conv now!"
+
+        if self.quant_spatial:
+            cfg.embed_dim = self.encoder.num_patch
+
+        self.quantizer = get_quantizer(cfg)
+
     @property
     def num_embed(self):
         if hasattr(self.quantizer, "num_embed"):
@@ -75,12 +83,16 @@ class VqVae(nn.Module):
 
     def encode(self, x):
         logits = self.encoder(x)
-
         if self.is_conv:
             logits = rearrange(logits, "b c h w -> b h w c")
 
+        if self.quant_spatial:
+            logits = rearrange(logits, "b n c -> b c n")
         # update this later? when evaluation, we does not need loss_dict
         quant_logits, indice, loss_dict = self.quantizer(logits)
+
+        if self.quant_spatial:
+            quant_logits = rearrange(quant_logits, "b c n -> b n c")
         if self.is_conv:
             quant_logits = rearrange(quant_logits, "b h w c -> b c h w")
 

@@ -77,6 +77,9 @@ class ModelConfig:
             ],
         },
     )
+    quant_spatial: bool = field(
+        default=False, metadata={"help": "Whether use spatial quantization"}
+    )
     # loss weight
     commitment_loss_weight: float = field(
         default=1.0, metadata={"help": "Commitment loss weight"}
