@@ -12,7 +12,7 @@ from vector_quants.utils import (
     type_dict,
 )
 
-from .utils import get_post_transform  # , get_revd_perceptual, transform_rev
+from .utils import get_post_transform
 
 perceptual_loss_type_dict = {2: "alex", 3: "squeeze", 4: "vgg"}
 
@@ -85,8 +85,6 @@ class Loss(nn.Module):
         train_keys = [
             "l1_loss",
             "l2_loss",
-            "freq_l1_loss",
-            "freq_l2_loss",
             "perceptual_loss",
             "adversarial_loss",
             "codebook_loss",
@@ -115,17 +113,9 @@ class Loss(nn.Module):
             "codebook_entropy_loss", torch.tensor(0.0).cuda().float()
         )
 
-        # freq domain
-        input_img_freq = kwargs.get("input_img_freq", torch.tensor(0.0).cuda().float())
-        reconstructions_freq = kwargs.get(
-            "reconstructions_freq", torch.tensor(0.0).cuda().float()
-        )
-        freq_l1_loss = self.compute_l1_loss(input_img_freq, reconstructions_freq)
-        freq_l2_loss = self.compute_l2_loss(input_img_freq, reconstructions_freq)
-
         loss = (
-            self.l1_loss_weight * (l1_loss + freq_l1_loss)
-            + self.l2_loss_weight * (l2_loss + freq_l2_loss)
+            self.l1_loss_weight * l1_loss
+            + self.l2_loss_weight * l2_loss
             + self.perceptual_loss_weight * perceptual_loss
             + self.adversarial_loss_weight * adversarial_loss
             + self.codebook_loss_weight * codebook_loss
