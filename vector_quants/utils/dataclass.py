@@ -216,6 +216,12 @@ class ModelConfig:
         default=False, metadata={"help": "Whether use bias in nn.linear or not"}
     )
     dct_block_size: int = field(default=-1, metadata={"help": "DCT block size"})
+    use_zigzag: bool = field(
+        default=False, metadata={"help": "Whether use zigzag order or not"}
+    )
+    use_freq_patch: bool = field(
+        default=False, metadata={"help": "Whether use freq patch or not"}
+    )
 
 
 @dataclass
