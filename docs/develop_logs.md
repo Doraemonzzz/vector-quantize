@@ -129,6 +129,7 @@ Tradeoff between resolution and number of features.
 
 Others:
 - [ ] L2 normalize.
+- [ ] Align interface of patch embedding.
 
 ## 240624
 Todo:
