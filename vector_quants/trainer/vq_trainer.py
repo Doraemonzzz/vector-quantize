@@ -15,7 +15,6 @@ from vector_quants.logger import Logger
 from vector_quants.loss import Loss, get_post_transform
 from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
 from vector_quants.models import AutoVqVae
-from vector_quants.ops import block_dct_2d, block_idct_2d
 from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
@@ -166,11 +165,6 @@ class VQTrainer(BaseTrainer):
         )
         self.clip_grad = cfg_train.clip_grad
         self.cfg = cfg
-        self.use_dct = "freq" in cfg_model.model_name
-        self.dct_block_size = cfg_train.dct_block_size
-
-        logging_info(f"Use DCT: {self.use_dct}")
-        logging_info(f"DCT block size: {self.dct_block_size}")
 
     @property
     def is_main_process(self):
@@ -241,40 +235,12 @@ class VQTrainer(BaseTrainer):
                 # forward
                 input_img = input_img.cuda(torch.cuda.current_device())
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    dct_block_size = (
-                        input_img.shape[-1]
-                        if self.dct_block_size == -1
-                        else self.dct_block_size
-                    )
-                    input_img_freq = torch.tensor(0.0).cuda().float()
-                    reconstructions_freq = torch.tensor(0.0).cuda().float()
-                    if self.use_dct:
-                        input = block_dct_2d(
-                            input_img, norm="ortho", block_size=dct_block_size
-                        )
-                    else:
-                        input = input_img
-
-                    output, indices, loss_dict = self.model(input)
-
-                    if self.use_dct:
-                        reconstructions_freq = output
-                        reconstructions = block_idct_2d(
-                            reconstructions_freq,
-                            norm="ortho",
-                            block_size=dct_block_size,
-                        )
-                    else:
-                        reconstructions = output
-
+                    reconstructions, indices, loss_dict = self.model(input_img)
                     input_img = self.post_transform(input_img)
                     reconstructions = self.post_transform(reconstructions)
-
                     loss, loss_dict = self.loss_fn(
                         input_img,
                         reconstructions,
-                        input_img_freq=input_img_freq,
-                        reconstructions_freq=reconstructions_freq,
                         **loss_dict,
                     )
 
@@ -363,40 +329,13 @@ class VQTrainer(BaseTrainer):
             with torch.no_grad():
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     input_img = input_img.cuda(torch.cuda.current_device())
-                    dct_block_size = (
-                        input_img.shape[-1]
-                        if self.dct_block_size == -1
-                        else self.dct_block_size
-                    )
-                    input_img_freq = torch.tensor(0.0).cuda().float()
-                    reconstructions_freq = torch.tensor(0.0).cuda().float()
-                    if self.use_dct:
-                        input = block_dct_2d(
-                            input_img, norm="ortho", block_size=dct_block_size
-                        )
-                    else:
-                        input = input_img
-
-                    output, indices, loss_dict = self.model(input)
-
-                    if self.use_dct:
-                        reconstructions_freq = output
-                        reconstructions = block_idct_2d(
-                            reconstructions_freq,
-                            norm="ortho",
-                            block_size=dct_block_size,
-                        )
-                    else:
-                        reconstructions = output
-
+                    reconstructions, indices, loss_dict = self.model(input_img)
+                    # rescale to [0, 1]
                     input_img = self.post_transform(input_img)
                     reconstructions = self.post_transform(reconstructions)
-
                     loss, loss_dict = self.loss_fn(
                         input_img,
                         reconstructions,
-                        input_img_freq=input_img_freq,
-                        reconstructions_freq=reconstructions_freq,
                         **loss_dict,
                     )
 

@@ -215,6 +215,7 @@ class ModelConfig:
     bias: bool = field(
         default=False, metadata={"help": "Whether use bias in nn.linear or not"}
     )
+    dct_block_size: int = field(default=-1, metadata={"help": "DCT block size"})
 
 
 @dataclass
@@ -370,8 +371,6 @@ class TrainingConfig:
     adam_epsilon: float = field(
         default=1e-8, metadata={"help": "Epsilon for Adam optimizer."}
     )
-    # dct
-    dct_block_size: int = field(default=-1, metadata={"help": "DCT block size"})
 
 
 @dataclass

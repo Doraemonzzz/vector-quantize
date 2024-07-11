@@ -1,7 +1,7 @@
 from einops import rearrange
 from torch import nn
 
-from vector_quants.ops import zigzag_indices
+from vector_quants.ops import block_dct_2d, block_idct_2d, zigzag_indices
 from vector_quants.utils import pair
 
 
@@ -13,6 +13,7 @@ class FreqPatchEmbed(nn.Module):
         embed_dim,
         channels=3,
         bias=False,
+        dct_block_size=8,
         **kwargs,
     ):
         super().__init__()
@@ -26,8 +27,8 @@ class FreqPatchEmbed(nn.Module):
         self.to_patch_embedding = nn.Linear(
             channels * patch_height * patch_width, embed_dim, bias=bias
         )
-        # indices, reverse_indices = zigzag_indices(self.num_h_patch, self.num_w_patch)
-        indices, reverse_indices = zigzag_indices(image_height, image_width)
+        self.dct_block_size = dct_block_size
+        indices, reverse_indices = zigzag_indices(dct_block_size, dct_block_size)
         self.register_buffer("indices", indices, persistent=False)
 
     # # v1
@@ -57,6 +58,9 @@ class FreqPatchEmbed(nn.Module):
     #     return y
 
     def forward(self, x):
+        if self.dct_block_size > 0:
+            x = block_dct_2d(x, norm="ortho", block_size=self.dct_block_size)
+
         y = rearrange(
             x,
             "b c (h p1) (w p2) -> b (h w) (p1 p2 c)",
@@ -76,6 +80,7 @@ class ReverseFreqPatchEmbed(nn.Module):
         embed_dim,
         channels=3,
         bias=False,
+        dct_block_size=8,
         **kwargs,
     ):
         super().__init__()
@@ -93,8 +98,8 @@ class ReverseFreqPatchEmbed(nn.Module):
         self.reverse_patch_embedding = nn.Linear(
             embed_dim, channels * patch_height * patch_width, bias=bias
         )
-        # indices, reverse_indices = zigzag_indices(self.num_h_patch, self.num_w_patch)
-        indices, reverse_indices = zigzag_indices(image_height, image_width)
+        self.dct_block_size = dct_block_size
+        indices, reverse_indices = zigzag_indices(dct_block_size, dct_block_size)
         self.register_buffer("reverse_indices", reverse_indices, persistent=False)
 
     # # v1
@@ -136,5 +141,8 @@ class ReverseFreqPatchEmbed(nn.Module):
             p1=self.patch_height,
             p2=self.patch_width,
         )
+
+        if self.dct_block_size > 0:
+            y = block_idct_2d(y, norm="ortho", block_size=self.dct_block_size)
 
         return y

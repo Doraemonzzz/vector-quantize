@@ -28,6 +28,7 @@ class TransformerLayer(nn.Module):
         token_mixer = cfg.token_mixer
         channel_mixer = cfg.channel_mixer
         bias = cfg.bias
+        dct_block_size = cfg.dct_block_size
         # get params end
 
         self.token_mixer = AUTO_TOKEN_MIXER_MAPPING[token_mixer](
@@ -38,6 +39,7 @@ class TransformerLayer(nn.Module):
             lrpe_type=lrpe_type,
             base=base,
             causal=causal,
+            dct_block_size=dct_block_size,
         )
         self.channel_mixer = AUTO_CHANNEL_MIXER_MAPPING[channel_mixer](
             embed_dim=embed_dim,
@@ -70,6 +72,7 @@ class FreqTransformerEncoder(nn.Module):
         base = cfg.theta_base
         norm_type = cfg.norm_type
         patch_embed_name = cfg.patch_embed_name
+        dct_block_size = cfg.dct_block_size
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -79,6 +82,7 @@ class FreqTransformerEncoder(nn.Module):
             channels=channels,
             flatten=flatten,
             bias=bias,
+            dct_block_size=dct_block_size,
         )
         self.use_ape = use_ape
         if self.use_ape:
