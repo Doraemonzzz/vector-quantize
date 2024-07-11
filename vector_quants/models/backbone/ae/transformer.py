@@ -49,8 +49,8 @@ class TransformerLayer(nn.Module):
         self.token_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.channel_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
 
-    def forward(self, x):
-        x = x + self.token_mixer(self.token_norm(x))
+    def forward(self, x, shape=None):
+        x = x + self.token_mixer(self.token_norm(x), shape=shape)
         x = x + self.channel_mixer(self.channel_norm(x))
 
         return x
@@ -105,6 +105,9 @@ class TransformerEncoder(nn.Module):
                 base=base,
             )
 
+        # use in md lrpe
+        self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
+
     def extra_repr(self):
         return print_module(self)
 
@@ -126,9 +129,7 @@ class TransformerEncoder(nn.Module):
             extra_token = self.extra_token_pe(extra_token, extra_token_shape)
             x = torch.cat([extra_token, x], dim=1)
         for layer in self.layers:
-            x = layer(
-                x,
-            )
+            x = layer(x, self.input_shape)
 
         if self.num_extra_token > 0:
             x = x[:, : self.num_extra_token]
@@ -184,6 +185,12 @@ class TransformerDecoder(nn.Module):
                 base=base,
             )
 
+        # use in md lrpe
+        self.input_shape = [
+            self.reverse_patch_embed.num_h_patch,
+            self.reverse_patch_embed.num_w_patch,
+        ]
+
     def extra_repr(self):
         return print_module(self)
 
@@ -216,9 +223,7 @@ class TransformerDecoder(nn.Module):
 
         # (b, *)
         for layer in self.layers:
-            x = layer(
-                x,
-            )
+            x = layer(x, self.input_shape)
 
         if self.num_extra_token > 0:
             x = x[:, self.num_extra_token :]

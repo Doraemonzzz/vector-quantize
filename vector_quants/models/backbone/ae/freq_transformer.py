@@ -48,8 +48,8 @@ class TransformerLayer(nn.Module):
         self.token_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.channel_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
 
-    def forward(self, x):
-        x = x + self.token_mixer(self.token_norm(x))
+    def forward(self, x, shape=None):
+        x = x + self.token_mixer(self.token_norm(x), shape=shape)
         x = x + self.channel_mixer(self.channel_norm(x))
 
         return x
@@ -103,6 +103,8 @@ class FreqTransformerEncoder(nn.Module):
             self.patch_embed.num_h_patch, self.patch_embed.num_w_patch
         )
         self.register_buffer("indices", indices, persistent=False)
+        # use in md lrpe
+        self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
 
     def extra_repr(self):
         return print_module(self)
@@ -136,9 +138,7 @@ class FreqTransformerEncoder(nn.Module):
             x = self.pe(x, shape)
 
         for layer in self.layers:
-            x = layer(
-                x,
-            )
+            x = layer(x, self.input_shape)
 
         x = self.out_proj(self.final_norm(x))
 
@@ -192,6 +192,12 @@ class FreqTransformerDecoder(nn.Module):
         )
         self.register_buffer("reverse_indices", reverse_indices, persistent=False)
 
+        # use in md lrpe
+        self.input_shape = [
+            self.reverse_patch_embed.num_h_patch,
+            self.reverse_patch_embed.num_w_patch,
+        ]
+
     def extra_repr(self):
         return print_module(self)
 
@@ -207,9 +213,7 @@ class FreqTransformerDecoder(nn.Module):
 
         # (b, *)
         for layer in self.layers:
-            x = layer(
-                x,
-            )
+            x = layer(x, self.input_shape)
 
         # # v1
         # x = idct_2d(x[:, self.reverse_indices], norm="ortho")

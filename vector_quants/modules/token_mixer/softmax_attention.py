@@ -4,7 +4,7 @@ from einops import rearrange
 
 from vector_quants.utils import VECTOR_QUANTS_DEBUG, print_params
 
-# Lrpe = None
+from ..pe import MdLrpe
 
 
 class SoftmaxAttention(nn.Module):
@@ -13,10 +13,10 @@ class SoftmaxAttention(nn.Module):
         embed_dim: int,
         num_heads: int,
         bias: bool = False,
-        use_lrpe: bool = True,
+        use_lrpe: bool = False,
         lrpe_type: int = 1,
         base: int = 10000,
-        causal=False,
+        causal: bool = False,
         **kwargs,
     ):
         super().__init__()
@@ -34,17 +34,18 @@ class SoftmaxAttention(nn.Module):
         self.use_lrpe = use_lrpe
         self.causal = causal
 
-        # if self.use_lrpe:
-        #     self.lrpe = Lrpe(
-        #         head_dim=self.head_dim,
-        #         num_heads=self.num_heads,
-        #         lrpe_type=lrpe_type,
-        #         base=base,
-        #     )
+        if self.use_lrpe:
+            self.lrpe = MdLrpe(
+                head_dim=self.head_dim,
+                num_heads=self.num_heads,
+                lrpe_type=lrpe_type,
+                base=base,
+            )
 
     def forward(
         self,
         x,
+        shape=None,
         **kwargs,
     ):
         # x: b n d
@@ -57,10 +58,10 @@ class SoftmaxAttention(nn.Module):
             [q, k, v],
         )
 
-        # # lrpe
-        # if self.use_lrpe:
-        #     q = self.lrpe(q)
-        #     k = self.lrpe(k)
+        # lrpe
+        if self.use_lrpe:
+            q = self.lrpe(q, shape=shape)
+            k = self.lrpe(k, shape=shape)
 
         output = F.scaled_dot_product_attention(q, k, v, is_causal=self.causal)
         # reshape
