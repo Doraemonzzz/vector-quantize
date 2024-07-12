@@ -117,14 +117,11 @@ class TransformerEncoder(nn.Module):
         self,
         x,
     ):
-        # (b c h w)
-        # x = rearrange(self.patch_embed(x), "b c h w -> b h w c")
-        # shape = x.shape[1:-1]
+        # b c h w -> b n d
         x = self.patch_embed(x)
-        shape = self.input_shape
 
         if self.use_ape:
-            x = self.pe(x, shape)
+            x = self.pe(x, self.input_shape)
 
         if self.num_extra_token > 0:
             extra_token = repeat(self.extra_token, "n d -> b n d", b=x.shape[0])
@@ -203,13 +200,10 @@ class TransformerDecoder(nn.Module):
         self,
         x,
     ):
+        # b n d
         x = self.in_proj(x)
         b = x.shape[0]
-        shape = [
-            self.reverse_patch_embed.num_h_patch,
-            self.reverse_patch_embed.num_w_patch,
-        ]
-        n = shape[0] * shape[1]
+        n = x.shape[1]
 
         if self.num_extra_token > 0:
             # if num extra token > 0, we use mask token to reconstruct
@@ -217,14 +211,14 @@ class TransformerDecoder(nn.Module):
             mask_tokens = repeat(self.mask_token, "d -> b n d", b=b, n=n)
 
             if self.use_ape:
-                mask_tokens = self.pe(mask_tokens, shape=shape)
+                mask_tokens = self.pe(mask_tokens, shape=self.input_shape)
 
             extra_token_shape = (self.num_extra_token,)
             x = self.extra_token_pe(x, extra_token_shape)
             x = torch.cat([x, mask_tokens], dim=1)
         else:
             if self.use_ape:
-                x = self.pe(x, shape=shape)
+                x = self.pe(x, shape=self.input_shape)
 
         # (b, *)
         for layer in self.layers:

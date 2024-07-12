@@ -9,5 +9,7 @@ from .ae import (
     ResConvEncoder,
     TransformerDecoder,
     TransformerEncoder,
+    FeatureTransformerDecoder,
+    FeatureTransformerEncoder
 )
 from .llama import LlamaModel

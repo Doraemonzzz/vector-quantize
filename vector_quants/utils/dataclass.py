@@ -64,6 +64,7 @@ class ModelConfig:
                 "res_conv",
                 "transformer",
                 "freq_transformer",
+                "feature_transformer"
             ],
         },
     )

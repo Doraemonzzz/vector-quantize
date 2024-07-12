@@ -129,6 +129,7 @@ class FreqTransformerEncoder(nn.Module):
         # x = x[:, self.indices, :]
 
         # v3
+        # b c h w -> b n d
         x = self.patch_embed(x)
 
         shape = x.shape[1:-1]
@@ -204,6 +205,7 @@ class FreqTransformerDecoder(nn.Module):
         self,
         x,
     ):
+        # b n d -> b n d
         x = self.in_proj(x)
         shape = x.shape[1:-1]
 

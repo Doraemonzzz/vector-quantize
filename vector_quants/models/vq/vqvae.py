@@ -14,6 +14,8 @@ from ..backbone import (
     ResConvEncoder,
     TransformerDecoder,
     TransformerEncoder,
+    FeatureTransformerEncoder,
+    FeatureTransformerDecoder
 )
 
 AUTO_ENCODER_MAPPING = {
@@ -22,6 +24,7 @@ AUTO_ENCODER_MAPPING = {
     "res_conv": ResConvEncoder,
     "transformer": TransformerEncoder,
     "freq_transformer": FreqTransformerEncoder,
+    "feature_transformer": FeatureTransformerEncoder
 }
 AUTO_DECODER_MAPPING = {
     "baseline_conv": BaselineConvDecoder,
@@ -29,6 +32,7 @@ AUTO_DECODER_MAPPING = {
     "res_conv": ResConvDecoder,
     "transformer": TransformerDecoder,
     "freq_transformer": FreqTransformerDecoder,
+    "feature_transformer": FeatureTransformerDecoder
 }
 
 
@@ -41,7 +45,6 @@ class VqVae(nn.Module):
         self.is_conv = "conv" in model_name
 
         self.quant_spatial = cfg.quant_spatial
-
         self.encoder = AUTO_ENCODER_MAPPING[model_name](cfg)
         self.decoder = AUTO_DECODER_MAPPING[model_name](cfg)
 
@@ -65,7 +68,6 @@ class VqVae(nn.Module):
 
         if self.quant_spatial:
             cfg.embed_dim = self.encoder.num_patch
-
         self.quantizer = get_quantizer(cfg)
 
     @property
