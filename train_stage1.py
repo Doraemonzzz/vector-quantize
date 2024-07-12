@@ -7,6 +7,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("vq")
+import os
 
 
 def main():
@@ -17,6 +18,11 @@ def main():
         trainer.eval()
     else:
         trainer.train()
+
+    # see https://github.com/wandb/wandb/issues/4929
+    # need add this, otherwise wandb may get stuck
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts/kill.sh")
+    os.system(f"bash {path}")
 
 
 if __name__ == "__main__":
