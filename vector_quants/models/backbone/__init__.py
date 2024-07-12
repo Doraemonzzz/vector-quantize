@@ -3,13 +3,13 @@ from .ae import (
     BaselineConvEncoder,
     BasicConvDecoder,
     BasicConvEncoder,
+    FeatureTransformerDecoder,
+    FeatureTransformerEncoder,
     FreqTransformerDecoder,
     FreqTransformerEncoder,
     ResConvDecoder,
     ResConvEncoder,
     TransformerDecoder,
     TransformerEncoder,
-    FeatureTransformerDecoder,
-    FeatureTransformerEncoder
 )
 from .llama import LlamaModel

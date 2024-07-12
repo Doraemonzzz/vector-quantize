@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from einops import repeat
+from einops import rearrange
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
@@ -11,7 +11,7 @@ from vector_quants.modules import (
     SinCosPe,
 )
 from vector_quants.utils import print_module
-from einops import rearrange
+
 
 class TransformerLayer(nn.Module):
     def __init__(self, cfg):
@@ -72,10 +72,9 @@ class FeatureTransformerEncoder(nn.Module):
         norm_type = cfg.norm_type
         patch_embed_name = cfg.patch_embed_name
         # get params end
-        
+
         # use in md lrpe
         self.input_shape = [embed_dim]
-
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
@@ -84,13 +83,7 @@ class FeatureTransformerEncoder(nn.Module):
             channels=channels,
             bias=bias,
         )
-        
-        # here we use seqlen as input dim
-        # embed_dim = self.patch_embed.num_patch
-        # hidden_channels_ = cfg.hidden_channels
-        # cfg.hidden_channels = embed_dim
-        
-        
+
         self.use_ape = use_ape
         if self.use_ape:
             self.pe = SinCosPe(
@@ -102,7 +95,7 @@ class FeatureTransformerEncoder(nn.Module):
         )
 
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        
+
         self.in_proj = nn.Linear(self.patch_embed.num_patch, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
 
@@ -164,7 +157,7 @@ class FeatureTransformerDecoder(nn.Module):
         norm_type = cfg.norm_type
         patch_embed_name = cfg.patch_embed_name
         # get params end
-        
+
         # use in md lrpe
         self.input_shape = [embed_dim]
 
@@ -175,12 +168,11 @@ class FeatureTransformerDecoder(nn.Module):
             channels=channels,
             bias=bias,
         )
-        # here we use seqlen as input dim
-        # embed_dim = self.reverse_patch_embed.num_patch
-        # cfg.hidden_channels = embed_dim
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
-        self.out_proj = nn.Linear(embed_dim, self.reverse_patch_embed.num_patch, bias=bias)
+        self.out_proj = nn.Linear(
+            embed_dim, self.reverse_patch_embed.num_patch, bias=bias
+        )
         self.use_ape = use_ape
         if self.use_ape:
             self.pe = SinCosPe(
