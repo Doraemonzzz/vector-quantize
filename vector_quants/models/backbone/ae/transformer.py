@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from einops import rearrange, repeat
+from einops import repeat
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
@@ -63,7 +63,6 @@ class TransformerEncoder(nn.Module):
         image_size = cfg.image_size
         patch_size = cfg.patch_size
         channels = cfg.in_channels
-        flatten = False
         bias = cfg.bias
         use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
@@ -79,7 +78,6 @@ class TransformerEncoder(nn.Module):
             patch_size=patch_size,
             embed_dim=embed_dim,
             channels=channels,
-            flatten=flatten,
             bias=bias,
         )
         self.use_ape = use_ape
@@ -120,12 +118,13 @@ class TransformerEncoder(nn.Module):
         x,
     ):
         # (b c h w)
-        x = rearrange(self.patch_embed(x), "b c h w -> b h w c")
-        shape = x.shape[1:-1]
+        # x = rearrange(self.patch_embed(x), "b c h w -> b h w c")
+        # shape = x.shape[1:-1]
+        x = self.patch_embed(x)
+        shape = self.input_shape
 
         if self.use_ape:
             x = self.pe(x, shape)
-        x = rearrange(x, "b h w c -> b (h w) c")
 
         if self.num_extra_token > 0:
             extra_token = repeat(self.extra_token, "n d -> b n d", b=x.shape[0])
@@ -150,7 +149,6 @@ class TransformerDecoder(nn.Module):
         image_size = cfg.image_size
         patch_size = cfg.patch_size
         channels = cfg.in_channels
-        flatten = True
         bias = cfg.bias
         use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
@@ -177,7 +175,6 @@ class TransformerDecoder(nn.Module):
             patch_size=patch_size,
             embed_dim=embed_dim,
             channels=channels,
-            flatten=flatten,
             bias=bias,
         )
 
