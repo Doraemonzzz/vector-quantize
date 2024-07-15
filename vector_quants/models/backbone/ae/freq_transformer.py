@@ -9,6 +9,7 @@ from vector_quants.modules import (
     SinCosPe,
 )
 from vector_quants.utils import print_module
+from einops import rearrange
 
 
 class TransformerLayer(nn.Module):
@@ -112,23 +113,6 @@ class FreqTransformerEncoder(nn.Module):
         self,
         x,
     ):
-        # # v1
-        # # (b c h w)
-        # x = self.patch_embed(x)
-        # x = rearrange(dct_2d(x, norm="ortho"), "b c h w -> b (h w) c")
-        # x = self.final_norm(x)
-        # # convert to zigzag order
-        # x = x[:, self.indices, :]
-
-        # # v2
-        # # (b c h w)
-        # x = self.patch_embed(dct_2d(x))
-        # x = rearrange(x, "b c h w -> b (h w) c")
-
-        # # convert to zigzag order
-        # x = x[:, self.indices, :]
-
-        # v3
         # b c h w -> b n d
         x = self.patch_embed(x)
 
@@ -163,6 +147,7 @@ class FreqTransformerDecoder(nn.Module):
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
+        transpose_feature = cfg.transpose_feature
         # get params end
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
@@ -172,6 +157,7 @@ class FreqTransformerDecoder(nn.Module):
                 embed_dim=embed_dim,
                 base=base,
             )
+        
         self.layers = nn.ModuleList(
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
@@ -193,6 +179,19 @@ class FreqTransformerDecoder(nn.Module):
             self.reverse_patch_embed.num_h_patch,
             self.reverse_patch_embed.num_w_patch,
         ]
+        
+        self.transpose_feature = transpose_feature
+        if self.transpose_feature:
+            self.spatial_in_proj = nn.Linear(
+                self.reverse_patch_embed.num_patch, embed_dim, bias=bias
+            )
+            self.spatial_out_proj = nn.Linear(
+                embed_dim, self.reverse_patch_embed.num_patch, bias=bias
+            )
+            self.input_shape = [embed_dim]
+            
+
+            
 
     @property
     def num_patch(self):
@@ -207,6 +206,9 @@ class FreqTransformerDecoder(nn.Module):
     ):
         # b n d -> b n d
         x = self.in_proj(x)
+        if self.transpose_feature:
+            x = rearrange(x, "b n d -> b d n")
+            x = self.spatial_in_proj(x)
         shape = x.shape[1:-1]
 
         if self.use_ape:
@@ -216,19 +218,10 @@ class FreqTransformerDecoder(nn.Module):
         for layer in self.layers:
             x = layer(x, self.input_shape)
 
-        # # v1
-        # x = idct_2d(x[:, self.reverse_indices], norm="ortho")
+        if self.transpose_feature:
+            x = self.spatial_out_proj(x)
+            x = rearrange(x, "b d n -> b n d")
 
-        # x = self.reverse_patch_embed(self.final_norm(x))
-
-        # # v2
-        # x = x[:, self.reverse_indices]
-
-        # x = self.reverse_patch_embed(self.final_norm(x))
-
-        # x = idct_2d(x)
-
-        # v3
         x = self.reverse_patch_embed(self.final_norm(x))
 
         return x

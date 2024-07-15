@@ -24,7 +24,7 @@ class SinCosPe(nn.Module):
         self.pe = torch.empty(0)
 
     def extra_repr(self):
-        return print_module(self)
+        return f"embed_dim={self.embed_dim}"
 
     def get_pe(self, x, shape=None):
         # x: b, ... , d

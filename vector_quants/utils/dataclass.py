@@ -226,6 +226,9 @@ class ModelConfig:
     use_freq_patch: bool = field(
         default=False, metadata={"help": "Whether use freq patch or not"}
     )
+    transpose_feature: bool = field(
+        default=False, metadata={"help": "Whether transpose feature in decoder or not"}
+    )
 
 
 @dataclass

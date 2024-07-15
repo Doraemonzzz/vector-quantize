@@ -109,9 +109,6 @@ class FeatureTransformerEncoder(nn.Module):
                 base=base,
             )
 
-        # update this, otherwise will cause bug in decoder
-        # cfg.hidden_channels = hidden_channels_
-
     @property
     def num_patch(self):
         return self.patch_embed.num_patch
@@ -203,7 +200,7 @@ class FeatureTransformerDecoder(nn.Module):
         self,
         x,
     ):
-        # b n d -> b n d
+        # b d n -> b d n
         x = self.in_proj(x)
         shape = x.shape[1:-1]
 
