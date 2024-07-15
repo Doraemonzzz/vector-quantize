@@ -10,6 +10,7 @@ logger = logging.getLogger("vq")
 import os
 import traceback
 
+
 # see https://github.com/wandb/wandb/issues/4929
 # need add this, otherwise wandb may get stuck
 def exit():
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     try:
         main()
         exit()
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         exit()
     finally:

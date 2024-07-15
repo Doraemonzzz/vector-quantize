@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 from einops import pack
 
-from vector_quants.utils import print_module
-
 
 class SinCosPe(nn.Module):
     def __init__(

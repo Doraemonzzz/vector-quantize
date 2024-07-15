@@ -1,4 +1,5 @@
 import torch.nn as nn
+from einops import rearrange
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
@@ -9,7 +10,6 @@ from vector_quants.modules import (
     SinCosPe,
 )
 from vector_quants.utils import print_module
-from einops import rearrange
 
 
 class TransformerLayer(nn.Module):
@@ -157,7 +157,7 @@ class FreqTransformerDecoder(nn.Module):
                 embed_dim=embed_dim,
                 base=base,
             )
-        
+
         self.layers = nn.ModuleList(
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
@@ -179,7 +179,7 @@ class FreqTransformerDecoder(nn.Module):
             self.reverse_patch_embed.num_h_patch,
             self.reverse_patch_embed.num_w_patch,
         ]
-        
+
         self.transpose_feature = transpose_feature
         if self.transpose_feature:
             self.spatial_in_proj = nn.Linear(
@@ -189,9 +189,6 @@ class FreqTransformerDecoder(nn.Module):
                 embed_dim, self.reverse_patch_embed.num_patch, bias=bias
             )
             self.input_shape = [embed_dim]
-            
-
-            
 
     @property
     def num_patch(self):
