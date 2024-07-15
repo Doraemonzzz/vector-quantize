@@ -122,7 +122,7 @@ class MdLrpe(nn.Module):
             )
         elif self.lrpe_type == 3:
             theta = self.theta_.float()
-            x.dtype
+
             x_out = torch.concat(
                 [x * torch.cos(theta), x * torch.sin(theta)], dim=-1
             ).type_as(x)

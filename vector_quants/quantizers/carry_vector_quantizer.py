@@ -37,7 +37,9 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         self._num_embed = self._levels.prod().item()
         self.num_levels = self._levels.shape[0]
-        assert embed_dim % self.num_levels == 0
+        assert (
+            embed_dim % self.num_levels == 0
+        ), f"embed_dim {embed_dim} must be divisible by num_levels {self.num_levels}"
         self.embed_dim = embed_dim // self._levels.shape[0]
         self.commitment_loss_weight = commitment_loss_weight
 
