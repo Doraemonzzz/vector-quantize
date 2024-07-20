@@ -88,7 +88,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         # n, 1
         indice = torch.argmin(dist, dim=-1)
         indice = rearrange(indice, "(b g) -> b g", g=self.num_levels)
-        indice = (indice * self._basis).sum(dim=-1).to(torch.int32)
+        indice = (indice * self._basis).sum(dim=-1).to(torch.int64)
 
         indice = unpack_one(indice, ps, "*")
 
