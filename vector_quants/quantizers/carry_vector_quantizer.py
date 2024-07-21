@@ -48,9 +48,13 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
     def extra_repr(self):
         return print_module(self)
 
+    # @property
+    # def num_embed(self):
+    #     return self._num_embed
+    
     @property
     def num_embed(self):
-        return self._num_embed
+        return self.base
 
     def init_codebook(self):
         self.codebook_weight = nn.Parameter(
@@ -78,6 +82,32 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, indice, loss_dict
 
+    # def latent_to_indice(self, latent):
+    #     # (b, *, d) -> (n, d)
+    #     latent, ps = pack_one(latent, "* d")
+    #     # compute in parallel
+    #     latent = rearrange(latent, "... (g d) -> (... g) d", g=self.num_levels)
+    #     # n, m
+    #     dist = compute_dist(latent, self.codebook_weight)
+    #     # n, 1
+    #     indice = torch.argmin(dist, dim=-1)
+    #     indice = rearrange(indice, "(b g) -> b g", g=self.num_levels)
+    #     indice = (indice * self._basis).sum(dim=-1).to(torch.int64)
+
+    #     indice = unpack_one(indice, ps, "*")
+
+    #     return indice
+
+    # def indice_to_code(self, indice):
+    #     indice = (indice.unsqueeze(-1) // self._basis) % self._levels
+    #     code_list = []
+    #     for i in range(self.num_levels):
+    #         code = F.embedding(indice[..., i], self.codebook_weight)
+    #         code_list.append(code.unsqueeze(-1))
+    #     code = rearrange(torch.cat(code_list, dim=-1), "... d g -> ... (g d)")
+
+    #     return code
+
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
@@ -88,14 +118,12 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         # n, 1
         indice = torch.argmin(dist, dim=-1)
         indice = rearrange(indice, "(b g) -> b g", g=self.num_levels)
-        indice = (indice * self._basis).sum(dim=-1).to(torch.int64)
 
-        indice = unpack_one(indice, ps, "*")
+        indice = unpack_one(indice, ps, "* g")
 
         return indice
 
     def indice_to_code(self, indice):
-        indice = (indice.unsqueeze(-1) // self._basis) % self._levels
         code_list = []
         for i in range(self.num_levels):
             code = F.embedding(indice[..., i], self.codebook_weight)
