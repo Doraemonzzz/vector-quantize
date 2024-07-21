@@ -37,10 +37,19 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         self._num_embed = self._levels.prod().item()
         self.num_levels = self._levels.shape[0]
-        assert (
-            embed_dim % self.num_levels == 0
-        ), f"embed_dim {embed_dim} must be divisible by num_levels {self.num_levels}"
-        self.embed_dim = embed_dim // self._levels.shape[0]
+        # assert (
+        #     embed_dim % self.num_levels == 0
+        # ), f"embed_dim {embed_dim} must be divisible by num_levels {self.num_levels}"
+        # self.embed_dim = embed_dim // self.num_levels
+        # new version
+        if embed_dim % self.num_levels == 0:
+            self.pad = 0
+            self.embed_dim = (embed_dim + self.pad) // self.num_levels
+
+        else:
+            self.pad = self.num_levels - embed_dim % self.num_levels
+            self.embed_dim = (embed_dim + self.pad) // self.num_levels
+
         self.commitment_loss_weight = commitment_loss_weight
 
         self.init_codebook()
@@ -51,7 +60,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
     # @property
     # def num_embed(self):
     #     return self._num_embed
-    
+
     @property
     def num_embed(self):
         return self.base
@@ -111,6 +120,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
+        latent = F.pad(latent, (0, self.pad))
         # compute in parallel
         latent = rearrange(latent, "... (g d) -> (... g) d", g=self.num_levels)
         # n, m
@@ -129,5 +139,8 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
             code = F.embedding(indice[..., i], self.codebook_weight)
             code_list.append(code.unsqueeze(-1))
         code = rearrange(torch.cat(code_list, dim=-1), "... d g -> ... (g d)")
+
+        if self.pad:
+            code = code[..., : -self.pad]
 
         return code
