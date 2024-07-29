@@ -146,3 +146,15 @@ vqvae gumbel
 14. https://drscotthawley.github.io/blog/posts/2023-06-12-RVQ.html
 15. https://dsp.stackexchange.com/questions/27551/8-times-8-block-matrix-in-jpeg-image-compression
 16. https://stackoverflow.com/questions/10780425/why-jpeg-compression-processes-image-by-8x8-blocks
+
+## Citation
+If you find this repo useful, please consider citing my work:
+```
+@software{qin2024vq,
+  title  = {Vector quantize: An open-source library for ablating various VQ methods.},
+  author = {Zhen Qin},
+  url    = {https://github.com/Doraemonzzz/vector-quantize},
+  month  = {7},
+  year   = {2024}
+}
+```
