@@ -42,9 +42,10 @@ class SinCosPe(nn.Module):
 
         theta = []
         for i in range(m):
-            s = i * d
-            e = min(s + d, self.embed_dim)
-            theta.append(index[..., i : i + 1] * self.theta[s:e])
+            # s = i * d
+            # e = min(s + d, self.embed_dim)
+            # theta.append(index[..., i : i + 1] * self.theta[s:e])
+            theta.append(index[..., i : i + 1] * self.theta[:d])
 
         theta = torch.cat(theta, dim=-1)
 

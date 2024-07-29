@@ -74,13 +74,20 @@ class MdLrpe(nn.Module):
         grid = torch.meshgrid(array)
         index = torch.stack(grid, dim=-1)
         # compute theta
-        d = self.head_dim // m
+        if self.lrpe_type == 1:
+            d = self.head_dim // 2 // m
+        elif self.lrpe_type == 2:
+            d = self.head_dim // 4 // m
+        else:
+            d = self.head_dim // m
 
         theta_ = []
         for i in range(m):
-            s = i * d
-            e = min(s + d, self.head_dim)
-            theta_.append(index[..., i : i + 1] * theta[..., s:e])
+            # s = i * d
+            # e = min(s + d, self.head_dim)
+            # theta_.append(index[..., i : i + 1] * theta[..., s:e])
+
+            theta_.append(index[..., i : i + 1] * theta[..., :d])
 
         theta_ = torch.cat(theta_, dim=-1)
 
@@ -94,9 +101,9 @@ class MdLrpe(nn.Module):
         return f"num_heads={self.num_heads}, head_dim={self.head_dim}, lrpe_type={self.lrpe_type}"
 
     def forward(self, x, shape=None):
+        n, d = x.shape[-2], x.shape[-1]
         if self.theta_.shape[0] == 0:
             self.get_theta(x, shape=shape)
-        n, d = x.shape[-2], x.shape[-1]
 
         if self.lrpe_type == 1:
             theta = self.theta_
@@ -104,6 +111,7 @@ class MdLrpe(nn.Module):
                 torch.ones_like(theta).to(torch.float32), theta.to(torch.float32)
             )
             x_ = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
+
             x_out = torch.view_as_real(x_ * theta_).flatten(3).type_as(x)
         elif self.lrpe_type == 2:
             e = d // 2
@@ -117,9 +125,11 @@ class MdLrpe(nn.Module):
                 torch.ones_like(theta).to(torch.float32), theta.to(torch.float32)
             )
             x_ = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
+
             x_out = torch.cat(
                 [torch.view_as_real(x_ * theta_).flatten(3).type_as(x), x1], dim=-1
             )
+
         elif self.lrpe_type == 3:
             theta = self.theta_.float()
 
