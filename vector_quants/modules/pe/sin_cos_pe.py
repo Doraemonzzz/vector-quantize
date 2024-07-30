@@ -38,7 +38,7 @@ class SinCosPe(nn.Module):
         index = torch.stack(grid, dim=-1)
 
         # compute theta
-        d = self.embed_dim // m
+        d = self.embed_dim // 2 // m
 
         theta = []
         for i in range(m):
