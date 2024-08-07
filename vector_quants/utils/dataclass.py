@@ -233,7 +233,9 @@ class ModelConfig:
 
 @dataclass
 class ModelStage2Config:
-    model_name: str = field(default="transformer", metadata={"help": "Model name for stage2"})
+    model_name: str = field(
+        default="transformer", metadata={"help": "Model name for stage2"}
+    )
     vocab_size: int = field(default=1024, metadata={"help": "Size of codebook"})
     embed_dim: int = field(
         default=512, metadata={"help": "The embedding dimension of stage2 model"}
@@ -255,6 +257,10 @@ class ModelStage2Config:
     )
     bias: bool = field(
         default=False, metadata={"help": "Whether use bias in nn.linear or not"}
+    )
+    use_ape: bool = field(
+        default=True,
+        metadata={"help": "Whether to use ape in transformer or linear transformer."},
     )
     use_lrpe: bool = field(default=False, metadata={"help": "Whether use lrpe or not"})
     lrpe_type: int = field(
@@ -294,11 +300,10 @@ class ModelStage2Config:
         metadata={
             "help": "Token embedding type",
             "choices": ["default", "group"],
-        }
+        },
     )
     class_dropout_prob: float = field(
-        default=0.1, 
-        metadata={"help": "Class dropout probability"}
+        default=0.1, metadata={"help": "Class dropout probability"}
     )
 
 

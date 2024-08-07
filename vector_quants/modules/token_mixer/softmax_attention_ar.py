@@ -75,7 +75,9 @@ class SoftmaxAttentionAr(nn.Module):
             k = self.lrpe(k, shape=shape)
 
         # during inference, since we use kv cache, the attention is not causal
-        output = F.scaled_dot_product_attention(q, k, v, is_causal=True if self.training else False)
+        output = F.scaled_dot_product_attention(
+            q, k, v, is_causal=True if self.training else False
+        )
         # reshape
         output = rearrange(output, "... h n d -> ... n (h d)")
 

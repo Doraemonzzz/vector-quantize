@@ -7,8 +7,8 @@ from pprint import pformat
 
 import torch
 import torch.nn.functional as F
-from tqdm import tqdm
 from einops import pack
+from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import DATASET_CONFIGS, get_data_loaders
@@ -118,7 +118,9 @@ class ARTrainer(BaseTrainer):
 
         # evaluation
         metrics_list = get_metrics_list(cfg_loss.metrics_list)
-        assert len(metrics_list) == 1 and metrics_list[0] == "fid", "Only fid-50k is supported for now"
+        assert (
+            len(metrics_list) == 1 and metrics_list[0] == "fid"
+        ), "Only fid-50k is supported for now"
         self.eval_metrics = Metrics(
             metrics_list=get_metrics_list(cfg_loss.metrics_list),
             dataset_name=cfg_data.data_set,
@@ -226,8 +228,8 @@ class ARTrainer(BaseTrainer):
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
                         indices = self.vqvae.encode(input_img)
-                        indices, ps = pack([indices], 'b *')
-                        
+                        indices, ps = pack([indices], "b *")
+
                     logits, past_key_values = self.model(indices, input_label)
 
                     loss = self.loss_fn(

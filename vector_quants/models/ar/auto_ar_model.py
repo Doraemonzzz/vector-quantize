@@ -1,6 +1,6 @@
 from torch import nn
 
-from ..backbone import TransformerModel
+from vector_quants.backbone import TransformerModel
 
 AUTO_AR_MAPPING = {"transformer": TransformerModel}
 

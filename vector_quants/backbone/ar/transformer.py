@@ -1,25 +1,20 @@
 import torch
 import torch.nn as nn
-from einops import repeat
 from xmixers.modules import get_norm_fn
-
-from vector_quants.quantizers.utils import pack_one, unpack_one
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
     AUTO_NORM_MAPPING,
-    AUTO_PATCH_EMBED_MAPPING,
-    AUTO_REVERSE_PATCH_EMBED_MAPPING,
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.utils import print_module
 
 
 class ClassEmbedder(nn.Module):
     """
     Embeds class labels into vector representations. Also handles label dropout for classifier-free guidance.
     """
+
     def __init__(self, num_class, embed_dim, dropout_prob):
         super().__init__()
         use_cfg_embedding = dropout_prob > 0
@@ -41,6 +36,7 @@ class ClassEmbedder(nn.Module):
             labels = self.token_drop(labels)
         embeddings = self.embedding_table(labels).unsqueeze(1)
         return embeddings
+
 
 class TransformerLayer(nn.Module):
     def __init__(self, cfg):
@@ -78,51 +74,73 @@ class TransformerLayer(nn.Module):
         self.token_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.channel_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
 
-    def forward(self, x, past_key_value=None,shape=None):
+    def forward(self, x, past_key_value=None, shape=None):
         residual = x
-        x, past_key_value_new = self.token_mixer(self.token_norm(x), past_key_value=past_key_value, shape=shape)
+        x, past_key_value_new = self.token_mixer(
+            self.token_norm(x), past_key_value=past_key_value, shape=shape
+        )
         x = x + residual
         x = x + self.channel_mixer(self.channel_norm(x))
 
         return x, past_key_value_new
 
-class TransformerModel(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.config = config
-        self.codebook_size = config.vocab_size
-        self.num_class = config.num_class
 
-        num_embed = config.vocab_size + config.num_class + 1
+class TransformerModel(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        # get params start
+        vocab_size = cfg.vocab_size
+        num_class = cfg.num_class
+        token_embed_type = cfg.token_embedding_type
+        embed_dim = cfg.embed_dim
+        class_dropout_prob = cfg.class_dropout_prob
+        num_layers = cfg.num_layers
+        norm_type = cfg.norm_type
+        bias = cfg.bias
+        base = cfg.theta_base
+        use_ape = cfg.use_ape
+        # get params end
+
+        self.cfg = cfg
+        self.codebook_size = vocab_size
+        self.num_class = num_class
+
+        num_embed = vocab_size + num_class + 1
         self.num_embed = num_embed
 
         # construct embedding start
-        self.token_embed_type = config.token_embedding_type
+        self.token_embed_type = token_embed_type
         self.token_embed = self.construct_token_embed()
         # random change condition to null like dit
         self.class_embed = ClassEmbedder(
-            config.num_class,
-            config.embed_dim,
-            config.class_dropout_prob,
+            num_class,
+            embed_dim,
+            class_dropout_prob,
         )
         # construct embedding end
-        
+
         self.layers = nn.ModuleList(
-            [TransformerLayer(config) for layer_idx in range(config.num_layers)]
+            [TransformerLayer(cfg) for layer_idx in range(num_layers)]
         )
-        self.final_norm = get_norm_fn(config.norm_type)(config.embed_dim)
-        self.lm_head = nn.Linear(config.embed_dim, config.vocab_size, bias=config.bias)
+        self.final_norm = get_norm_fn(norm_type)(embed_dim)
+        self.lm_head = nn.Linear(embed_dim, vocab_size, bias=bias)
+        self.use_ape = use_ape
+        if self.use_ape:
+            self.pe = SinCosPe(
+                embed_dim=embed_dim,
+                base=base,
+            )
 
     def construct_token_embed(self):
         if self.token_embed_type in ["group"]:
             return nn.Embedding(
-                self.config.vocab_size,
-                self.config.embed_dim // self.config.num_group,
+                self.cfg.vocab_size,
+                self.cfg.embed_dim // self.cfg.num_group,
             )
         else:
             return nn.Embedding(
-                self.config.vocab_size,
-                self.config.embed_dim,
+                self.cfg.vocab_size,
+                self.cfg.embed_dim,
             )
 
     def forward_embed(self, x, embed_type=0):
@@ -134,7 +152,7 @@ class TransformerModel(nn.Module):
                 output = self.token_embed(x)
         elif embed_type == 1:
             output = self.class_embed(x)
-            
+
         return output
 
     def forward(
@@ -144,18 +162,21 @@ class TransformerModel(nn.Module):
         past_key_values=None,
     ):
         # compute embed
-        if idx is not None and cond_idx is not None: # training
+        if idx is not None and cond_idx is not None:  # training
             token_embed = self.forward_embed(idx, embed_type=0)
             cond_embed = self.forward_embed(cond_idx, embed_type=1)
             hidden_state = torch.cat([token_embed, cond_embed], dim=-2)
-        elif cond_idx is not None: # prefill
+        elif cond_idx is not None:  # prefill
             hidden_state = self.forward_embed(cond_idx, embed_type=1)
-        else: # decode
+        else:  # decode
             hidden_state = self.forward_embed(idx, embed_type=0)
-        
+
         past_key_values = [None] * len(self.layers)
         new_past_key_values = [None] * len(self.layers)
-        
+
+        if self.use_ape:
+            hidden_state = self.pe(hidden_state)
+
         # (b, *)
         for idx, layer in enumerate(self.layers):
             layer_outputs = layer(

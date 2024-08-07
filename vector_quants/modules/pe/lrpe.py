@@ -100,13 +100,13 @@ class MdLrpe(nn.Module):
         if offset == 0:
             return self.theta_
         else:
-            return self.theta_[:, offset:offset + 1]
+            return self.theta_[:, offset : offset + 1]
 
     def forward(self, x, shape=None, offset=0):
         n, d = x.shape[-2], x.shape[-1]
         if self.theta_.shape[0] == 0:
             self.get_theta(x, shape=shape)
-        
+
         if offset > 0:
             assert len(shape) == 1, "current only support 1d lrpe for inference"
 

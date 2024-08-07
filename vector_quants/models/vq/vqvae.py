@@ -1,9 +1,7 @@
 from einops import rearrange
 from torch import nn
 
-from vector_quants.quantizers import get_quantizer
-
-from ..backbone import (
+from vector_quants.backbone import (
     BaselineConvDecoder,
     BaselineConvEncoder,
     BasicConvDecoder,
@@ -17,6 +15,7 @@ from ..backbone import (
     TransformerDecoder,
     TransformerEncoder,
 )
+from vector_quants.quantizers import get_quantizer
 
 AUTO_ENCODER_MAPPING = {
     "baseline_conv": BaselineConvEncoder,
