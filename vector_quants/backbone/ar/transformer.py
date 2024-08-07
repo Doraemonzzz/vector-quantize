@@ -131,6 +131,28 @@ class TransformerModel(nn.Module):
                 base=base,
             )
 
+        # seems no use, test this later
+        # self.initialize_weights()
+
+    def initialize_weights(self):
+        # Initialize nn.Linear and nn.Embedding
+        self.apply(self._init_weights)
+
+        # Zero-out output layers:
+        nn.init.constant_(self.lm_head.weight, 0)
+
+    def _init_weights(self, module):
+        std = self.cfg.init_std
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+
     def construct_token_embed(self):
         if self.token_embed_type in ["group"]:
             return nn.Embedding(

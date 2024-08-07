@@ -305,6 +305,9 @@ class ModelStage2Config:
     class_dropout_prob: float = field(
         default=0.1, metadata={"help": "Class dropout probability"}
     )
+    init_std: float = field(
+        default=0.02, metadata={"help": "The std for initialization"}
+    )
 
 
 @dataclass
