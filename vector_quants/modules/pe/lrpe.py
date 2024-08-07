@@ -83,10 +83,6 @@ class MdLrpe(nn.Module):
 
         theta_ = []
         for i in range(m):
-            # s = i * d
-            # e = min(s + d, self.head_dim)
-            # theta_.append(index[..., i : i + 1] * theta[..., s:e])
-
             theta_.append(index[..., i : i + 1] * theta[..., :d])
 
         theta_ = torch.cat(theta_, dim=-1)
@@ -100,13 +96,22 @@ class MdLrpe(nn.Module):
     def extra_repr(self):
         return f"num_heads={self.num_heads}, head_dim={self.head_dim}, lrpe_type={self.lrpe_type}"
 
-    def forward(self, x, shape=None):
+    def get_theta(self, offset=0):
+        if offset == 0:
+            return self.theta_
+        else:
+            return self.theta_[:, offset:offset + 1]
+
+    def forward(self, x, shape=None, offset=0):
         n, d = x.shape[-2], x.shape[-1]
         if self.theta_.shape[0] == 0:
             self.get_theta(x, shape=shape)
+        
+        if offset > 0:
+            assert len(shape) == 1, "current only support 1d lrpe for inference"
 
         if self.lrpe_type == 1:
-            theta = self.theta_
+            theta = self.get_theta(offset=offset)
             theta_ = torch.polar(
                 torch.ones_like(theta).to(torch.float32), theta.to(torch.float32)
             )
@@ -120,7 +125,7 @@ class MdLrpe(nn.Module):
             # do rope for the first e features
             x = x[..., :e]
 
-            theta = self.theta_
+            theta = self.get_theta(offset=offset)
             theta_ = torch.polar(
                 torch.ones_like(theta).to(torch.float32), theta.to(torch.float32)
             )
@@ -131,7 +136,7 @@ class MdLrpe(nn.Module):
             )
 
         elif self.lrpe_type == 3:
-            theta = self.theta_.float()
+            theta = self.get_theta(offset=offset).float()
 
             x_out = torch.concat(
                 [x * torch.cos(theta), x * torch.sin(theta)], dim=-1

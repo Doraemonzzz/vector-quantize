@@ -1,1 +1,1 @@
-from .ar_model import AutoRegressiveModel
+from .auto_ar_model import AutoArModel

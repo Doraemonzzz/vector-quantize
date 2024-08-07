@@ -7,7 +7,7 @@ from vector_quants.utils import VECTOR_QUANTS_DEBUG, print_params
 from ..pe import MdLrpe
 
 
-class SoftmaxAttention(nn.Module):
+class SoftmaxAttentionAr(nn.Module):
     def __init__(
         self,
         embed_dim: int,
@@ -45,6 +45,7 @@ class SoftmaxAttention(nn.Module):
     def forward(
         self,
         x,
+        past_key_value=None,
         shape=None,
         **kwargs,
     ):
@@ -58,16 +59,27 @@ class SoftmaxAttention(nn.Module):
             [q, k, v],
         )
 
+        q_offset = 0
+        # lrpe relys on position, get cache first
+        if past_key_value is not None:
+            # reuse k, v, for evaluation only
+            k = torch.cat([past_key_value[0], k], dim=-2)
+            v = torch.cat([past_key_value[1], v], dim=-2)
+            q_offset = past_key_value[0].shape[-2]
+
+        past_key_value = (k, v) if not self.training else None
+
         # lrpe
         if self.use_lrpe:
-            q = self.lrpe(q, shape=shape)
+            q = self.lrpe(q, shape=shape, offset=q_offset)
             k = self.lrpe(k, shape=shape)
 
-        output = F.scaled_dot_product_attention(q, k, v, is_causal=self.causal)
+        # during inference, since we use kv cache, the attention is not causal
+        output = F.scaled_dot_product_attention(q, k, v, is_causal=True if self.training else False)
         # reshape
         output = rearrange(output, "... h n d -> ... n (h d)")
 
         # outproj
         output = self.out_proj(output)
 
-        return output
+        return output, past_key_value

@@ -8,13 +8,14 @@ from pprint import pformat
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
+from einops import pack
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import DATASET_CONFIGS, get_data_loaders
 from vector_quants.logger import Logger
 from vector_quants.loss import get_post_transform
 from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
-from vector_quants.models import AutoRegressiveModel, AutoVqVae
+from vector_quants.models import AutoArModel, AutoVqVae
 from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
@@ -42,7 +43,6 @@ class ARTrainer(BaseTrainer):
         logging_info(pformat(asdict(cfg)))
 
         self.cfg = cfg
-        cfg.model
         cfg_model_stage2 = cfg.model_stage2
         cfg_train = cfg.train
         cfg_data = cfg.data
@@ -70,7 +70,7 @@ class ARTrainer(BaseTrainer):
         logging_info(self.vqvae)
         cfg_model_stage2.num_class = DATASET_CONFIGS[cfg_data.data_set]["num_class"]
         cfg_model_stage2.vocab_size = self.vqvae.num_embed
-        self.model = AutoRegressiveModel.from_config(cfg_model_stage2)
+        self.model = AutoArModel.from_config(cfg_model_stage2)
 
         logging_info(self.model)
 
@@ -117,6 +117,8 @@ class ARTrainer(BaseTrainer):
         )
 
         # evaluation
+        metrics_list = get_metrics_list(cfg_loss.metrics_list)
+        assert len(metrics_list) == 1 and metrics_list[0] == "fid", "Only fid-50k is supported for now"
         self.eval_metrics = Metrics(
             metrics_list=get_metrics_list(cfg_loss.metrics_list),
             dataset_name=cfg_data.data_set,
@@ -202,7 +204,7 @@ class ARTrainer(BaseTrainer):
 
             self.model.train()
 
-            for _, (input_img, _) in enumerate(self.train_data_loader):
+            for _, (input_img, input_label) in enumerate(self.train_data_loader):
                 # test saving
                 if num_iter == 1 and self.is_main_process:
                     torch.save(
@@ -224,12 +226,15 @@ class ARTrainer(BaseTrainer):
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
                         indices = self.vqvae.encode(input_img)
-                    logits = self.model(indices)
+                        indices, ps = pack([indices], 'b *')
+                        
+                    logits, past_key_values = self.model(indices, input_label)
+
                     loss = self.loss_fn(
                         logits.view(-1, logits.shape[-1]), indices.view(-1)
                     )
                     loss_dict = {
-                        "loss": loss.item(),
+                        "cross_entropy": loss.item(),
                     }
 
                 # backward
@@ -295,6 +300,7 @@ class ARTrainer(BaseTrainer):
 
         self.eval()
 
+    # update this later
     def eval(self):
         logging_info("Start Evaluation")
         self.model.eval()

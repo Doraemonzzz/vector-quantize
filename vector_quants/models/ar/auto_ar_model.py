@@ -1,8 +1,8 @@
 from torch import nn
 
-from ..backbone import LlamaModel
+from ..backbone import TransformerModel
 
-AUTO_AR_MAPPING = {"llama": LlamaModel}
+AUTO_AR_MAPPING = {"transformer": TransformerModel}
 
 
 def get_state_dict(path):
@@ -21,7 +21,7 @@ def get_state_dict(path):
     return config, model_state_dict
 
 
-class AutoRegressiveModel(nn.Module):
+class AutoArModel(nn.Module):
     def __init__(
         self,
         config,
