@@ -96,7 +96,7 @@ class MdLrpe(nn.Module):
     def extra_repr(self):
         return f"num_heads={self.num_heads}, head_dim={self.head_dim}, lrpe_type={self.lrpe_type}"
 
-    def get_theta(self, offset=0):
+    def get_theta_with_offset(self, offset=0):
         if offset == 0:
             return self.theta_
         else:
@@ -111,7 +111,7 @@ class MdLrpe(nn.Module):
             assert len(shape) == 1, "current only support 1d lrpe for inference"
 
         if self.lrpe_type == 1:
-            theta = self.get_theta(offset=offset)
+            theta = self.get_theta_with_offset(offset=offset)
             theta_ = torch.polar(
                 torch.ones_like(theta).to(torch.float32), theta.to(torch.float32)
             )
@@ -125,7 +125,7 @@ class MdLrpe(nn.Module):
             # do rope for the first e features
             x = x[..., :e]
 
-            theta = self.get_theta(offset=offset)
+            theta = self.get_theta_with_offset(offset=offset)
             theta_ = torch.polar(
                 torch.ones_like(theta).to(torch.float32), theta.to(torch.float32)
             )
@@ -136,7 +136,7 @@ class MdLrpe(nn.Module):
             )
 
         elif self.lrpe_type == 3:
-            theta = self.get_theta(offset=offset).float()
+            theta = self.get_theta_with_offset(offset=offset).float()
 
             x_out = torch.concat(
                 [x * torch.cos(theta), x * torch.sin(theta)], dim=-1
