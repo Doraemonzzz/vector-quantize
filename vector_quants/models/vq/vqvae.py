@@ -66,8 +66,13 @@ class VqVae(nn.Module):
             assert False, "quant_spatial does not support conv now!"
 
         if self.quant_spatial:
+            origin_embed_dim = cfg.embed_dim
             cfg.embed_dim = self.encoder.num_patch
         self.quantizer = get_quantizer(cfg)
+        if (
+            self.quant_spatial
+        ):  # change this back, other wise it will cause bug in stage2
+            cfg.embed_dim = origin_embed_dim
 
     @property
     def num_embed(self):

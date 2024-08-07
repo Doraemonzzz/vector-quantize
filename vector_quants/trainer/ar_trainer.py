@@ -228,6 +228,8 @@ class ARTrainer(BaseTrainer):
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
                         indices = self.vqvae.encode(input_img)
+                        print(indices.shape)
+                        assert False
                         indices, ps = pack([indices], "b *")
 
                     logits, past_key_values = self.model(indices, input_label)
