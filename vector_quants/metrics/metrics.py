@@ -126,8 +126,8 @@ def monkey_patch_update(update_foo, metric_name):
     return wrapper
 
 
-def get_metrics_cls_by_name(metric_name):
-    metric_obj = ALL_METRICS_DICT[metric_name]()
+def get_metrics_cls_by_name(metric_name, **kwargs):
+    metric_obj = ALL_METRICS_DICT[metric_name](**kwargs)
     metric_obj.compute = monkey_patch_compute(metric_obj.compute, metric_name)
     metric_obj.update = monkey_patch_update(metric_obj.update, metric_name)
     return metric_obj
@@ -141,11 +141,12 @@ class Metrics:
         metrics_list=[],
         dataset_name: str = None,
         device="cuda:0",
+        **kwargs,
     ):
         self.device = device
 
         self.metrics = {
-            metric_name: get_metrics_cls_by_name(metric_name)
+            metric_name: get_metrics_cls_by_name(metric_name, **kwargs)
             for metric_name in metrics_list
         }
 

@@ -4,7 +4,7 @@ import torch
 from torchvision import datasets, transforms
 
 from .constants import get_mean_std_from_dataset_name
-
+from .indice_dataset import IndiceDataset
 
 def get_transform(args):
     # Train and Val share the same transform
@@ -49,20 +49,27 @@ def get_data_loaders_by_args(args, is_train=True):
     return data_loader
 
 
-def get_data_loaders(cfg_train, cfg_data, is_train=True):
+def get_data_loaders(cfg_train, cfg_data, is_train=True, is_indice=False):
     transform = get_transform(cfg_data)
-    if cfg_data.data_set == "cifar100":
-        dataset = datasets.CIFAR100(
-            cfg_data.data_path, train=is_train, transform=transform
+    if is_indice:
+        # for generation only
+        assert not is_train, "indice dataset should be used for training"
+        dataset = IndiceDataset(
+            cfg_data,
         )
-    elif cfg_data.data_set == "imagenet-1k":
-        if is_train:
-            name = "train"
-        else:
-            name = "val"
-        dataset = datasets.ImageFolder(
-            os.path.join(cfg_data.data_path, name), transform=transform
-        )
+    else:
+        if cfg_data.data_set == "cifar100":
+            dataset = datasets.CIFAR100(
+                cfg_data.data_path, train=is_train, transform=transform
+            )
+        elif cfg_data.data_set == "imagenet-1k":
+            if is_train:
+                name = "train"
+            else:
+                name = "val"
+            dataset = datasets.ImageFolder(
+                os.path.join(cfg_data.data_path, name), transform=transform
+            )
 
     sampler = torch.utils.data.DistributedSampler(
         dataset,

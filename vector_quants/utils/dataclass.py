@@ -435,7 +435,10 @@ class DataConfig:
     num_workers: int = field(
         default=8, metadata={"help": "Number of workers to use for dataloading"}
     )
-
+    # for evaluation
+    num_sample: int = field(
+        default=50000, metadata={"help": "Number of samples for evaluation"}
+    )
 
 @dataclass
 class LossConfig:

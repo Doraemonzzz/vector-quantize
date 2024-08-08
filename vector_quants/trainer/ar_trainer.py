@@ -62,7 +62,7 @@ class ARTrainer(BaseTrainer):
 
         # 1, load dataset
         self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
-        self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False)
+        self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False, is_indice=True)
 
         # 2, load model
         self.dtype = type_dict[cfg_train.dtype]
@@ -136,6 +136,7 @@ class ARTrainer(BaseTrainer):
             metrics_list=get_metrics_list(cfg_loss.metrics_list),
             dataset_name=cfg_data.data_set,
             device=torch.cuda.current_device(),
+            reset_real_features=False,
         )
 
         self.num_embed = num_embed
@@ -208,6 +209,8 @@ class ARTrainer(BaseTrainer):
         start_epoch = self.start_epoch
         num_iter = self.num_iter
         self.vqvae.eval()
+        
+        self.eval()
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -328,42 +331,34 @@ class ARTrainer(BaseTrainer):
     def eval(self):
         logging_info("Start Evaluation")
         self.model.eval()
-        self.loss_fn.eval()
         self.eval_metrics.reset()
 
-        loss_dict_total = {}
-        for input_img, _ in tqdm(
+        # loss_dict_total = {}
+        # for input_img, _ in tqdm(
+        #     self.train_data_loader, disable=not self.is_main_process
+        # ):
+        #     input_img = input_img.cuda(torch.cuda.current_device())
+        #     # rescale to [0, 1]
+        #     input_img = self.post_transform(input_img)
+        #     self.eval_metrics.update(
+        #         real=input_img.contiguous()
+        #     )
+            
+        for idx in tqdm(
             self.val_data_loader, disable=not self.is_main_process
         ):
-            with torch.no_grad():
-                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    input_img = input_img.cuda(torch.cuda.current_device())
-                    reconstructions, indices, loss_dict = self.model(
-                        input_img, return_id=True
-                    )
-                    # rescale to [0, 1]
-                    input_img = self.post_transform(input_img)
-                    reconstructions = self.post_transform(reconstructions)
-                    loss, loss_dict = self.loss_fn(
-                        input_img,
-                        reconstructions,
-                        **loss_dict,
-                    )
+            # with torch.no_grad():
+            #     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+            #         image_generate = self.model.generate(idx)
 
-                loss_dict_total = update_dict(loss_dict_total, loss_dict)
+            # self.eval_metrics.update(
+            #     fake=image_generate.contiguous()
+            # )
 
-            self.eval_metrics.update(
-                real=input_img.contiguous(), fake=reconstructions.contiguous()
-            )
-            self.codebook_metric.update(indices)
-
-        eval_loss_dict = reduce_dict(
-            loss_dict_total, n=len(self.val_data_loader), prefix="valid_"
-        )
+        assert False
         eval_results = self.eval_metrics.compute_and_reduce()
-        codebook_results = self.codebook_metric.get_result()
-
-        self.logger.log(**(eval_loss_dict | eval_results | codebook_results))
+        
+        self.logger.log(**(eval_results))
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")
