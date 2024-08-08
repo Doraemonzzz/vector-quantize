@@ -22,7 +22,7 @@ def sample(model, c, steps, temperature=1.0, top_k=100):
     for k in range(steps):
         cond_idx = c if k == 0 else None
         logits, past_key_values = model(
-            idx=idx, cond_idx=cond_idx, past_key_values=past_key_values
+            idx=x, cond_idx=cond_idx, past_key_values=past_key_values
         )
         # get the last token's logits
         logits = (
@@ -43,5 +43,56 @@ def sample(model, c, steps, temperature=1.0, top_k=100):
         x = unpack(x, ps, "*")[0]
 
         idx = torch.cat([idx, x], dim=1) if k > 0 else x
+
+    return idx
+
+
+def test_sample_with_kv_cache(model, c, steps, temperature=1.0, top_k=100):
+    model.eval()
+    # with kv cache
+    # prefill
+    past_key_values = None
+    x = None
+
+    for k in range(steps):
+        cond_idx = c if k == 0 else None
+        logits, past_key_values = model(
+            idx=x, cond_idx=cond_idx, past_key_values=past_key_values
+        )
+        # get the last token's logits
+        logits = (
+            logits[
+                :,
+                -1:,
+            ]
+            / temperature
+        )
+
+        x = torch.argmax(logits, dim=-1)
+
+        idx = torch.cat([idx, x], dim=1) if k > 0 else x
+
+    idx_kv_cache = idx.clone()
+
+    # without kv cache
+    # prefill
+    past_key_values = None
+    idx = None
+
+    for k in range(steps):
+        cond_idx = c if k == 0 else None
+
+        logits, _ = model(idx=idx, cond_idx=cond_idx)
+        x = torch.argmax(
+            logits[
+                :,
+                -1:,
+            ],
+            dim=-1,
+        )
+
+        idx = torch.cat([idx, x], dim=1) if k > 0 else x
+
+    assert torch.norm(idx.float() - idx_kv_cache).item() == 0, "idx_kv_cache != idx"
 
     return idx
