@@ -85,18 +85,15 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
-        print(latent.shape)
         latent, ps = pack_one(latent, "* d")
         latent = F.pad(latent, (0, self.pad))
         # compute in parallel
-        print(latent.shape)
         latent = rearrange(latent, "... (g d) -> (... g) d", g=self.num_levels)
         # n, m
         dist = compute_dist(latent, self.codebook_weight)
         # n, 1
         indice = torch.argmin(dist, dim=-1)
         indice = rearrange(indice, "(b g) -> b g", g=self.num_levels)
-
         indice = unpack_one(indice, ps, "* g")
 
         return indice

@@ -52,4 +52,4 @@ class AutoVqVae:
         model = cls.from_config(vqvae_config)
         model.load_state_dict(model_state_dict)
 
-        return model
+        return model, vqvae_config

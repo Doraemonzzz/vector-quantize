@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from einops.layers.torch import Rearrange
 from xmixers.modules import get_norm_fn
 
 from vector_quants.modules import (
@@ -91,7 +92,7 @@ class TransformerModel(nn.Module):
         # get params start
         vocab_size = cfg.vocab_size
         num_class = cfg.num_class
-        token_embed_type = cfg.token_embedding_type
+        token_embed_type = cfg.token_embed_type
         embed_dim = cfg.embed_dim
         class_dropout_prob = cfg.class_dropout_prob
         num_layers = cfg.num_layers
@@ -99,6 +100,7 @@ class TransformerModel(nn.Module):
         bias = cfg.bias
         base = cfg.theta_base
         use_ape = cfg.use_ape
+        num_group = cfg.num_group
         # get params end
 
         self.cfg = cfg
@@ -110,8 +112,14 @@ class TransformerModel(nn.Module):
 
         # construct embedding start
         self.token_embed_type = token_embed_type
-        self.token_embed = self.construct_token_embed()
-        # random change condition to null like dit
+        self.token_embed = nn.Sequential(
+            nn.Embedding(
+                self.cfg.vocab_size,
+                self.cfg.embed_dim // self.cfg.num_group,
+            ),
+            Rearrange("... g d -> ... (g d)"),
+        )
+
         self.class_embed = ClassEmbedder(
             num_class,
             embed_dim,
@@ -123,7 +131,11 @@ class TransformerModel(nn.Module):
             [TransformerLayer(cfg) for layer_idx in range(num_layers)]
         )
         self.final_norm = get_norm_fn(norm_type)(embed_dim)
-        self.lm_head = nn.Linear(embed_dim, vocab_size, bias=bias)
+        self.lm_head = nn.Sequential(
+            Rearrange("... (g d) -> ... g d", g=num_group),
+            nn.Linear(embed_dim // num_group, vocab_size, bias=bias),
+        )
+
         self.use_ape = use_ape
         if self.use_ape:
             self.pe = SinCosPe(
@@ -131,15 +143,14 @@ class TransformerModel(nn.Module):
                 base=base,
             )
 
-        # seems no use, test this later
-        # self.initialize_weights()
+        self.initialize_weights()
 
     def initialize_weights(self):
         # Initialize nn.Linear and nn.Embedding
         self.apply(self._init_weights)
 
-        # Zero-out output layers:
-        nn.init.constant_(self.lm_head.weight, 0)
+        # # Zero-out output layers:
+        # nn.init.constant_(self.lm_head[1].weight, 0)
 
     def _init_weights(self, module):
         std = self.cfg.init_std
@@ -153,25 +164,9 @@ class TransformerModel(nn.Module):
         elif isinstance(module, nn.Embedding):
             module.weight.data.normal_(mean=0.0, std=std)
 
-    def construct_token_embed(self):
-        if self.token_embed_type in ["group"]:
-            return nn.Embedding(
-                self.cfg.vocab_size,
-                self.cfg.embed_dim // self.cfg.num_group,
-            )
-        else:
-            return nn.Embedding(
-                self.cfg.vocab_size,
-                self.cfg.embed_dim,
-            )
-
     def forward_embed(self, x, embed_type=0):
         if embed_type == 0:
-            if self.token_embed_type in ["group"]:
-                output = self.token_embed(x)
-                output = rearrange(output, "... g d -> ... (g d)")
-            else:
-                output = self.token_embed(x)
+            output = self.token_embed(x)
         elif embed_type == 1:
             output = self.class_embed(x)
 
@@ -209,6 +204,7 @@ class TransformerModel(nn.Module):
             new_past_key_values[idx] = layer_outputs[1]
 
         hidden_state = self.final_norm(hidden_state)
+
         logits = self.lm_head(hidden_state)[:, :-1]
 
         return logits, new_past_key_values

@@ -223,3 +223,24 @@ def compute_num_patch(cfg_model):
         assert False
 
     return num_patch
+
+
+def get_token_embed_type(vqvae_config):
+    if vqvae_config.quantizer in ["Cvq"]:
+        return "group"
+    else:
+        return "default"
+
+
+def get_num_group(vqvae_config):
+    if vqvae_config.quantizer in ["Cvq"]:
+        return vqvae_config.num_levels
+    else:
+        return 1
+
+
+def get_is_1d_token(vqvae_config):
+    if vqvae_config.model_name in ["freq_transformer", "feature_transformer"]:
+        return True
+    else:
+        return False

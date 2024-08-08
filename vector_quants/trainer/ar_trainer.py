@@ -20,7 +20,10 @@ from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
     compute_grad_norm,
+    get_is_1d_token,
     get_metrics_list,
+    get_num_group,
+    get_token_embed_type,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
@@ -63,16 +66,23 @@ class ARTrainer(BaseTrainer):
 
         # 2, load model
         self.dtype = type_dict[cfg_train.dtype]
-        self.vqvae = AutoVqVae.from_pretrained(
+        vqvae, vqvae_config = AutoVqVae.from_pretrained(
             cfg_train.ckpt_path_stage1,
             embed_dim_stage1=cfg_model_stage2.embed_dim_stage1,
-        ).to(self.dtype)
+        )
+        self.vqvae = vqvae.to(self.dtype)
         self.vqvae.cuda(torch.cuda.current_device())
         logging_info(self.vqvae)
+
+        # update config
         cfg_model_stage2.num_class = DATASET_CONFIGS[cfg_data.data_set]["num_class"]
         cfg_model_stage2.vocab_size = self.vqvae.num_embed
-        self.model = AutoArModel.from_config(cfg_model_stage2)
+        cfg_model_stage2.num_group = get_num_group(vqvae_config)
+        cfg_model_stage2.token_embed_type = get_token_embed_type(vqvae_config)
+        self.is_1d_token = get_is_1d_token(vqvae_config)
 
+        self.model = AutoArModel.from_config(cfg_model_stage2)
+        logging_info(cfg_model_stage2)
         logging_info(self.model)
 
         logging_info(
@@ -134,7 +144,7 @@ class ARTrainer(BaseTrainer):
         # logger
         self.logger = Logger(
             keys=["epoch", "iter", "lr"]
-            + ["cross_entropy"]
+            + ["cross_entropy", "acc"]
             + metrics_names
             + ["gnorm"],
             use_wandb=cfg_train.use_wandb,
@@ -229,18 +239,26 @@ class ARTrainer(BaseTrainer):
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
                         indices = self.vqvae.latent_to_indice(input_img)
-                        print("aaa")
-                        print(indices.shape)
-                        assert False
-                        indices, ps = pack([indices], "b *")
+                        # assume we always have an extra group dim
+                        if not self.is_1d_token:
+                            if len(indices.shape) == 4:  # b h w g
+                                idx, ps = pack([idx], "b * g")
+                            else:
+                                idx, ps = pack([idx], "b *")
+                                idx = idx.unsqueeze(-1)
+                        else:
+                            if len(indices.shape) == 2:  # b n
+                                idx = idx.unsqueeze(-1)
 
                     logits, past_key_values = self.model(indices, input_label)
 
                     loss = self.loss_fn(
                         logits.view(-1, logits.shape[-1]), indices.view(-1)
                     )
+                    acc = torch.mean(logits.argmax(-1).eq(indices).to(torch.float))
                     loss_dict = {
                         "cross_entropy": loss.item(),
+                        "acc": acc.item(),
                     }
 
                 # backward

@@ -311,6 +311,13 @@ class ModelStage2Config:
     embed_dim_stage1: int = field(
         default=-1, metadata={"help": "The embedding dimension of stage1 model"}
     )
+    token_embed_type: str = field(
+        default="default",
+        metadata={
+            "help": "Token embedding type",
+            "choices": ["default", "group"],
+        },
+    )
 
 
 @dataclass
