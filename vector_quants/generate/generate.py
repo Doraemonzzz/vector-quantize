@@ -18,6 +18,7 @@ def sample(model, c, steps, temperature=1.0, top_k=100):
     # prefill
     past_key_values = None
     idx = None
+    x = None
 
     for k in range(steps):
         cond_idx = c if k == 0 else None

@@ -8,6 +8,7 @@ from pprint import pformat
 import torch
 import torch.nn.functional as F
 from einops import pack
+from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
@@ -213,12 +214,11 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        self.eval()
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
             if epoch % self.eval_interval == 0:
-                self.eval()
+                self.eval(epoch)
 
             self.model.train()
 
@@ -328,10 +328,10 @@ class ARTrainer(BaseTrainer):
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logging_info("Training time {}".format(total_time_str))
 
-        self.eval()
+        self.eval(epoch)
 
     # update this later
-    def eval(self):
+    def eval(self, epoch=1):
         logging_info("Start Evaluation")
         self.model.eval()
         self.eval_metrics.reset()
@@ -357,6 +357,16 @@ class ARTrainer(BaseTrainer):
                     generate_img = self.post_transform(generate_img)
 
                     self.eval_metrics.update(fake=generate_img.contiguous())
+
+        # save image for checking training
+        save_image(
+            make_grid(
+                torch.cat([generate_img[:16]]),
+                nrow=8,
+            ),
+            os.path.join(self.save, f"samples/epoch_{epoch}.jpg"),
+            normalize=True,
+        )
 
         eval_results = self.eval_metrics.compute_and_reduce()
 
