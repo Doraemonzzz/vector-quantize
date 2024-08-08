@@ -47,11 +47,9 @@ class AutoVqVae:
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
         # get state dict
         vqvae_config, model_state_dict = get_state_dict(pretrained_model_name_or_path)
-        print(pretrained_model_name_or_path)
-        vqvae_config.model_cfg.embed_dim = model_state_dict
+        if kwargs["embed_dim_stage1"] != -1:  # add this to avoid early bug
+            vqvae_config.embed_dim = kwargs["embed_dim_stage1"]
         model = cls.from_config(vqvae_config)
-        print(vqvae_config)
-        print(model)
         model.load_state_dict(model_state_dict)
 
         return model

@@ -44,6 +44,7 @@ class VqVae(nn.Module):
         self.is_conv = "conv" in model_name
 
         self.quant_spatial = cfg.quant_spatial
+        print()
         self.encoder = AUTO_ENCODER_MAPPING[model_name](cfg)
         self.decoder = AUTO_DECODER_MAPPING[model_name](cfg)
 
@@ -68,6 +69,7 @@ class VqVae(nn.Module):
         if self.quant_spatial:
             origin_embed_dim = cfg.embed_dim
             cfg.embed_dim = self.encoder.num_patch
+
         self.quantizer = get_quantizer(cfg)
         if (
             self.quant_spatial
@@ -113,6 +115,9 @@ class VqVae(nn.Module):
         logits = self.encoder(x)
         if self.is_conv:
             logits = rearrange(logits, "b c h w -> b h w c")
+
+        if self.quant_spatial:
+            logits = rearrange(logits, "b n c -> b c n")
 
         indice = self.quantizer.latent_to_indice(logits)
 

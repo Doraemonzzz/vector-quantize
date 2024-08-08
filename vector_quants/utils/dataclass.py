@@ -308,6 +308,9 @@ class ModelStage2Config:
     init_std: float = field(
         default=0.02, metadata={"help": "The std for initialization"}
     )
+    embed_dim_stage1: int = field(
+        default=-1, metadata={"help": "The embedding dimension of stage1 model"}
+    )
 
 
 @dataclass

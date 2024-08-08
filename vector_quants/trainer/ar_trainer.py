@@ -63,9 +63,10 @@ class ARTrainer(BaseTrainer):
 
         # 2, load model
         self.dtype = type_dict[cfg_train.dtype]
-        self.vqvae = AutoVqVae.from_pretrained(cfg_train.ckpt_path_stage1).to(
-            self.dtype
-        )
+        self.vqvae = AutoVqVae.from_pretrained(
+            cfg_train.ckpt_path_stage1,
+            embed_dim_stage1=cfg_model_stage2.embed_dim_stage1,
+        ).to(self.dtype)
         self.vqvae.cuda(torch.cuda.current_device())
         logging_info(self.vqvae)
         cfg_model_stage2.num_class = DATASET_CONFIGS[cfg_data.data_set]["num_class"]
@@ -227,7 +228,8 @@ class ARTrainer(BaseTrainer):
                 input_img = input_img.cuda(torch.cuda.current_device())
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
-                        indices = self.vqvae.encode(input_img)
+                        indices = self.vqvae.latent_to_indice(input_img)
+                        print("aaa")
                         print(indices.shape)
                         assert False
                         indices, ps = pack([indices], "b *")
