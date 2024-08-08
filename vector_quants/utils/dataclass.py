@@ -440,6 +440,7 @@ class DataConfig:
         default=50000, metadata={"help": "Number of samples for evaluation"}
     )
 
+
 @dataclass
 class LossConfig:
     fid_feature: int = field(default=2048, metadata={"help": "FID feature"})
@@ -467,9 +468,15 @@ class LossConfig:
 
 
 @dataclass
+class SampleConfig:
+    sample_step: int = field(default=128, metadata={"help": "Number of sample step"})
+
+
+@dataclass
 class Config:
     model: ModelConfig = ModelConfig()
     train: TrainingConfig = TrainingConfig()
+    sample: SampleConfig = SampleConfig()
     data: DataConfig = DataConfig()
     loss: LossConfig = LossConfig()
     model_stage2: ModelStage2Config = ModelStage2Config()

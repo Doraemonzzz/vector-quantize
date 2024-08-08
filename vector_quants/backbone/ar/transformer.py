@@ -114,8 +114,8 @@ class TransformerModel(nn.Module):
         self.token_embed_type = token_embed_type
         self.token_embed = nn.Sequential(
             nn.Embedding(
-                self.cfg.vocab_size,
-                self.cfg.embed_dim // self.cfg.num_group,
+                vocab_size,
+                embed_dim // num_group,
             ),
             Rearrange("... g d -> ... (g d)"),
         )
@@ -178,6 +178,7 @@ class TransformerModel(nn.Module):
         cond_idx=None,
         past_key_values=None,
     ):
+
         # compute embed
         if idx is not None and cond_idx is not None:  # training
             token_embed = self.forward_embed(idx, embed_type=0)
@@ -185,6 +186,7 @@ class TransformerModel(nn.Module):
             hidden_state = torch.cat([token_embed, cond_embed], dim=-2)
         elif cond_idx is not None:  # prefill
             hidden_state = self.forward_embed(cond_idx, embed_type=1)
+
         else:  # decode
             hidden_state = self.forward_embed(idx, embed_type=0)
 
@@ -205,6 +207,9 @@ class TransformerModel(nn.Module):
 
         hidden_state = self.final_norm(hidden_state)
 
-        logits = self.lm_head(hidden_state)[:, :-1]
+        logits = self.lm_head(hidden_state)
+
+        if self.training:
+            logits = logits[:, :-1]
 
         return logits, new_past_key_values

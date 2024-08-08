@@ -6,6 +6,7 @@ from torchvision import datasets, transforms
 from .constants import get_mean_std_from_dataset_name
 from .indice_dataset import IndiceDataset
 
+
 def get_transform(args):
     # Train and Val share the same transform
     imagenet_transform = [

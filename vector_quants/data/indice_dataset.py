@@ -1,6 +1,8 @@
 # for generation only
 from torch.utils.data import Dataset
+
 from .constants import DATASET_CONFIGS
+
 
 class IndiceDataset(Dataset):
     def __init__(self, cfg_data):

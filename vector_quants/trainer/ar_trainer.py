@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import DATASET_CONFIGS, get_data_loaders
+from vector_quants.generate import sample
 from vector_quants.logger import Logger
 from vector_quants.loss import get_post_transform
 from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
@@ -27,10 +28,8 @@ from vector_quants.utils import (
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
-    reduce_dict,
     set_random_seed,
     type_dict,
-    update_dict,
 )
 
 from .base_trainer import BaseTrainer
@@ -50,6 +49,7 @@ class ARTrainer(BaseTrainer):
         cfg_train = cfg.train
         cfg_data = cfg.data
         cfg_loss = cfg.loss
+        cfg_sample = cfg.sample
 
         set_random_seed(cfg_train.seed)
 
@@ -62,7 +62,9 @@ class ARTrainer(BaseTrainer):
 
         # 1, load dataset
         self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
-        self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False, is_indice=True)
+        self.val_data_loader = get_data_loaders(
+            cfg_train, cfg_data, is_train=False, is_indice=True
+        )
 
         # 2, load model
         self.dtype = type_dict[cfg_train.dtype]
@@ -167,6 +169,7 @@ class ARTrainer(BaseTrainer):
             cfg_loss.post_transform_type, data_set=cfg_data.data_set
         )
         self.clip_grad = cfg_train.clip_grad
+        self.sample_step = cfg_sample.sample_step
 
     @property
     def is_main_process(self):
@@ -209,8 +212,6 @@ class ARTrainer(BaseTrainer):
         start_epoch = self.start_epoch
         num_iter = self.num_iter
         self.vqvae.eval()
-        
-        self.eval()
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -239,18 +240,19 @@ class ARTrainer(BaseTrainer):
 
                 # forward
                 input_img = input_img.cuda(torch.cuda.current_device())
+                input_label = input_label.cuda(torch.cuda.current_device())
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
-                        indices = self.vqvae.latent_to_indice(input_img)
+                        indices = self.vqvae.img_to_indice(input_img)
                         # assume we always have an extra group dim
                         if not self.is_1d_token:
                             if len(indices.shape) == 4:  # b h w g
                                 idx, ps = pack([idx], "b * g")
-                            else:
+                            else:  # b h w -> b h w 1
                                 idx, ps = pack([idx], "b *")
                                 idx = idx.unsqueeze(-1)
                         else:
-                            if len(indices.shape) == 2:  # b n
+                            if len(indices.shape) == 2:  # b n -> b n 1
                                 idx = idx.unsqueeze(-1)
 
                     logits, past_key_values = self.model(indices, input_label)
@@ -333,31 +335,28 @@ class ARTrainer(BaseTrainer):
         self.model.eval()
         self.eval_metrics.reset()
 
-        # loss_dict_total = {}
-        # for input_img, _ in tqdm(
-        #     self.train_data_loader, disable=not self.is_main_process
-        # ):
-        #     input_img = input_img.cuda(torch.cuda.current_device())
-        #     # rescale to [0, 1]
-        #     input_img = self.post_transform(input_img)
-        #     self.eval_metrics.update(
-        #         real=input_img.contiguous()
-        #     )
-            
-        for idx in tqdm(
-            self.val_data_loader, disable=not self.is_main_process
+        for input_img, _ in tqdm(
+            self.train_data_loader, disable=not self.is_main_process
         ):
-            # with torch.no_grad():
-            #     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-            #         image_generate = self.model.generate(idx)
+            input_img = input_img.cuda(torch.cuda.current_device())
+            # rescale to [0, 1]
+            input_img = self.post_transform(input_img)
+            self.eval_metrics.update(real=input_img.contiguous())
 
-            # self.eval_metrics.update(
-            #     fake=image_generate.contiguous()
-            # )
+        for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
+            class_idx = class_idx.cuda(torch.cuda.current_device())
+            with torch.no_grad():
+                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                    idx = sample(self.model, class_idx, self.sample_step)
 
-        assert False
+                    generate_img = self.vqvae.indice_to_img(idx)
+                    # rescale to [0, 1]
+                    generate_img = self.post_transform(generate_img)
+
+                    self.eval_metrics.update(fake=generate_img.contiguous())
+
         eval_results = self.eval_metrics.compute_and_reduce()
-        
+
         self.logger.log(**(eval_results))
 
         torch.cuda.empty_cache()
