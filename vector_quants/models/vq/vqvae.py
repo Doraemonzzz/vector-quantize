@@ -44,7 +44,7 @@ class VqVae(nn.Module):
         self.is_conv = "conv" in model_name
 
         self.quant_spatial = cfg.quant_spatial
-        print()
+
         self.encoder = AUTO_ENCODER_MAPPING[model_name](cfg)
         self.decoder = AUTO_DECODER_MAPPING[model_name](cfg)
 
