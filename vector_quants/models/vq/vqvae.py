@@ -111,7 +111,7 @@ class VqVae(nn.Module):
 
         return output
 
-    def img_to_indice(self, x):
+    def img_to_indice(self, x, use_group_id=False):
         logits = self.encoder(x)
         if self.is_conv:
             logits = rearrange(logits, "b c h w -> b h w c")
@@ -119,7 +119,7 @@ class VqVae(nn.Module):
         if self.quant_spatial:
             logits = rearrange(logits, "b n c -> b c n")
 
-        indice = self.quantizer.latent_to_indice(logits)
+        indice = self.quantizer.latent_to_indice(logits, use_group_id=use_group_id)
 
         return indice
 

@@ -63,9 +63,9 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         )
         nn.init.uniform_(self.codebook_weight, -1 / self.base, 1 / self.base)
 
-    def forward(self, x):
+    def forward(self, x, use_group_id=False):
         # get indice
-        indice = self.latent_to_indice(x)
+        indice = self.latent_to_indice(x, use_group_id=use_group_id)
 
         # quantize
         x_quant = self.indice_to_code(indice)
@@ -83,7 +83,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, indice, loss_dict
 
-    def latent_to_indice(self, latent):
+    def latent_to_indice(self, latent, use_group_id=False):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         latent = F.pad(latent, (0, self.pad))
@@ -95,6 +95,9 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         indice = torch.argmin(dist, dim=-1)
         indice = rearrange(indice, "(b g) -> b g", g=self.num_levels)
         indice = unpack_one(indice, ps, "* g")
+        
+        if self.use_group_id:
+            indice = (indice * self._basis).sum(dim=-1).to(torch.int32)
 
         return indice
 

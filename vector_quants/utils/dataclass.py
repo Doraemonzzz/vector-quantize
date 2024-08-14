@@ -318,6 +318,10 @@ class ModelStage2Config:
             "choices": ["default", "group"],
         },
     )
+    use_group_id: bool = field(
+        default=False, 
+        metadata={"help": "Whether to use group id in stage2 model"}
+    )
 
 
 @dataclass

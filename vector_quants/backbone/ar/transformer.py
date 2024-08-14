@@ -178,7 +178,6 @@ class TransformerModel(nn.Module):
         cond_idx=None,
         past_key_values=None,
     ):
-
         # compute embed
         if idx is not None and cond_idx is not None:  # training
             token_embed = self.forward_embed(idx, embed_type=0)
@@ -186,7 +185,6 @@ class TransformerModel(nn.Module):
             hidden_state = torch.cat([token_embed, cond_embed], dim=-2)
         elif cond_idx is not None:  # prefill
             hidden_state = self.forward_embed(cond_idx, embed_type=1)
-
         else:  # decode
             hidden_state = self.forward_embed(idx, embed_type=0)
 
