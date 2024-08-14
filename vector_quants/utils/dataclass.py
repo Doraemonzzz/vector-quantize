@@ -319,8 +319,7 @@ class ModelStage2Config:
         },
     )
     use_group_id: bool = field(
-        default=False, 
-        metadata={"help": "Whether to use group id in stage2 model"}
+        default=False, metadata={"help": "Whether to use group id in stage2 model"}
     )
 
 

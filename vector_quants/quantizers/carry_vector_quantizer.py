@@ -95,7 +95,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         indice = torch.argmin(dist, dim=-1)
         indice = rearrange(indice, "(b g) -> b g", g=self.num_levels)
         indice = unpack_one(indice, ps, "* g")
-        
+
         if self.use_group_id:
             indice = (indice * self._basis).sum(dim=-1).to(torch.int32)
 

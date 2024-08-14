@@ -16,7 +16,7 @@ from vector_quants.data import DATASET_CONFIGS, get_data_loaders
 from vector_quants.generate import sample
 from vector_quants.logger import Logger
 from vector_quants.loss import get_post_transform
-from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
+from vector_quants.metrics import Metrics, metrics_names
 from vector_quants.models import AutoArModel, AutoVqVae
 from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
@@ -79,7 +79,7 @@ class ARTrainer(BaseTrainer):
 
         # update config
         cfg_model_stage2.num_class = DATASET_CONFIGS[cfg_data.data_set]["num_class"]
-        
+
         self.use_group_id = cfg_model_stage2.use_group_id
         num_group = get_num_group(vqvae_config)
         if self.use_group_id:
@@ -87,7 +87,7 @@ class ARTrainer(BaseTrainer):
             cfg_model_stage2.vocab_size = self.vqvae.num_embed
         else:
             cfg_model_stage2.num_group = 1
-            cfg_model_stage2.vocab_size = self.vqvae.num_embed ** num_group
+            cfg_model_stage2.vocab_size = self.vqvae.num_embed**num_group
         cfg_model_stage2.token_embed_type = get_token_embed_type(vqvae_config)
         self.is_1d_token = get_is_1d_token(vqvae_config)
 
@@ -247,7 +247,9 @@ class ARTrainer(BaseTrainer):
                 class_idx = input_label.cuda(torch.cuda.current_device())
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
-                        idx = self.vqvae.img_to_indice(input_img, use_group_id=self.use_group_id)
+                        idx = self.vqvae.img_to_indice(
+                            input_img, use_group_id=self.use_group_id
+                        )
                         # assume we always have an extra group dim
                         if not self.is_1d_token:
                             if len(idx.shape) == 4:  # b h w g
@@ -262,9 +264,7 @@ class ARTrainer(BaseTrainer):
                     # print(indices)
                     logits, past_key_values = self.model(idx, class_idx)
 
-                    loss = self.loss_fn(
-                        logits.view(-1, logits.shape[-1]), idx.view(-1)
-                    )
+                    loss = self.loss_fn(logits.view(-1, logits.shape[-1]), idx.view(-1))
                     acc = torch.mean(logits.argmax(-1).eq(idx).to(torch.float))
                     loss_dict = {
                         "cross_entropy": loss.item(),
@@ -356,7 +356,9 @@ class ARTrainer(BaseTrainer):
                     # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
                     idx = sample(self.model, class_idx, self.sample_step)
 
-                    generate_img = self.vqvae.indice_to_img(idx, use_group_id=self.use_group_id)
+                    generate_img = self.vqvae.indice_to_img(
+                        idx, use_group_id=self.use_group_id
+                    )
                     # rescale to [0, 1]
                     generate_img = self.post_transform(generate_img)
 
