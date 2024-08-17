@@ -63,7 +63,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
         )
         nn.init.uniform_(self.codebook_weight, -1 / self.base, 1 / self.base)
 
-    def forward(self, x, use_group_id=False):
+    def forward(self, x, use_group_id=True):
         # get indice
         indice = self.latent_to_indice(x, use_group_id=use_group_id)
 
@@ -83,7 +83,7 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, indice, loss_dict
 
-    def latent_to_indice(self, latent, use_group_id=False):
+    def latent_to_indice(self, latent, use_group_id=True):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         latent = F.pad(latent, (0, self.pad))

@@ -31,7 +31,7 @@ class BaseVectorQuantizer(ABC, nn.Module):
         pass
 
     @abstractmethod
-    def latent_to_indice(self, latent, use_group_id=False):
+    def latent_to_indice(self, latent, use_group_id=True):
         pass
 
     @abstractmethod
