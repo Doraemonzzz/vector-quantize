@@ -123,8 +123,8 @@ class VqVae(nn.Module):
 
         return indice
 
-    def indice_to_img(self, x):
-        quant_logits = self.quantizer.indice_to_code(x)
+    def indice_to_img(self, x, use_group_id=True):
+        quant_logits = self.quantizer.indice_to_code(x, use_group_id=use_group_id)
         if self.quant_spatial:
             quant_logits = rearrange(quant_logits, "b c n -> b n c")
         if self.is_conv:

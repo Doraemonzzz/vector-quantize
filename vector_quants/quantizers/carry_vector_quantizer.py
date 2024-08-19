@@ -101,7 +101,11 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         return indice
 
-    def indice_to_code(self, indice):
+    def indice_to_code(self, indice, use_group_id=True):
+        if not use_group_id:
+            # (..., d)
+            indice = (indice // self._basis) % self._levels
+
         code_list = []
         for i in range(self.num_levels):
             code = F.embedding(indice[..., i], self.codebook_weight)
