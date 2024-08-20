@@ -12,9 +12,11 @@ class CodeBookMetric(Metric):
     def update(self, indices):
         index_count = torch.bincount(indices.view(-1), minlength=self.num_embeddings)
         if self.index_count is None:
-            self.index_count = index_count
-        else:
-            self.index_count = self.index_count + index_count
+            self.index_count = torch.zeros(
+                self.num_embeddings, device=torch.cuda.current_device()
+            )
+        # add this to avoid bug
+        self.index_count = self.index_count + index_count[: self.num_embeddings]
 
     def compute(self):
         index_count = self.index_count
