@@ -39,10 +39,10 @@ class VectorQuantizer(BaseVectorQuantizer):
         self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
-    def forward(self, x):
+    def forward(self, x, use_group_id=False):
 
         # get indice
-        indice = self.latent_to_indice(x)
+        indice = self.latent_to_indice(x, use_group_id=Faluse_group_id)
 
         # quantize
         x_quant = self.indice_to_code(indice)
@@ -63,7 +63,7 @@ class VectorQuantizer(BaseVectorQuantizer):
 
         return x_quant, indice, loss_dict
 
-    def latent_to_indice(self, latent):
+    def latent_to_indice(self, latent, use_group_id=False):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         # n, m
