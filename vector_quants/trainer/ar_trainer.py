@@ -260,8 +260,9 @@ class ARTrainer(BaseTrainer):
                         else:
                             if len(idx.shape) == 2:  # b n -> b n 1
                                 idx = idx.unsqueeze(-1)
-                    # print(indices)
+
                     logits, past_key_values = self.model(idx, class_idx)
+
                     loss = self.loss_fn(logits.view(-1, logits.shape[-1]), idx.view(-1))
                     acc = torch.mean(logits.argmax(-1).eq(idx).to(torch.float))
                     loss_dict = {

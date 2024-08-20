@@ -195,13 +195,13 @@ class TransformerModel(nn.Module):
             hidden_state = self.pe(hidden_state)
 
         # (b, *)
-        for idx, layer in enumerate(self.layers):
+        for i, layer in enumerate(self.layers):
             layer_outputs = layer(
                 hidden_state,
-                past_key_value=past_key_values[idx],
+                past_key_value=past_key_values[i],
             )
             hidden_state = layer_outputs[0]
-            new_past_key_values[idx] = layer_outputs[1]
+            new_past_key_values[i] = layer_outputs[1]
 
         hidden_state = self.final_norm(hidden_state)
 
