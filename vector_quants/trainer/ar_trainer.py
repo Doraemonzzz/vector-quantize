@@ -354,7 +354,6 @@ class ARTrainer(BaseTrainer):
                     # only for test
                     # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
                     idx = sample(self.model, class_idx, self.sample_step)
-
                     generate_img = self.vqvae.indice_to_img(
                         idx, use_group_id=self.use_group_id
                     )

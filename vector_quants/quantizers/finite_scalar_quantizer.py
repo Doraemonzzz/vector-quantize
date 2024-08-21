@@ -41,7 +41,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
         self.register_buffer("codebook", codebook, persistent=False)
 
     def forward(self, x, use_group_id=False):
-        x_quant, indice = self.latent_to_code_and_indice(x, use_group_id=False)
+        x_quant, indice = self.latent_to_code_and_indice(x)
         # compute codebook loss
         codebook_loss = torch.tensor(0.0).cuda().float()
         loss_dict = {
@@ -58,7 +58,7 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
 
         return code, indice
 
-    def latent_to_indice(self, latent):
+    def latent_to_indice(self, latent, use_group_id=False):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         number = round_ste(F.sigmoid(latent) * (self._levels - 1))
@@ -68,7 +68,9 @@ class FiniteScalarQuantizer(BaseVectorQuantizer):
 
         return indice
 
-    def indice_to_code(self, indice):
+    def indice_to_code(self, indice, use_group_id=False):
+        if len(indice.shape) >= 3 and indice.shape[-1] == 1:
+            indice = indice.squeeze(-1)
         # (..., d)
         code = (indice.unsqueeze(-1) // self._basis) % self._levels
         # convert to [0, 1]

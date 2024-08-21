@@ -42,7 +42,7 @@ class VectorQuantizer(BaseVectorQuantizer):
     def forward(self, x, use_group_id=False):
 
         # get indice
-        indice = self.latent_to_indice(x, use_group_id=Faluse_group_id)
+        indice = self.latent_to_indice(x)
 
         # quantize
         x_quant = self.indice_to_code(indice)
@@ -74,5 +74,7 @@ class VectorQuantizer(BaseVectorQuantizer):
 
         return indice
 
-    def indice_to_code(self, indice):
+    def indice_to_code(self, indice, use_group_id=False):
+        if len(indice.shape) >= 3 and indice.shape[-1] == 1:
+            indice = indice.squeeze(-1)
         return self.codebook(indice)
