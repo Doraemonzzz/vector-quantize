@@ -50,6 +50,6 @@ class AutoVqVae:
         if kwargs["embed_dim_stage1"] != -1:  # add this to avoid early bug
             vqvae_config.embed_dim = kwargs["embed_dim_stage1"]
         model = cls.from_config(vqvae_config)
-        model.load_state_dict(model_state_dict)
+        res = model.load_state_dict(model_state_dict)
 
-        return model, vqvae_config
+        return model, vqvae_config, res

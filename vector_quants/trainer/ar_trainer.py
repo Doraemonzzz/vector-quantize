@@ -69,12 +69,13 @@ class ARTrainer(BaseTrainer):
 
         # 2, load model
         self.dtype = type_dict[cfg_train.dtype]
-        vqvae, vqvae_config = AutoVqVae.from_pretrained(
+        vqvae, vqvae_config, res = AutoVqVae.from_pretrained(
             cfg_train.ckpt_path_stage1,
             embed_dim_stage1=cfg_model_stage2.embed_dim_stage1,
         )
         self.vqvae = vqvae.to(self.dtype)
         self.vqvae.cuda(torch.cuda.current_device())
+        logging_info(res)
         logging_info(self.vqvae)
 
         # update config
@@ -217,6 +218,8 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
+        self.eval()
+
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
@@ -357,10 +360,10 @@ class ARTrainer(BaseTrainer):
                     generate_img = self.vqvae.indice_to_img(
                         idx, use_group_id=self.use_group_id
                     )
-                    # rescale to [0, 1]
-                    generate_img = self.post_transform(generate_img)
+                    # rescale to [0, 1], for fid
+                    generate_img_fid = self.post_transform(generate_img)
 
-                    self.eval_metrics.update(fake=generate_img.contiguous())
+                    self.eval_metrics.update(fake=generate_img_fid.contiguous())
 
         # save image for checking training
         save_image(
