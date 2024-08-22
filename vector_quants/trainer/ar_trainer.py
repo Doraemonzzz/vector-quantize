@@ -251,6 +251,22 @@ class ARTrainer(BaseTrainer):
                         idx = self.vqvae.img_to_indice(
                             input_img, use_group_id=self.use_group_id
                         )
+
+                        # # add begin
+                        # reconstructions = self.vqvae.indice_to_img(
+                        #     idx, use_group_id=self.use_group_id
+                        # )
+                        # save_image(
+                        #     make_grid(
+                        #         torch.cat([input_img, reconstructions]),
+                        #         nrow=input_img.shape[0],
+                        #     ),
+                        #     os.path.join(self.save, f"samples/test.jpg"),
+                        #     normalize=True,
+                        # )
+                        # assert False
+                        # # add end
+
                         # assume we always have an extra group dim
                         if not self.is_1d_token:
                             if len(idx.shape) == 4:  # b h w g
@@ -340,13 +356,13 @@ class ARTrainer(BaseTrainer):
         self.model.eval()
         self.eval_metrics.reset()
 
-        # for input_img, _ in tqdm(
-        #     self.train_data_loader, disable=not self.is_main_process
-        # ):
-        #     input_img = input_img.cuda(torch.cuda.current_device())
-        #     # rescale to [0, 1]
-        #     input_img = self.post_transform(input_img)
-        #     self.eval_metrics.update(real=input_img.contiguous())
+        for input_img, _ in tqdm(
+            self.train_data_loader, disable=not self.is_main_process
+        ):
+            input_img = input_img.cuda(torch.cuda.current_device())
+            # rescale to [0, 1]
+            input_img = self.post_transform(input_img)
+            self.eval_metrics.update(real=input_img.contiguous())
 
         for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
             class_idx = class_idx.cuda(torch.cuda.current_device())

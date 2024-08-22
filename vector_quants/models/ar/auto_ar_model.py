@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from vector_quants.backbone import TransformerModel
@@ -9,12 +10,12 @@ def get_state_dict(path):
     pkg = torch.load(path, map_location="cpu")
 
     assert (
-        "cfg" in pkg or "model_cfg" in pkg
-    ), "At least one of cfg or model_cfg must be included in the ckpt."
-    if hasattr(pkg, "model_cfg"):
-        config = pkg["model_cfg"]
+        "cfg" in pkg or "model_stage2" in pkg
+    ), "At least one of cfg or model_stage2 must be included in the ckpt."
+    if hasattr(pkg, "model_stage2"):
+        config = pkg["model_stage2"]
     else:
-        config = pkg["cfg"].model
+        config = pkg["cfg"].model_stage2
 
     model_state_dict = pkg["model_state_dict"]
 
@@ -43,7 +44,7 @@ class AutoArModel(nn.Module):
 
         if model_name not in AUTO_AR_MAPPING.keys():
             raise ValueError(
-                f"Unknown vector quantization type, got {model_name} - supported types are:"
+                f"Unknown ar model type, got {model_name} - supported types are:"
                 f" {list(AUTO_AR_MAPPING.keys())}"
             )
 
