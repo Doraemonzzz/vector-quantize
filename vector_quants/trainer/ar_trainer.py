@@ -218,8 +218,6 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        self.eval()
-
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
@@ -342,13 +340,13 @@ class ARTrainer(BaseTrainer):
         self.model.eval()
         self.eval_metrics.reset()
 
-        for input_img, _ in tqdm(
-            self.train_data_loader, disable=not self.is_main_process
-        ):
-            input_img = input_img.cuda(torch.cuda.current_device())
-            # rescale to [0, 1]
-            input_img = self.post_transform(input_img)
-            self.eval_metrics.update(real=input_img.contiguous())
+        # for input_img, _ in tqdm(
+        #     self.train_data_loader, disable=not self.is_main_process
+        # ):
+        #     input_img = input_img.cuda(torch.cuda.current_device())
+        #     # rescale to [0, 1]
+        #     input_img = self.post_transform(input_img)
+        #     self.eval_metrics.update(real=input_img.contiguous())
 
         for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
             class_idx = class_idx.cuda(torch.cuda.current_device())

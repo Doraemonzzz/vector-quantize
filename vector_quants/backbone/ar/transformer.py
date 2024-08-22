@@ -188,7 +188,9 @@ class TransformerModel(nn.Module):
         else:  # decode
             hidden_state = self.forward_embed(idx, embed_type=0)
 
-        past_key_values = [None] * len(self.layers)
+        if past_key_values is None:
+            past_key_values = [None] * len(self.layers)
+
         new_past_key_values = [None] * len(self.layers)
 
         if self.use_ape:
