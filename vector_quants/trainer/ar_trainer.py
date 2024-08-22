@@ -75,6 +75,7 @@ class ARTrainer(BaseTrainer):
         )
         self.vqvae = vqvae.to(self.dtype)
         self.vqvae.cuda(torch.cuda.current_device())
+        self.vqvae.eval()
         logging_info(res)
         logging_info(self.vqvae)
 
@@ -218,8 +219,6 @@ class ARTrainer(BaseTrainer):
         start_epoch = self.start_epoch
         num_iter = self.num_iter
         self.vqvae.eval()
-
-        self.eval()
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
