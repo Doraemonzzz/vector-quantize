@@ -220,6 +220,8 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
+        self.eval()
+
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
@@ -253,6 +255,8 @@ class ARTrainer(BaseTrainer):
                         idx = self.vqvae.img_to_indice(
                             input_img, use_group_id=self.use_group_id
                         )
+                        # print(idx[1])
+                        # assert False
 
                         # # add begin
                         # reconstructions = self.vqvae.indice_to_img(
@@ -374,7 +378,7 @@ class ARTrainer(BaseTrainer):
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     # only for test
                     # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
-                    idx = sample(self.model, class_idx, self.sample_step)
+                    idx = sample(self.model, self.sample_step, c=class_idx)
                     generate_img = self.vqvae.indice_to_img(
                         idx, use_group_id=self.use_group_id
                     )

@@ -36,6 +36,7 @@ class ClassEmbedder(nn.Module):
         if self.training and use_dropout:
             labels = self.token_drop(labels)
         embeddings = self.embedding_table(labels).unsqueeze(1)
+
         return embeddings
 
 
@@ -143,7 +144,7 @@ class TransformerModel(nn.Module):
                 base=base,
             )
 
-        self.initialize_weights()
+        # self.initialize_weights()
 
     def initialize_weights(self):
         # Initialize nn.Linear and nn.Embedding
@@ -177,24 +178,34 @@ class TransformerModel(nn.Module):
         idx=None,
         cond_idx=None,
         past_key_values=None,
+        shape=None,
     ):
         # compute embed
         if idx is not None and cond_idx is not None:  # training
-            token_embed = self.forward_embed(idx, embed_type=0)
             cond_embed = self.forward_embed(cond_idx, embed_type=1)
-            hidden_state = torch.cat([token_embed, cond_embed], dim=-2)
+            token_embed = self.forward_embed(idx, embed_type=0)
+            hidden_state = torch.cat(
+                [
+                    cond_embed,
+                    token_embed,
+                ],
+                dim=-2,
+            )
         elif cond_idx is not None:  # prefill
             hidden_state = self.forward_embed(cond_idx, embed_type=1)
         else:  # decode
             hidden_state = self.forward_embed(idx, embed_type=0)
 
+        offset = 0
         if past_key_values is None:
             past_key_values = [None] * len(self.layers)
+        else:
+            offset = past_key_values[0][0].shape[-2]
 
         new_past_key_values = [None] * len(self.layers)
 
         if self.use_ape:
-            hidden_state = self.pe(hidden_state)
+            hidden_state = self.pe(hidden_state, offset=offset, shape=shape)
 
         # (b, *)
         for i, layer in enumerate(self.layers):

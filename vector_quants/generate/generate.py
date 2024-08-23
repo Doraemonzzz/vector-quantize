@@ -13,19 +13,28 @@ def top_k_logits(logits, k):
 
 
 @torch.no_grad()
-def sample(model, c, steps, temperature=1.0, top_k=100):
+def sample(model, steps, c=None, idx=None, temperature=1.0, top_k=100):
     model.eval()
+    shape = [steps]
+    # shape = None
     # prefill
     past_key_values = None
-    idx = None
-    x = None
+    # idx = None
+    if idx is not None:
+        start = idx.shape[1]
+        x = idx
+    else:
+        start = 0
+        x = None
 
-    for k in range(steps):
+    for k in range(start, steps):
         cond_idx = c if k == 0 else None
         logits, past_key_values = model(
-            idx=x, cond_idx=cond_idx, past_key_values=past_key_values
+            idx=x, cond_idx=cond_idx, past_key_values=past_key_values, shape=shape
         )
+        # print(logits.shape)
         # get the last token's logits
+        # b n g V -> b 1 g V
         logits = (
             logits[
                 :,
@@ -40,10 +49,23 @@ def sample(model, c, steps, temperature=1.0, top_k=100):
         probs = F.softmax(logits, dim=-1)
         # probs: b n g v
         probs, ps = pack([probs], "* v")
+        # logits, ps = pack([logits], "* v")
+        # print(torch.multinomial(probs, num_samples=1).shape)
         x = torch.multinomial(probs, num_samples=1)[:, 0]
-        x = unpack(x, ps, "*")[0]
 
-        idx = torch.cat([idx, x], dim=1) if k > 0 else x
+        # x = torch.argmax(logits, dim=-1)
+
+        x = unpack(x, ps, "*")[0]
+        # print(x.shape)
+        idx = torch.cat([idx, x], dim=1) if k != 0 else x
+        # print(idx.shape)
+
+    # print(c)
+    # print(idx.shape)
+    # for i in range(idx.shape[0]):
+    #     print(idx[i, :10])
+    # print(idx[:, 0])
+    del past_key_values
 
     return idx
 
@@ -94,6 +116,7 @@ def test_sample_with_kv_cache(model, c, steps, temperature=1.0, top_k=100):
 
         idx = torch.cat([idx, x], dim=1) if k > 0 else x
 
+    print(torch.norm(idx.float() - idx_kv_cache).item())
     assert torch.norm(idx.float() - idx_kv_cache).item() == 0, "idx_kv_cache != idx"
 
     return idx

@@ -55,9 +55,11 @@ class SinCosPe(nn.Module):
 
         self.pe = pe
 
-    def forward(self, x, shape=None):
-        if self.pe.shape[0] == 0:
+    def forward(self, x, shape=None, offset=0):
+        if self.pe.shape[0] == 0 or self.pe.shape[0] < x.shape[1]:
             self.get_pe(x, shape)
-        x = x + self.pe
+        start = offset
+        end = offset + x.shape[1]
+        x = x + self.pe[start:end]
 
         return x
