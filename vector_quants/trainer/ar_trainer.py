@@ -25,7 +25,6 @@ from vector_quants.utils import (
     get_is_1d_token,
     get_metrics_list,
     get_num_group,
-    get_token_embed_type,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
@@ -90,7 +89,7 @@ class ARTrainer(BaseTrainer):
         else:
             cfg_model_stage2.num_group = 1
             cfg_model_stage2.vocab_size = self.vqvae.num_embed**num_group
-        cfg_model_stage2.token_embed_type = get_token_embed_type(vqvae_config)
+        # cfg_model_stage2.token_embed_type = get_token_embed_type(vqvae_config)
         cfg_model_stage2.sample_step = cfg_sample.sample_step
         self.is_1d_token = get_is_1d_token(vqvae_config)
 
