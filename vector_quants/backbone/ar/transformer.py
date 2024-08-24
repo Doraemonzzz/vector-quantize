@@ -35,6 +35,7 @@ class ClassEmbedder(nn.Module):
         use_dropout = self.dropout_prob > 0
         if self.training and use_dropout:
             labels = self.token_drop(labels)
+
         embeddings = self.embedding_table(labels).unsqueeze(1)
 
         return embeddings
@@ -191,6 +192,7 @@ class TransformerModel(nn.Module):
                 ],
                 dim=-2,
             )
+
         elif cond_idx is not None:  # prefill
             hidden_state = self.forward_embed(cond_idx, embed_type=1)
         else:  # decode

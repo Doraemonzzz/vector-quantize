@@ -73,7 +73,8 @@ class ARTrainer(BaseTrainer):
             cfg_train.ckpt_path_stage1,
             embed_dim_stage1=cfg_model_stage2.embed_dim_stage1,
         )
-        self.vqvae = vqvae.to(self.dtype)
+        self.vqvae = vqvae
+        # self.vqvae = vqvae.to(self.dtype)
         self.vqvae.cuda(torch.cuda.current_device())
         self.vqvae.eval()
         logging_info(res)
@@ -220,7 +221,7 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        self.eval()
+        # self.eval()
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -255,6 +256,7 @@ class ARTrainer(BaseTrainer):
                         idx = self.vqvae.img_to_indice(
                             input_img, use_group_id=self.use_group_id
                         )
+
                         # print(idx[1])
                         # assert False
 
