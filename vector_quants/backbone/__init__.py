@@ -12,4 +12,4 @@ from .ae import (
     TransformerDecoder,
     TransformerEncoder,
 )
-from .ar import TransformerModel
+from .ar import TransformerLlamaGen, TransformerModel

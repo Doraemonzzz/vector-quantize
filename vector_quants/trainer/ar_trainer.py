@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import DATASET_CONFIGS, get_data_loaders
-from vector_quants.generate import sample
+from vector_quants.generate import generate_llamagen, sample
 from vector_quants.logger import Logger
 from vector_quants.loss import get_post_transform
 from vector_quants.metrics import Metrics, metrics_names
@@ -74,7 +74,6 @@ class ARTrainer(BaseTrainer):
             embed_dim_stage1=cfg_model_stage2.embed_dim_stage1,
         )
         self.vqvae = vqvae
-        # self.vqvae = vqvae.to(self.dtype)
         self.vqvae.cuda(torch.cuda.current_device())
         self.vqvae.eval()
         logging_info(res)
@@ -92,6 +91,7 @@ class ARTrainer(BaseTrainer):
             cfg_model_stage2.num_group = 1
             cfg_model_stage2.vocab_size = self.vqvae.num_embed**num_group
         cfg_model_stage2.token_embed_type = get_token_embed_type(vqvae_config)
+        cfg_model_stage2.sample_step = cfg_sample.sample_step
         self.is_1d_token = get_is_1d_token(vqvae_config)
 
         self.model = AutoArModel.from_config(cfg_model_stage2)
@@ -178,6 +178,7 @@ class ARTrainer(BaseTrainer):
         self.clip_grad = cfg_train.clip_grad
         self.sample_step = cfg_sample.sample_step
         self.eval_first = True
+        self.model_type = cfg_model_stage2.model_name
 
     @property
     def is_main_process(self):
@@ -221,7 +222,7 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        # self.eval()
+        self.eval()
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -289,10 +290,18 @@ class ARTrainer(BaseTrainer):
                     logits, past_key_values = self.model(idx, class_idx)
 
                     loss = self.loss_fn(logits.view(-1, logits.shape[-1]), idx.view(-1))
-                    acc = torch.mean(logits.argmax(-1).eq(idx).to(torch.float))
+
+                    with torch.no_grad():
+                        acc = torch.mean(
+                            logits.argmax(-1)
+                            .flatten()
+                            .eq(idx.flatten())
+                            .to(torch.float)
+                        )
+
                     loss_dict = {
-                        "cross_entropy": loss.item(),
-                        "acc": acc.item(),
+                        "cross_entropy": loss.cpu().item(),
+                        "acc": acc.cpu().item(),
                     }
 
                 # backward
@@ -360,19 +369,20 @@ class ARTrainer(BaseTrainer):
 
     # update this later
     def eval(self, epoch=1):
+        return
         logging_info("Start Evaluation")
         self.model.eval()
         self.eval_metrics.reset()
 
-        if self.eval_first:
-            for input_img, _ in tqdm(
-                self.train_data_loader, disable=not self.is_main_process
-            ):
-                input_img = input_img.cuda(torch.cuda.current_device())
-                # rescale to [0, 1]
-                input_img = self.post_transform(input_img)
-                self.eval_metrics.update(real=input_img.contiguous())
-            self.eval_first = False
+        # if self.eval_first:
+        #     for input_img, _ in tqdm(
+        #         self.train_data_loader, disable=not self.is_main_process
+        #     ):
+        #         input_img = input_img.cuda(torch.cuda.current_device())
+        #         # rescale to [0, 1]
+        #         input_img = self.post_transform(input_img)
+        #         self.eval_metrics.update(real=input_img.contiguous())
+        #     self.eval_first = False
 
         for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
             class_idx = class_idx.cuda(torch.cuda.current_device())
@@ -380,7 +390,12 @@ class ARTrainer(BaseTrainer):
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     # only for test
                     # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
-                    idx = sample(self.model, self.sample_step, c=class_idx)
+                    if self.model_type == "transformer":
+                        idx = sample(self.model, self.sample_step, c=class_idx)
+                    else:
+                        idx = generate_llamagen(
+                            self.model, cond=class_idx, max_new_tokens=self.sample_step
+                        )
                     generate_img = self.vqvae.indice_to_img(
                         idx, use_group_id=self.use_group_id
                     )

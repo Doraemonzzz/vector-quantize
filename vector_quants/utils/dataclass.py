@@ -234,7 +234,11 @@ class ModelConfig:
 @dataclass
 class ModelStage2Config:
     model_name: str = field(
-        default="transformer", metadata={"help": "Model name for stage2"}
+        default="transformer",
+        metadata={
+            "help": "Model name for stage2",
+            "choices": ["transformer", "transformer_llamagen"],
+        },
     )
     vocab_size: int = field(default=1024, metadata={"help": "Size of codebook"})
     embed_dim: int = field(

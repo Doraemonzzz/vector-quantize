@@ -1,9 +1,12 @@
 import torch
 from torch import nn
 
-from vector_quants.backbone import TransformerModel
+from vector_quants.backbone import TransformerLlamaGen, TransformerModel
 
-AUTO_AR_MAPPING = {"transformer": TransformerModel}
+AUTO_AR_MAPPING = {
+    "transformer": TransformerModel,
+    "transformer_llamagen": TransformerLlamaGen,
+}
 
 
 def get_state_dict(path):
