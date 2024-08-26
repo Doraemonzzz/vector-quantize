@@ -94,7 +94,6 @@ class TransformerModel(nn.Module):
         # get params start
         vocab_size = cfg.vocab_size
         num_class = cfg.num_class
-        # token_embed_type = cfg.token_embed_type
         embed_dim = cfg.embed_dim
         class_dropout_prob = cfg.class_dropout_prob
         num_layers = cfg.num_layers
@@ -113,7 +112,6 @@ class TransformerModel(nn.Module):
         self.num_embed = num_embed
 
         # construct embedding start
-        # self.token_embed_type = token_embed_type
         self.token_embed = nn.Sequential(
             nn.Embedding(
                 vocab_size,

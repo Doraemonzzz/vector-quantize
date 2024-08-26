@@ -439,6 +439,7 @@ class TransformerLlamaGen(nn.Module):
     ):
 
         if idx is not None and cond_idx is not None:  # training or naive inference
+            # b n 1 -> b n
             assert idx.shape[-1] == 1
             idx = idx.squeeze(-1)
             cond_embeddings = self.cls_embedding(cond_idx, train=self.training)[

@@ -74,6 +74,7 @@ class ARTrainer(BaseTrainer):
         )
         self.vqvae = vqvae
         self.vqvae.cuda(torch.cuda.current_device())
+
         self.vqvae.eval()
         logging_info(res)
         logging_info(self.vqvae)
@@ -89,7 +90,7 @@ class ARTrainer(BaseTrainer):
         else:
             cfg_model_stage2.num_group = 1
             cfg_model_stage2.vocab_size = self.vqvae.num_embed**num_group
-        # cfg_model_stage2.token_embed_type = get_token_embed_type(vqvae_config)
+
         cfg_model_stage2.sample_step = cfg_sample.sample_step
         self.is_1d_token = get_is_1d_token(vqvae_config)
 
@@ -135,7 +136,8 @@ class ARTrainer(BaseTrainer):
         logging_info(f"Start epoch: {self.start_epoch}")
 
         self.model = torch.nn.parallel.DistributedDataParallel(
-            self.model, device_ids=[cfg_train.gpu], find_unused_parameters=True
+            self.model,
+            device_ids=[cfg_train.gpu],
         )
 
         # evaluation
@@ -251,29 +253,12 @@ class ARTrainer(BaseTrainer):
                 # forward
                 input_img = input_img.cuda(torch.cuda.current_device())
                 class_idx = input_label.cuda(torch.cuda.current_device())
+
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
                         idx = self.vqvae.img_to_indice(
                             input_img, use_group_id=self.use_group_id
                         )
-
-                        # print(idx[1])
-                        # assert False
-
-                        # # add begin
-                        # reconstructions = self.vqvae.indice_to_img(
-                        #     idx, use_group_id=self.use_group_id
-                        # )
-                        # save_image(
-                        #     make_grid(
-                        #         torch.cat([input_img, reconstructions]),
-                        #         nrow=input_img.shape[0],
-                        #     ),
-                        #     os.path.join(self.save, f"samples/test.jpg"),
-                        #     normalize=True,
-                        # )
-                        # assert False
-                        # # add end
 
                         # assume we always have an extra group dim
                         if not self.is_1d_token:
@@ -288,7 +273,10 @@ class ARTrainer(BaseTrainer):
 
                     logits, past_key_values = self.model(idx, class_idx)
 
-                    loss = self.loss_fn(logits.view(-1, logits.shape[-1]), idx.view(-1))
+                    loss = self.loss_fn(
+                        logits.contiguous().view(-1, logits.shape[-1]),
+                        idx.contiguous().view(-1),
+                    )
 
                     with torch.no_grad():
                         acc = torch.mean(
@@ -368,20 +356,21 @@ class ARTrainer(BaseTrainer):
 
     # update this later
     def eval(self, epoch=1):
-        return
+        if self.model_type != "transformer":
+            return
         logging_info("Start Evaluation")
         self.model.eval()
         self.eval_metrics.reset()
 
-        # if self.eval_first:
-        #     for input_img, _ in tqdm(
-        #         self.train_data_loader, disable=not self.is_main_process
-        #     ):
-        #         input_img = input_img.cuda(torch.cuda.current_device())
-        #         # rescale to [0, 1]
-        #         input_img = self.post_transform(input_img)
-        #         self.eval_metrics.update(real=input_img.contiguous())
-        #     self.eval_first = False
+        if self.eval_first:
+            for input_img, _ in tqdm(
+                self.train_data_loader, disable=not self.is_main_process
+            ):
+                input_img = input_img.cuda(torch.cuda.current_device())
+                # rescale to [0, 1]
+                input_img = self.post_transform(input_img)
+                self.eval_metrics.update(real=input_img.contiguous())
+            self.eval_first = False
 
         for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
             class_idx = class_idx.cuda(torch.cuda.current_device())
