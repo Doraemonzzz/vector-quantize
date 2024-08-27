@@ -41,32 +41,6 @@ class FreqPatchEmbed(nn.Module):
             )
             self.register_buffer("indices", indices, persistent=False)
 
-    # # v1
-    # def forward(self, x):
-    #     y = rearrange(
-    #         x,
-    #         "b c (p1 h) (p2 w) -> b (p1 p2 c) h w",
-    #         h=self.num_h_patch,
-    #         w=self.num_w_patch,
-    #     )
-    #     y = dct_2d(y, norm="ortho")
-    #     y = rearrange(y, "b d h w -> b (h w) d")[:, self.indices]
-    #     y = self.to_patch_embedding(y)
-
-    #     return y
-
-    # # v2
-    # def forward(self, x):
-    #     y = rearrange(
-    #         x,
-    #         "b c h w -> b c (h w)",
-    #     )[:, :, self.indices]
-
-    #     y = rearrange(y, "b c (n d) -> b n (d c)", n=self.num_patch)
-    #     y = self.to_patch_embedding(y)
-
-    #     return y
-
     def forward(self, x):
         if self.dct_block_size > 0:
             x = block_dct_2d(x, norm="ortho", block_size=self.dct_block_size)
@@ -131,35 +105,6 @@ class ReverseFreqPatchEmbed(nn.Module):
                 self.num_h_patch, self.num_w_patch
             )
             self.register_buffer("reverse_indices", reverse_indices, persistent=False)
-
-    # # v1
-    # def forward(self, x):
-    #     y = self.reverse_patch_embedding(x)[:, self.reverse_indices]
-    #     y = rearrange(
-    #         y,
-    #         "b (h w) d -> b d h w",
-    #         h=self.num_h_patch,
-    #     )
-    #     y = idct_2d(y, norm="ortho")
-
-    #     y = rearrange(
-    #         y,
-    #         "b (p1 p2 c) h w -> b c (p1 h) (p2 w)",
-    #         p1=self.patch_height,
-    #         p2=self.patch_width,
-    #     )
-
-    #     return y
-
-    # # v2
-    # def forward(self, x):
-    #     y = self.reverse_patch_embedding(x)
-    #     y = rearrange(
-    #         y, "b n (d c) -> b c (n d)", d=self.patch_height * self.patch_width
-    #     )[:, :, self.reverse_indices]
-    #     y = rearrange(y, "b c (h w) -> b c h w", h=self.image_height)
-
-    #     return y
 
     def forward(self, x):
         y = self.reverse_patch_embedding(x)

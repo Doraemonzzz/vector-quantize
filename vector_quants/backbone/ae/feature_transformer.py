@@ -1,3 +1,7 @@
+"""
+This one does not work well, don't use it.
+"""
+
 import torch
 import torch.nn as nn
 from einops import rearrange

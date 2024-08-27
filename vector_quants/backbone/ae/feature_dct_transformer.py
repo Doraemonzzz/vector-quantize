@@ -1,47 +1,27 @@
 """
-Use block dct to replace patchify
+Use block dct at the end of encoder.
 
 Notation:
     b: batch_size
-    m: number of dct patch
-    f: dct_block_size ** 2
+    n: num_patch
     d: embed dim
     e: vq dim
-    n: num_patch
+    m: number of dct patch
+    f: dct_block_size ** 2
 
+Encoder output: (b n d)
+Then do the following transform:
+    (b n d) -----------> (b n) = (b (h w)) -----------> (b h w) = (b (h p1) (w p2)) -----------> block dct
+    (b (h w) (p1 p2)) = (b m f) -----------> (b f m) -----------> (b f e)
 
-First do the following rearrange:
-    x = rearrange(x, "b c (h p1) (w p2) -> b (h w c) (p1 p2)", p1=dct_block_size, p2=dct_block_size)
-    x: (b m f)
+Decoder input: (b f e)
+    (b f e) -----------> (b f m) -----------> (b m f) = (b (h w) (p1 p2)) ----------->
+    (b (h p1) (w p2)) = (b h w) -----------> (b (h w)) = (b n) -----------> (b n d)
 
-if encoder_transpose_feature:
-    x: (b m f) -----------> (b f m) -----------> (b f d) -----------> (b f d) -----------> (b f e)
-                rearrange            patch_proj            encoder              out_proj
-    if decoder_transpose_feature:
-        use shape (b f e) in decoder,
-        x: (b f e) -----------> (b e f) -----------> (b f e) -----------> (b f d) -----------> (b f d) -----------> (b f m) -----------> (b m f)
-                     rearrange            rearrange            in_proj              decoder            r_patch_proj           rearrange
-    else:
-        use shape (b e f) in decoder,
-        x: (b f e) -----------> (b f d) -----------> (b n d) -----------> (b n d) -----------> (b (h w) c)
-                     in_proj             rearrange             decoder            r_patch_proj
-                                            to
-else: (no need)
-    x: (b m f) -----------> (b m d) -----------> (b m d) -----------> (b m e)
-                patch_proj            encoder              out_proj
-    if decoder_transpose_feature:
-        use shape (b e m) in decoder,
-        x: (b m e) -----------> (b e m) -----------> (b e d) -----------> (b e d) -----------> (b e m) -----------> (b m e) -----------> (b m f)
-                    rearrange             in_proj              decoder                proj              rearrange           r_patch_proj
-    else:
-        use shape (b m e) in decoder,
-        x: (b m e) -----------> (b m d) -----------> (b m d) -----------> (b m f)
-                     in_proj              decoder            r_patch_embed
 """
 
-
 import torch.nn as nn
-from einops import rearrange
+from einops import rearrange, repeat
 
 from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
@@ -51,6 +31,7 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
+from vector_quants.ops import dct_2d, idct_2d, zigzag_indices
 from vector_quants.utils import print_module
 
 
@@ -97,57 +78,69 @@ class TransformerLayer(nn.Module):
         return x
 
 
-class BlockDctTransformerEncoder(nn.Module):
+class FeatureDctTransformerEncoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
         image_size = cfg.image_size
-        cfg.patch_size
+        patch_size = cfg.patch_size
         channels = cfg.in_channels
+        flatten = False
         bias = cfg.bias
         use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
         out_dim = cfg.embed_dim
         base = cfg.theta_base
         norm_type = cfg.norm_type
-        patch_embed_name = "block_dct"
+        patch_embed_name = cfg.patch_embed_name
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
-        use_block_dct_only = cfg.use_block_dct_only
+        use_freq_patch = cfg.use_freq_patch
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
-            dct_block_size=dct_block_size,
+            patch_size=patch_size,
             embed_dim=embed_dim,
             channels=channels,
+            flatten=flatten,
             bias=bias,
+            dct_block_size=dct_block_size,
             use_zigzag=use_zigzag,
+            use_freq_patch=use_freq_patch,
         )
-
-        self.use_block_dct_only = use_block_dct_only
-
-        if not self.use_block_dct_only:
-            self.use_ape = use_ape
-            if self.use_ape:
-                self.pe = SinCosPe(
-                    embed_dim=embed_dim,
-                    base=base,
-                )
-            self.layers = nn.ModuleList(
-                [TransformerLayer(cfg) for i in range(cfg.num_layers)]
+        self.use_ape = use_ape
+        if self.use_ape:
+            self.pe = SinCosPe(
+                embed_dim=embed_dim,
+                base=base,
             )
+        self.layers = nn.ModuleList(
+            [TransformerLayer(cfg) for i in range(cfg.num_layers)]
+        )
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
 
-        # dim = embed_dim
-        self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
-
+        self.dct_block_size = dct_block_size
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
+        num_patch = (
+            self.patch_embed.num_h_patch
+            * self.patch_embed.num_w_patch
+            // (dct_block_size**2)
+        )
+        self.out_proj = nn.Linear(num_patch, out_dim, bias=bias)
+
+        self.use_zigzag = use_zigzag
+        if self.use_zigzag:
+            indices, reverse_indices = zigzag_indices(
+                self.dct_block_size, self.dct_block_size
+            )
+            self.register_buffer("indices", indices, persistent=False)
 
     @property
     def num_patch(self):
+
         return self.patch_embed.num_patch
 
     def extra_repr(self):
@@ -157,40 +150,58 @@ class BlockDctTransformerEncoder(nn.Module):
         self,
         x,
     ):
-        # b c h w -> b f d
+        # b c h w -> b n d
         x = self.patch_embed(x)
 
-        if not self.use_block_dct_only:
-            shape = x.shape[1:-1]
+        shape = x.shape[1:-1]
 
-            if self.use_ape:
-                x = self.pe(x, shape)
+        if self.use_ape:
+            x = self.pe(x, shape)
 
-            for layer in self.layers:
-                x = layer(x, self.input_shape)
+        for layer in self.layers:
+            x = layer(x, self.input_shape)
 
-        x = self.out_proj(self.final_norm(x))
+        # block dct begin
+        x = self.final_norm(x)
+        x = x.mean(dim=-1)
+        x = rearrange(
+            x, "b (h w) -> b h w", h=self.input_shape[0], w=self.input_shape[1]
+        )
+        x = rearrange(
+            x,
+            "b (h p1) (w p2) -> b h w p1 p2",
+            p1=self.dct_block_size,
+            p2=self.dct_block_size,
+        )
+        x = dct_2d(x, norm="ortho")
+        x = rearrange(x, "b h w p1 p2 -> b (p1 p2) (h w)")
+        if self.use_zigzag:  # take dct coef as seqlen
+            x = x[:, self.indices]
+        # block dct end
+
+        x = self.out_proj(x)
 
         return x
 
 
-class BlockDctTransformerDecoder(nn.Module):
+class FeatureDctTransformerDecoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
         image_size = cfg.image_size
         patch_size = cfg.patch_size
         channels = cfg.in_channels
+        flatten = True
         bias = cfg.bias
         use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
         in_dim = cfg.embed_dim
         base = cfg.theta_base
         norm_type = cfg.norm_type
-        patch_embed_name = "block_dct"
+        patch_embed_name = cfg.patch_embed_name
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
-        transpose_feature = cfg.transpose_feature
+        use_freq_patch = cfg.use_freq_patch
         # get params end
 
         self.use_ape = use_ape
@@ -203,21 +214,18 @@ class BlockDctTransformerDecoder(nn.Module):
         self.layers = nn.ModuleList(
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
-
+        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.reverse_patch_embed = AUTO_REVERSE_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
             patch_size=patch_size,
             embed_dim=embed_dim,
             channels=channels,
+            flatten=flatten,
             bias=bias,
             dct_block_size=dct_block_size,
             use_zigzag=use_zigzag,
-            transpose_feature=transpose_feature,
+            use_freq_patch=use_freq_patch,
         )
-
-        self.transpose_feature = transpose_feature
-
-        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
 
         # use in md lrpe
         self.input_shape = [
@@ -225,16 +233,21 @@ class BlockDctTransformerDecoder(nn.Module):
             self.reverse_patch_embed.num_w_patch,
         ]
 
-        if not self.transpose_feature:
-            self.dct_block_size = dct_block_size
-            self.dct_patch_size = image_size // dct_block_size
-            d1 = self.dct_patch_size * self.dct_patch_size * channels
-            self.in_proj = nn.Linear(in_dim, d1, bias=bias)
-            self.patch_size = patch_size
-            d2 = self.patch_size * self.patch_size * channels
-            self.proj = nn.Linear(d2, embed_dim, bias=bias)
-        else:
-            self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
+        self.dct_block_size = dct_block_size
+        num_patch = (
+            self.reverse_patch_embed.num_h_patch
+            * self.reverse_patch_embed.num_w_patch
+            // (self.dct_block_size**2)
+        )
+        self.in_proj = nn.Linear(in_dim, num_patch, bias=bias)
+
+        self.use_zigzag = use_zigzag
+        if self.use_zigzag:
+            indices, reverse_indices = zigzag_indices(
+                self.dct_block_size, self.dct_block_size
+            )
+            self.register_buffer("reverse_indices", reverse_indices, persistent=False)
+        self.embed_dim = embed_dim
 
     @property
     def num_patch(self):
@@ -247,31 +260,32 @@ class BlockDctTransformerDecoder(nn.Module):
         self,
         x,
     ):
+        # b f e -> b f m
+        x = self.in_proj(x)
 
-        # if self.decoder_transpose_feature: b n d -> b d n
-        if self.transpose_feature:
-            # b f e -> b f d
-            x = self.in_proj(x)
-        else:
-            # b f e -> b f d
-            x = self.in_proj(x)
-            x = rearrange(
-                x,
-                "b (p1 p2) (h w c) -> b c (h p1) (w p2)",
-                h=self.dct_patch_size,
-                w=self.dct_patch_size,
-                p1=self.dct_block_size,
-                p2=self.dct_block_size,
-            )
-            x = rearrange(
-                x,
-                "b c (h p1) (w p2) -> b (h w) (p1 p2 c)",
-                p1=self.patch_size,
-                p2=self.patch_size,
-            )
-            x = self.proj(x)
+        # block dct begin
+        if self.use_zigzag:  # take dct coef as seqlen
+            x = x[:, self.inverse_indices]
+        h, w = (
+            self.input_shape[0] // self.dct_block_size,
+            self.input_shape[1] // self.dct_block_size,
+        )
+        x = rearrange(
+            x,
+            "b (p1 p2) (h w) -> b h w p1 p2",
+            p1=self.dct_block_size,
+            p2=self.dct_block_size,
+            h=h,
+            w=w,
+        )
+        x = idct_2d(x, norm="ortho")
+        x = rearrange(x, "b h w p1 p2 -> b (h p1) (w p2)")
+        x = rearrange(x, "b h w -> b (h w)")
+        x = repeat(x, "b n -> b n d", d=self.embed_dim)
+        # block dct end
 
         shape = x.shape[1:-1]
+
         if self.use_ape:
             x = self.pe(x, shape=shape)
 

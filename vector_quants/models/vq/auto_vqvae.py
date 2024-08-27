@@ -14,6 +14,7 @@ AUTO_VQVAE_MAPPING = {
     "feature_transformer": VqVae,
     "llamagen": VqVaeLlamaGen,
     "block_dct_transformer": VqVae,
+    "feature_dct_transformer": VqVae,
 }
 
 

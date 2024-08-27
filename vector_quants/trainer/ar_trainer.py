@@ -260,6 +260,33 @@ class ARTrainer(BaseTrainer):
                             input_img, use_group_id=self.use_group_id
                         )
 
+                        # clear this later
+                        # feature = self.vqvae.encoder(input_img)
+                        # print(feature.shape)
+                        # h = int(feature.shape[1] ** 0.5)
+                        # from einops import rearrange
+                        # print(self.save)
+                        # feature = rearrange(feature, "b (h w) c -> b c h w", h=h)[:, :3]
+                        # print(input_img.shape, feature.shape)
+                        # # save image for checking training
+                        # save_image(
+                        #     make_grid(
+                        #         torch.cat([input_img]),
+                        #         nrow=input_img.shape[0],
+                        #     ),
+                        #     os.path.join(self.save, f"samples/feature_map_gt.jpg"),
+                        #     normalize=True,
+                        # )
+                        # save_image(
+                        #     make_grid(
+                        #         torch.cat([feature]),
+                        #         nrow=feature.shape[0],
+                        #     ),
+                        #     os.path.join(self.save, f"samples/feature_map.jpg"),
+                        #     normalize=True,
+                        # )
+                        # assert False
+
                         # assume we always have an extra group dim
                         if not self.is_1d_token:
                             if len(idx.shape) == 4:  # b h w g

@@ -66,6 +66,7 @@ class ModelConfig:
                 "freq_transformer",
                 "feature_transformer",
                 "block_dct_transformer",
+                "feature_dct_transformer",
             ],
         },
     )
@@ -230,12 +231,6 @@ class ModelConfig:
     )
     use_block_dct_only: bool = field(
         default=False, metadata={"help": "Whether use block dct only or not in encoder"}
-    )
-    encoder_transpose_feature: bool = field(
-        default=False, metadata={"help": "Whether transpose feature in encoder or not"}
-    )
-    decoder_transpose_feature: bool = field(
-        default=False, metadata={"help": "Whether transpose feature in decoder or not"}
     )
 
 
