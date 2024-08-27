@@ -17,6 +17,7 @@ def dct_fft_impl(v):
 
 def idct_irfft_impl(V):
     dtype = V.dtype
+
     return torch.fft.irfft(torch.view_as_complex(V.float()), n=V.shape[1], dim=1).to(
         dtype
     )

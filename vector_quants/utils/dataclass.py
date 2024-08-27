@@ -65,6 +65,7 @@ class ModelConfig:
                 "transformer",
                 "freq_transformer",
                 "feature_transformer",
+                "block_dct_transformer",
             ],
         },
     )
@@ -72,10 +73,7 @@ class ModelConfig:
         default="vanilla",
         metadata={
             "help": "Patch embed name",
-            "choices": [
-                "vanilla",
-                "freq",
-            ],
+            "choices": ["vanilla", "freq", "block_dct"],
         },
     )
     quant_spatial: bool = field(
@@ -227,6 +225,16 @@ class ModelConfig:
         default=False, metadata={"help": "Whether use freq patch or not"}
     )
     transpose_feature: bool = field(
+        default=False,
+        metadata={"help": "Whether transpose feature in encoder/decoder or not"},
+    )
+    use_block_dct_only: bool = field(
+        default=False, metadata={"help": "Whether use block dct only or not in encoder"}
+    )
+    encoder_transpose_feature: bool = field(
+        default=False, metadata={"help": "Whether transpose feature in encoder or not"}
+    )
+    decoder_transpose_feature: bool = field(
         default=False, metadata={"help": "Whether transpose feature in decoder or not"}
     )
 

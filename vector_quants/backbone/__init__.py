@@ -3,6 +3,8 @@ from .ae import (
     BaselineConvEncoder,
     BasicConvDecoder,
     BasicConvEncoder,
+    BlockDctTransformerDecoder,
+    BlockDctTransformerEncoder,
     FeatureTransformerDecoder,
     FeatureTransformerEncoder,
     FreqTransformerDecoder,
