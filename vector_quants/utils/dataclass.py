@@ -245,6 +245,12 @@ class ModelConfig:
         default=False,
         metadata={"help": "Whether use special initialization in transformer or not"},
     )
+    patch_merge_size: int = field(
+        default=1,
+        metadata={
+            "help": "Whether merge patch use overlap patch embedding in encoder/decoder or not, i.e. (b n d) -> (b m 1)"
+        },
+    )
 
 
 @dataclass

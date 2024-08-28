@@ -144,7 +144,6 @@ class FeatureDctTransformerEncoder(nn.Module):
 
     @property
     def num_patch(self):
-
         return self.patch_embed.num_patch
 
     def extra_repr(self):

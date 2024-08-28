@@ -75,6 +75,7 @@ class FreqTransformerEncoder(nn.Module):
         use_freq_patch = cfg.use_freq_patch
         use_init = cfg.use_init
         init_std = cfg.init_std
+        patch_merge_size = cfg.patch_merge_size
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -99,7 +100,12 @@ class FreqTransformerEncoder(nn.Module):
         )
 
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
+        self.patch_merge_size = patch_merge_size
+        if self.patch_merge_size > 1:
+            d = embed_dim * patch_merge_size * patch_merge_size
+            self.out_proj = nn.Linear(d, 1, bias=bias)
+        else:
+            self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
@@ -128,7 +134,9 @@ class FreqTransformerEncoder(nn.Module):
 
     @property
     def num_patch(self):
-        return self.patch_embed.num_patch
+        return (
+            self.patch_embed.num_patch // self.patch_merge_size // self.patch_merge_size
+        )
 
     def extra_repr(self):
         return print_module(self)
@@ -148,7 +156,19 @@ class FreqTransformerEncoder(nn.Module):
         for layer in self.layers:
             x = layer(x, self.input_shape)
 
-        x = self.out_proj(self.final_norm(x))
+        if self.patch_merge_size > 1:
+            x = self.final_norm(x)
+            h = int(x.shape[1] ** 0.5)
+            x = rearrange(x, "b (h w) d -> b h w d", h=h)
+            x = rearrange(
+                x,
+                "b (h p1) (w p2) d -> b (h w) (p1 p2 d)",
+                p1=self.patch_merge_size,
+                p2=self.patch_merge_size,
+            )
+            x = self.out_proj(x)
+        else:
+            x = self.out_proj(self.final_norm(x))
 
         return x
 
@@ -174,9 +194,9 @@ class FreqTransformerDecoder(nn.Module):
         transpose_feature = cfg.transpose_feature
         use_init = cfg.use_init
         init_std = cfg.init_std
+        patch_merge_size = cfg.patch_merge_size
         # get params end
 
-        self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
         self.use_ape = use_ape
         if self.use_ape:
             self.pe = SinCosPe(
@@ -200,6 +220,13 @@ class FreqTransformerDecoder(nn.Module):
             use_freq_patch=use_freq_patch,
         )
 
+        self.patch_merge_size = patch_merge_size
+        if self.patch_merge_size > 1:
+            d = embed_dim * patch_merge_size * patch_merge_size
+            self.in_proj = nn.Linear(1, d, bias=bias)
+        else:
+            self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
+
         # use in md lrpe
         self.input_shape = [
             self.reverse_patch_embed.num_h_patch,
@@ -216,6 +243,7 @@ class FreqTransformerDecoder(nn.Module):
             )
             self.input_shape = [embed_dim]
 
+        self.embed_dim = embed_dim
         self.use_init = use_init
         self.init_std = init_std
 
@@ -240,7 +268,11 @@ class FreqTransformerDecoder(nn.Module):
 
     @property
     def num_patch(self):
-        return self.reverse_patch_embed.num_patch
+        return (
+            self.reverse_patch_embed.num_patch
+            // self.patch_merge_size
+            // self.patch_merge_size
+        )
 
     def extra_repr(self):
         return print_module(self)
@@ -250,7 +282,21 @@ class FreqTransformerDecoder(nn.Module):
         x,
     ):
         # b n d -> b n d
-        x = self.in_proj(x)
+        if self.patch_merge_size > 1:
+            # b n 1 -> b n e
+            x = self.in_proj(x)
+            h = int(x.shape[1] ** 0.5)
+            x = rearrange(
+                x,
+                "b (h w) (p1 p2 d) ->b (h p1) (w p2) d",
+                h=h,
+                p1=self.patch_merge_size,
+                p2=self.patch_merge_size,
+                d=self.embed_dim,
+            )
+            x = rearrange(x, "b h w d -> b (h w) d")
+        else:
+            x = self.in_proj(x)
         if self.transpose_feature:
             x = rearrange(x, "b n d -> b d n")
             x = self.spatial_in_proj(x)
