@@ -242,7 +242,8 @@ class ModelConfig:
         default=0.02, metadata={"help": "The std for initialization"}
     )
     use_init: bool = field(
-        default=False, metadata={"help": "Whether use special initialization in transformer or not"}
+        default=False,
+        metadata={"help": "Whether use special initialization in transformer or not"},
     )
 
 

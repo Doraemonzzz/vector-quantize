@@ -106,10 +106,10 @@ class FreqTransformerEncoder(nn.Module):
 
         self.use_init = use_init
         self.init_std = init_std
-        
+
         if self.use_init:
             self.initialize_weights()
-        
+
     def initialize_weights(self):
         # Initialize nn.Linear and nn.Embedding
         self.apply(self._init_weights)
@@ -215,14 +215,13 @@ class FreqTransformerDecoder(nn.Module):
                 embed_dim, self.reverse_patch_embed.num_patch, bias=bias
             )
             self.input_shape = [embed_dim]
-            
 
         self.use_init = use_init
         self.init_std = init_std
-        
+
         if self.use_init:
             self.initialize_weights()
-        
+
     def initialize_weights(self):
         # Initialize nn.Linear and nn.Embedding
         self.apply(self._init_weights)
