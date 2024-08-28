@@ -238,6 +238,12 @@ class ModelConfig:
             "help": "Whether use feature pooling or not in feature dct transformer"
         },
     )
+    init_std: float = field(
+        default=0.02, metadata={"help": "The std for initialization"}
+    )
+    use_init: bool = field(
+        default=False, metadata={"help": "Whether use special initialization in transformer or not"}
+    )
 
 
 @dataclass
