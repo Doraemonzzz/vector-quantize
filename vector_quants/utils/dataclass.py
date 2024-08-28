@@ -232,6 +232,12 @@ class ModelConfig:
     use_block_dct_only: bool = field(
         default=False, metadata={"help": "Whether use block dct only or not in encoder"}
     )
+    use_feature_pooling: bool = field(
+        default=True,
+        metadata={
+            "help": "Whether use feature pooling or not in feature dct transformer"
+        },
+    )
 
 
 @dataclass

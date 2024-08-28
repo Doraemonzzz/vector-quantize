@@ -96,6 +96,7 @@ class FeatureDctTransformerEncoder(nn.Module):
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
+        use_feature_pooling = cfg.use_feature_pooling
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -124,11 +125,14 @@ class FeatureDctTransformerEncoder(nn.Module):
 
         self.dct_block_size = dct_block_size
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
+        self.use_feature_pooling = use_feature_pooling
         num_patch = (
             self.patch_embed.num_h_patch
             * self.patch_embed.num_w_patch
             // (dct_block_size**2)
         )
+        if not self.use_feature_pooling:
+            num_patch *= embed_dim
         self.out_proj = nn.Linear(num_patch, out_dim, bias=bias)
 
         self.use_zigzag = use_zigzag
@@ -163,18 +167,19 @@ class FeatureDctTransformerEncoder(nn.Module):
 
         # block dct begin
         x = self.final_norm(x)
-        x = x.mean(dim=-1)
+        if self.use_feature_pooling:
+            x = x.mean(dim=-1, keepdim=True)
         x = rearrange(
-            x, "b (h w) -> b h w", h=self.input_shape[0], w=self.input_shape[1]
+            x, "b (h w) d -> b h w d", h=self.input_shape[0], w=self.input_shape[1]
         )
         x = rearrange(
             x,
-            "b (h p1) (w p2) -> b h w p1 p2",
+            "b (h p1) (w p2) d -> b d h w p1 p2",
             p1=self.dct_block_size,
             p2=self.dct_block_size,
         )
         x = dct_2d(x, norm="ortho")
-        x = rearrange(x, "b h w p1 p2 -> b (p1 p2) (h w)")
+        x = rearrange(x, "b d h w p1 p2 -> b (p1 p2) (h w d)")
         if self.use_zigzag:  # take dct coef as seqlen
             x = x[:, self.indices]
         # block dct end
@@ -202,6 +207,7 @@ class FeatureDctTransformerDecoder(nn.Module):
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
+        use_feature_pooling = cfg.use_feature_pooling
         # get params end
 
         self.use_ape = use_ape
@@ -234,11 +240,14 @@ class FeatureDctTransformerDecoder(nn.Module):
         ]
 
         self.dct_block_size = dct_block_size
+        self.use_feature_pooling = use_feature_pooling
         num_patch = (
             self.reverse_patch_embed.num_h_patch
             * self.reverse_patch_embed.num_w_patch
             // (self.dct_block_size**2)
         )
+        if not self.use_feature_pooling:
+            num_patch *= embed_dim
         self.in_proj = nn.Linear(in_dim, num_patch, bias=bias)
 
         self.use_zigzag = use_zigzag
@@ -272,16 +281,17 @@ class FeatureDctTransformerDecoder(nn.Module):
         )
         x = rearrange(
             x,
-            "b (p1 p2) (h w) -> b h w p1 p2",
+            "b (p1 p2) (h w d) -> b d h w p1 p2",
             p1=self.dct_block_size,
             p2=self.dct_block_size,
             h=h,
             w=w,
         )
         x = idct_2d(x, norm="ortho")
-        x = rearrange(x, "b h w p1 p2 -> b (h p1) (w p2)")
-        x = rearrange(x, "b h w -> b (h w)")
-        x = repeat(x, "b n -> b n d", d=self.embed_dim)
+        x = rearrange(x, "b d h w p1 p2 -> b (h p1) (w p2) d")
+        x = rearrange(x, "b h w d -> b (h w) d")
+        if self.use_feature_pooling:
+            x = repeat(x, "b n c -> b n (c d)", d=self.embed_dim)
         # block dct end
 
         shape = x.shape[1:-1]
