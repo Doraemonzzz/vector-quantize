@@ -429,7 +429,7 @@ class TrainingConfig:
     log_freq: int = field(default=100, metadata={"help": "Log frequency"})
     # optimizer
     optimizer_name: str = field(
-        default="adam",
+        default="adamw",
         metadata={
             "help": "Optimizer name",
             "choices": [
