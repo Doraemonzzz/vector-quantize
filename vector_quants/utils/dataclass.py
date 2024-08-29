@@ -67,6 +67,7 @@ class ModelConfig:
                 "feature_transformer",
                 "block_dct_transformer",
                 "feature_dct_transformer",
+                "spatial_feature_transformer",
             ],
         },
     )
@@ -250,6 +251,10 @@ class ModelConfig:
         metadata={
             "help": "Whether merge patch use overlap patch embedding in encoder/decoder or not, i.e. (b n d) -> (b m 1)"
         },
+    )
+    num_feature_layers: int = field(
+        default=1,
+        metadata={"help": "The number of layers of feature transformer model"},
     )
 
 

@@ -60,7 +60,12 @@ class SinCosPe(nn.Module):
             self.get_pe(x, shape)
         start = offset
         end = offset + x.shape[1]
-        # print(x.shape, self.pe.shape, start, end)
-        x = x + self.pe[start:end]
+
+        x = (
+            x
+            + self.pe[
+                start:end,
+            ]
+        )
 
         return x

@@ -13,6 +13,8 @@ from .ae import (
     FreqTransformerEncoder,
     ResConvDecoder,
     ResConvEncoder,
+    SFTransformerDecoder,
+    SFTransformerEncoder,
     TransformerDecoder,
     TransformerEncoder,
 )

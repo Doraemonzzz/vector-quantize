@@ -16,6 +16,8 @@ from vector_quants.backbone import (
     FreqTransformerEncoder,
     ResConvDecoder,
     ResConvEncoder,
+    SFTransformerDecoder,
+    SFTransformerEncoder,
     TransformerDecoder,
     TransformerEncoder,
 )
@@ -30,6 +32,7 @@ AUTO_ENCODER_MAPPING = {
     "feature_transformer": FeatureTransformerEncoder,
     "block_dct_transformer": BlockDctTransformerEncoder,
     "feature_dct_transformer": FeatureDctTransformerEncoder,
+    "spatial_feature_transformer": SFTransformerEncoder,
 }
 AUTO_DECODER_MAPPING = {
     "baseline_conv": BaselineConvDecoder,
@@ -40,6 +43,7 @@ AUTO_DECODER_MAPPING = {
     "feature_transformer": FeatureTransformerDecoder,
     "block_dct_transformer": BlockDctTransformerDecoder,
     "feature_dct_transformer": FeatureDctTransformerDecoder,
+    "spatial_feature_transformer": SFTransformerDecoder,
 }
 
 
