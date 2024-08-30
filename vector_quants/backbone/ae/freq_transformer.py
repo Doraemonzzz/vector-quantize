@@ -76,6 +76,7 @@ class FreqTransformerEncoder(nn.Module):
         use_init = cfg.use_init
         init_std = cfg.init_std
         patch_merge_size = cfg.patch_merge_size
+        use_channel_pe = cfg.use_channel_pe
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -95,6 +96,7 @@ class FreqTransformerEncoder(nn.Module):
                 embed_dim=embed_dim,
                 base=base,
             )
+
         self.layers = nn.ModuleList(
             [TransformerLayer(cfg) for i in range(cfg.num_layers)]
         )
@@ -109,6 +111,13 @@ class FreqTransformerEncoder(nn.Module):
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
+
+        self.use_channel_pe = use_channel_pe
+        if self.use_channel_pe:
+            self.channel_pe = SinCosPe(
+                embed_dim=self.patch_embed.num_patch,
+                base=base,
+            )
 
         self.use_init = use_init
         self.init_std = init_std
@@ -148,10 +157,15 @@ class FreqTransformerEncoder(nn.Module):
         # b c h w -> b n d
         x = self.patch_embed(x)
 
-        shape = x.shape[1:-1]
-
         if self.use_ape:
+            shape = x.shape[1:-1]
             x = self.pe(x, shape)
+
+        if self.use_channel_pe:
+            x = rearrange(x, "b n d -> b d n")
+            shape = x.shape[1:-1]
+            x = self.channel_pe(x, shape)
+            x = rearrange(x, "b d n -> b n d")
 
         for layer in self.layers:
             x = layer(x, self.input_shape)
@@ -195,6 +209,7 @@ class FreqTransformerDecoder(nn.Module):
         use_init = cfg.use_init
         init_std = cfg.init_std
         patch_merge_size = cfg.patch_merge_size
+        use_channel_pe = cfg.use_channel_pe
         # get params end
 
         self.use_ape = use_ape
@@ -242,6 +257,13 @@ class FreqTransformerDecoder(nn.Module):
                 embed_dim, self.reverse_patch_embed.num_patch, bias=bias
             )
             self.input_shape = [embed_dim]
+
+        self.use_channel_pe = use_channel_pe
+        if self.use_channel_pe:
+            self.channel_pe = SinCosPe(
+                embed_dim=self.reverse_patch_embed.num_patch,
+                base=base,
+            )
 
         self.embed_dim = embed_dim
         self.use_init = use_init
@@ -297,13 +319,20 @@ class FreqTransformerDecoder(nn.Module):
             x = rearrange(x, "b h w d -> b (h w) d")
         else:
             x = self.in_proj(x)
+
         if self.transpose_feature:
             x = rearrange(x, "b n d -> b d n")
             x = self.spatial_in_proj(x)
-        shape = x.shape[1:-1]
 
         if self.use_ape:
+            shape = x.shape[1:-1]
             x = self.pe(x, shape=shape)
+
+        if self.use_channel_pe:
+            x = rearrange(x, "b n d -> b d n")
+            shape = x.shape[1:-1]
+            x = self.channel_pe(x, shape)
+            x = rearrange(x, "b d n -> b n d")
 
         # (b, *)
         for layer in self.layers:

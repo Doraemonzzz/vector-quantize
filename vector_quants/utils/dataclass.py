@@ -256,6 +256,10 @@ class ModelConfig:
         default=1,
         metadata={"help": "The number of layers of feature transformer model"},
     )
+    use_channel_pe: bool = field(
+        default=False,
+        metadata={"help": "Whether use channel pe or not in transformer"},
+    )
 
 
 @dataclass

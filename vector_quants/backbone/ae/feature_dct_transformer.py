@@ -273,7 +273,7 @@ class FeatureDctTransformerDecoder(nn.Module):
 
         # block dct begin
         if self.use_zigzag:  # take dct coef as seqlen
-            x = x[:, self.inverse_indices]
+            x = x[:, self.reverse_indices]
         h, w = (
             self.input_shape[0] // self.dct_block_size,
             self.input_shape[1] // self.dct_block_size,
