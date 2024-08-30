@@ -68,6 +68,7 @@ class ModelConfig:
                 "block_dct_transformer",
                 "feature_dct_transformer",
                 "spatial_feature_transformer",
+                "gmlp",
             ],
         },
     )

@@ -11,6 +11,8 @@ from .ae import (
     FeatureTransformerEncoder,
     FreqTransformerDecoder,
     FreqTransformerEncoder,
+    GMlpDecoder,
+    GMlpEncoder,
     ResConvDecoder,
     ResConvEncoder,
     SFTransformerDecoder,

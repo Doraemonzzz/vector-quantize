@@ -1,7 +1,3 @@
-"""
-Do feature attention at the end of at each layer
-"""
-
 import torch.nn as nn
 from einops import rearrange
 
@@ -16,20 +12,18 @@ from vector_quants.modules import (
 from vector_quants.utils import print_module
 
 
-class TransformerLayer(nn.Module):
+class GMlpLayer(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
         embed_dim = cfg.hidden_channels
         num_heads = cfg.num_heads
+        seq_len = cfg.seq_len
         norm_type = cfg.norm_type
         channel_act = cfg.channel_act
-        use_lrpe = cfg.use_lrpe
-        lrpe_type = cfg.lrpe_type
-        base = cfg.theta_base
         causal = cfg.causal
         mid_dim = cfg.mid_dim
-        token_mixer = cfg.token_mixer
+        token_mixer = "gmlp"
         channel_mixer = cfg.channel_mixer
         bias = cfg.bias
         # get params end
@@ -37,10 +31,8 @@ class TransformerLayer(nn.Module):
         self.token_mixer = AUTO_TOKEN_MIXER_MAPPING[token_mixer](
             embed_dim=embed_dim,
             num_heads=num_heads,
+            seq_len=seq_len,
             bias=bias,
-            use_lrpe=use_lrpe,
-            lrpe_type=lrpe_type,
-            base=base,
             causal=causal,
         )
         self.channel_mixer = AUTO_CHANNEL_MIXER_MAPPING[channel_mixer](
@@ -59,7 +51,7 @@ class TransformerLayer(nn.Module):
         return x
 
 
-class SFTransformerEncoder(nn.Module):
+class GMlpEncoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
@@ -98,8 +90,10 @@ class SFTransformerEncoder(nn.Module):
                 embed_dim=embed_dim,
                 base=base,
             )
+
+        cfg.seq_len = self.patch_embed.num_h_patch * self.patch_embed.num_w_patch
         self.spatial_layers = nn.ModuleList(
-            [TransformerLayer(cfg) for i in range(cfg.num_layers)]
+            [GMlpLayer(cfg) for i in range(cfg.num_layers)]
         )
 
         # proj feature
@@ -110,7 +104,7 @@ class SFTransformerEncoder(nn.Module):
         self.norm2 = AUTO_NORM_MAPPING[norm_type](n)
         self.proj2 = nn.Linear(n, embed_dim, bias=bias)
         self.feature_layers = nn.ModuleList(
-            [TransformerLayer(cfg) for i in range(cfg.num_feature_layers)]
+            [GMlpLayer(cfg) for i in range(cfg.num_feature_layers)]
         )
 
         # use in md lrpe
@@ -179,7 +173,7 @@ class SFTransformerEncoder(nn.Module):
         return x
 
 
-class SFTransformerDecoder(nn.Module):
+class GMlpDecoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
@@ -209,7 +203,7 @@ class SFTransformerDecoder(nn.Module):
             )
 
         self.spatial_layers = nn.ModuleList(
-            [TransformerLayer(cfg) for i in range(cfg.num_layers)]
+            [GMlpLayer(cfg) for i in range(cfg.num_layers)]
         )
 
         self.reverse_patch_embed = AUTO_REVERSE_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -229,7 +223,7 @@ class SFTransformerDecoder(nn.Module):
         self.norm1 = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.proj1 = nn.Linear(embed_dim, n, bias=bias)
         self.feature_layers = nn.ModuleList(
-            [TransformerLayer(cfg) for i in range(cfg.num_feature_layers)]
+            [GMlpLayer(cfg) for i in range(cfg.num_feature_layers)]
         )
         self.norm2 = AUTO_NORM_MAPPING[norm_type](out_dim)
         self.proj2 = nn.Linear(out_dim, embed_dim, bias=bias)

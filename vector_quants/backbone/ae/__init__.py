@@ -10,6 +10,7 @@ from .feature_dct_transformer import (
 )
 from .feature_transformer import FeatureTransformerDecoder, FeatureTransformerEncoder
 from .freq_transformer import FreqTransformerDecoder, FreqTransformerEncoder
+from .gmlp import GMlpDecoder, GMlpEncoder
 from .resi_convnet import ResConvDecoder, ResConvEncoder
 from .spatial_feature_transformer import SFTransformerDecoder, SFTransformerEncoder
 from .transformer import TransformerDecoder, TransformerEncoder

@@ -216,7 +216,7 @@ def pair(t):
 
 def compute_num_patch(cfg_model):
     model_name = cfg_model.model_name
-    if "transformer" in model_name:
+    if "transformer" in model_name or "mlp" in model_name:
         num_patch = (cfg_model.image_size // cfg_model.patch_size) ** 2
     else:
         num_patch = 0
