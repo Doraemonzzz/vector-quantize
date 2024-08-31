@@ -92,21 +92,12 @@ class GMlpEncoder(nn.Module):
                 base=base,
             )
 
-        cfg.seq_len = self.patch_embed.num_h_patch * self.patch_embed.num_w_patch
-        self.spatial_layers = nn.ModuleList(
-            [GMlpLayer(cfg) for i in range(cfg.num_layers)]
-        )
+        cfg.seq_len = self.patch_embed.num_patch
+        self.layers = nn.ModuleList([GMlpLayer(cfg) for i in range(cfg.num_layers)])
 
         # proj feature
-        self.norm1 = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        self.proj1 = nn.Linear(embed_dim, out_dim, bias=bias)
-        n = self.patch_embed.num_h_patch * self.patch_embed.num_w_patch
-        # proj sequence
-        self.norm2 = AUTO_NORM_MAPPING[norm_type](n)
-        self.proj2 = nn.Linear(n, embed_dim, bias=bias)
-        self.feature_layers = nn.ModuleList(
-            [GMlpLayer(cfg) for i in range(cfg.num_feature_layers)]
-        )
+        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
+        self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
@@ -143,7 +134,7 @@ class GMlpEncoder(nn.Module):
 
     @property
     def num_patch(self):
-        return self.embed_dim
+        return self.patch_embed.num_patch
 
     def extra_repr(self):
         return print_module(self)
@@ -165,22 +156,10 @@ class GMlpEncoder(nn.Module):
             x = self.channel_pe(x, shape)
             x = rearrange(x, "b d n -> b n d")
 
-        for layer in self.spatial_layers:
+        for layer in self.layers:
             x = layer(x, self.input_shape)
 
-        x = self.proj1(self.norm1(x))
-
-        # feature attn mixing
-        x = rearrange(x, "b n d -> b d n")
-        x = self.proj2(self.norm2(x))
-
-        if self.use_ape:
-            x = self.pe(x, shape)
-
-        for layer in self.feature_layers:
-            x = layer(x)
-
-        x = rearrange(x, "b d n -> b n d")
+        x = self.out_proj(self.final_norm(x))
 
         return x
 
@@ -196,7 +175,7 @@ class GMlpDecoder(nn.Module):
         bias = cfg.bias
         use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
-        out_dim = cfg.embed_dim
+        in_dim = cfg.embed_dim
         base = cfg.theta_base
         norm_type = cfg.norm_type
         patch_embed_name = cfg.patch_embed_name
@@ -215,9 +194,8 @@ class GMlpDecoder(nn.Module):
                 base=base,
             )
 
-        self.spatial_layers = nn.ModuleList(
-            [GMlpLayer(cfg) for i in range(cfg.num_layers)]
-        )
+        self.layers = nn.ModuleList([GMlpLayer(cfg) for i in range(cfg.num_layers)])
+        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
 
         self.reverse_patch_embed = AUTO_REVERSE_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
@@ -231,15 +209,7 @@ class GMlpDecoder(nn.Module):
             use_freq_patch=use_freq_patch,
         )
 
-        n = self.reverse_patch_embed.num_h_patch * self.reverse_patch_embed.num_w_patch
-        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        self.norm1 = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        self.proj1 = nn.Linear(embed_dim, n, bias=bias)
-        self.feature_layers = nn.ModuleList(
-            [GMlpLayer(cfg) for i in range(cfg.num_feature_layers)]
-        )
-        self.norm2 = AUTO_NORM_MAPPING[norm_type](out_dim)
-        self.proj2 = nn.Linear(out_dim, embed_dim, bias=bias)
+        self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
 
         # use in md lrpe
         self.input_shape = [
@@ -279,7 +249,7 @@ class GMlpDecoder(nn.Module):
 
     @property
     def num_patch(self):
-        return self.embed_dim
+        return self.reverse_patch_embed.num_patch
 
     def extra_repr(self):
         return print_module(self)
@@ -288,8 +258,8 @@ class GMlpDecoder(nn.Module):
         self,
         x,
     ):
-        x = rearrange(x, "b n d -> b d n")
-        # feature attn mixing
+        x = self.in_proj(x)
+
         if self.use_ape:
             shape = x.shape[1:-1]
             x = self.pe(x, shape=shape)
@@ -300,22 +270,8 @@ class GMlpDecoder(nn.Module):
             x = self.channel_pe(x, shape)
             x = rearrange(x, "b d n -> b n d")
 
-        for layer in self.feature_layers:
-            x = layer(x)
-
-        x = self.proj1(self.norm1(x))
-
-        x = rearrange(x, "b d n -> b n d")
-
-        # spatial attn mixing
-        x = self.proj2(self.norm2(x))
-
-        shape = x.shape[1:-1]
-        if self.use_ape:
-            x = self.pe(x, shape=shape)
-
         # (b, *)
-        for layer in self.spatial_layers:
+        for layer in self.layers:
             x = layer(x, self.input_shape)
 
         x = self.reverse_patch_embed(self.final_norm(x))
