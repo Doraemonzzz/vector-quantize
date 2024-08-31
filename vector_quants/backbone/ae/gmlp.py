@@ -71,6 +71,7 @@ class GMlpEncoder(nn.Module):
         use_freq_patch = cfg.use_freq_patch
         use_init = cfg.use_init
         init_std = cfg.init_std
+        use_channel_pe = cfg.use_channel_pe
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -110,6 +111,13 @@ class GMlpEncoder(nn.Module):
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
 
+        self.use_channel_pe = use_channel_pe
+        if self.use_channel_pe:
+            self.channel_pe = SinCosPe(
+                embed_dim=self.patch_embed.num_patch,
+                base=base,
+            )
+
         self.use_init = use_init
         self.init_std = init_std
         self.embed_dim = embed_dim
@@ -147,11 +155,15 @@ class GMlpEncoder(nn.Module):
         # b c h w -> b n d
         x = self.patch_embed(x)
 
-        shape = x.shape[1:-1]
-
-        # spatial attn mixing
         if self.use_ape:
+            shape = x.shape[1:-1]
             x = self.pe(x, shape)
+
+        if self.use_channel_pe:
+            x = rearrange(x, "b n d -> b d n")
+            shape = x.shape[1:-1]
+            x = self.channel_pe(x, shape)
+            x = rearrange(x, "b d n -> b n d")
 
         for layer in self.spatial_layers:
             x = layer(x, self.input_shape)
@@ -193,6 +205,7 @@ class GMlpDecoder(nn.Module):
         use_freq_patch = cfg.use_freq_patch
         use_init = cfg.use_init
         init_std = cfg.init_std
+        use_channel_pe = cfg.use_channel_pe
         # get params end
 
         self.use_ape = use_ape
@@ -234,6 +247,13 @@ class GMlpDecoder(nn.Module):
             self.reverse_patch_embed.num_w_patch,
         ]
 
+        self.use_channel_pe = use_channel_pe
+        if self.use_channel_pe:
+            self.channel_pe = SinCosPe(
+                embed_dim=self.reverse_patch_embed.num_patch,
+                base=base,
+            )
+
         self.embed_dim = embed_dim
         self.use_init = use_init
         self.init_std = init_std
@@ -270,9 +290,15 @@ class GMlpDecoder(nn.Module):
     ):
         x = rearrange(x, "b n d -> b d n")
         # feature attn mixing
-        shape = x.shape[1:-1]
         if self.use_ape:
-            x = self.pe(x, shape)
+            shape = x.shape[1:-1]
+            x = self.pe(x, shape=shape)
+
+        if self.use_channel_pe:
+            x = rearrange(x, "b n d -> b d n")
+            shape = x.shape[1:-1]
+            x = self.channel_pe(x, shape)
+            x = rearrange(x, "b d n -> b n d")
 
         for layer in self.feature_layers:
             x = layer(x)
