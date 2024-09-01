@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 
 from .base_vector_quantizer import BaseVectorQuantizer
 from .utils import compute_dist, pack_one, unpack_one
@@ -27,6 +28,8 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         # init codebook
         self.init_codebook()
 
+        print(cfg)
+
     def extra_repr(self):
         return f"(num residual): {self.num_residual}"
 
@@ -46,10 +49,10 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
 
         for _ in range(self.num_residual):
             # get indice
-            indice = self.latent_to_indice(residual)
+            indice = self._latent_to_indice(residual)
 
             # quantize
-            residual_quant = self.indice_to_code(indice)
+            residual_quant = self._indice_to_code(indice)
 
             # compute codebook loss
             loss_list.append(
@@ -60,7 +63,8 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
             # update
             residual = residual - residual_quant
             x_quant = x_quant + residual_quant
-            indice_list.append(indice.unsqueeze(0))
+            # b n -> b 1 n
+            indice_list.append(indice.unsqueeze(1))
 
         loss_dict = {
             "codebook_loss": torch.mean(torch.stack(loss_list)),
@@ -68,11 +72,11 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
 
         x_quant = x + (x_quant - x).detach()
 
-        indice = torch.cat(indice_list, dim=0)
+        indice = torch.cat(indice_list, dim=1)
 
         return x_quant, indice, loss_dict
 
-    def latent_to_indice(self, latent):
+    def _latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         # n, m
@@ -83,5 +87,94 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
 
         return indice
 
-    def indice_to_code(self, indice):
+    def _indice_to_code(self, indice):
         return self.codebook(indice)
+
+    def latent_to_indice(self, latent, use_group_id=False):
+        x_quant, indice, loss_dict = self.forward(latent)
+        if not use_group_id:
+            indice = rearrange(indice, "... k n -> ... (k n)", k=self.num_residual)
+
+        return indice
+
+    def indice_to_code(self, indice, use_group_id=False):
+        if not use_group_id:
+            indice = rearrange(indice, "... (k n) -> ... k n")
+
+        x_quant = 0
+        for i in range(self.num_residual):
+            # get indice
+            indice_ = indice[:, i]
+
+            # quantize
+            residual_quant = self._indice_to_code(indice_)
+
+            # update
+            x_quant = x_quant + residual_quant
+
+        return x_quant
+
+    # def forward(self, x):
+    #     x_quant, indice, codebook_loss = self.latent_to_code_and_indice(x)
+
+    #     loss_dict = {
+    #         "codebook_loss":codebook_loss,
+    #     }
+
+    #     x_quant = x + (x_quant - x).detach()
+
+    #     return x_quant, indice, loss_dict
+
+    # def latent_to_code_and_indice(self, x):
+    #     indice_list = []
+    #     loss_list = []
+    #     x_quant = torch.zeros_like(x)
+    #     residual = x.detach().clone()
+
+    #     for _ in range(self.num_residual):
+    #         # get indice
+    #         indice = self.latent_to_indice_(residual)
+
+    #         # quantize
+    #         residual_quant = self.indice_to_code_(indice)
+
+    #         # compute codebook loss
+    #         loss_list.append(
+    #             F.mse_loss(residual_quant, x.detach())
+    #             + self.commitment_loss_weight * F.mse_loss(residual_quant.detach(), x)
+    #         )
+
+    #         # update
+    #         residual = residual - residual_quant
+    #         x_quant = x_quant + residual_quant
+    #         indice_list.append(indice.unsqueeze(0))
+
+    #     codebook_loss = torch.mean(torch.stack(loss_list))
+    #     indice = torch.cat(indice_list, dim=0)
+
+    #     return x_quant, indice, codebook_loss
+
+    # def latent_to_indice_(self, latent):
+    #     # (b, *, d) -> (n, d)
+    #     latent, ps = pack_one(latent, "* d")
+    #     # n, m
+    #     dist = compute_dist(latent, self.codebook.weight)
+    #     # n, 1
+    #     indice = torch.argmin(dist, dim=-1)
+    #     indice = unpack_one(indice, ps, "*")
+
+    #     return indice
+
+    # def indice_to_code_(self, indice):
+    #     return self.codebook(indice)
+
+    # def latent_to_indice(self, latent):
+    #     # (b, *, d) -> (n, d)
+    #     latent, ps = pack_one(latent, "* d")
+    #     # n, m
+    #     dist = compute_dist(latent, self.codebook.weight)
+    #     # n, 1
+    #     indice = torch.argmin(dist, dim=-1)
+    #     indice = unpack_one(indice, ps, "*")
+
+    #     return indice

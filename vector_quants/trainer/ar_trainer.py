@@ -45,6 +45,7 @@ class ARTrainer(BaseTrainer):
         logging_info(pformat(asdict(cfg)))
 
         self.cfg = cfg
+        cfg_model = cfg.model
         cfg_model_stage2 = cfg.model_stage2
         cfg_train = cfg.train
         cfg_data = cfg.data
@@ -87,6 +88,8 @@ class ARTrainer(BaseTrainer):
         if self.use_group_id:
             cfg_model_stage2.num_group = num_group
             cfg_model_stage2.vocab_size = self.vqvae.num_embed
+            if cfg_model.num_group != 1:
+                cfg_model_stage2.num_group = cfg_model.num_group
         else:
             cfg_model_stage2.num_group = 1
             cfg_model_stage2.vocab_size = self.vqvae.num_embed**num_group
