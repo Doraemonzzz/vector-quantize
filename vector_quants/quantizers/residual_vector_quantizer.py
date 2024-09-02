@@ -28,8 +28,6 @@ class ResidualVectorQuantizer(BaseVectorQuantizer):
         # init codebook
         self.init_codebook()
 
-        print(cfg)
-
     def extra_repr(self):
         return f"(num residual): {self.num_residual}"
 

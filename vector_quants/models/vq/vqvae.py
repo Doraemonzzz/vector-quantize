@@ -22,6 +22,9 @@ from vector_quants.backbone import (
     SFTransformerEncoder,
     TransformerDecoder,
     TransformerEncoder,
+    UpdateNet,
+    WeightMatrixTransformerDecoder,
+    WeightMatrixTransformerEncoder,
 )
 from vector_quants.quantizers import get_quantizer
 
@@ -36,6 +39,7 @@ AUTO_ENCODER_MAPPING = {
     "feature_dct_transformer": FeatureDctTransformerEncoder,
     "spatial_feature_transformer": SFTransformerEncoder,
     "gmlp": GMlpEncoder,
+    "wm_transformer": WeightMatrixTransformerEncoder,
 }
 
 AUTO_DECODER_MAPPING = {
@@ -49,6 +53,7 @@ AUTO_DECODER_MAPPING = {
     "feature_dct_transformer": FeatureDctTransformerDecoder,
     "spatial_feature_transformer": SFTransformerDecoder,
     "gmlp": GMlpDecoder,
+    "wm_transformer": WeightMatrixTransformerDecoder,
 }
 
 
@@ -56,14 +61,17 @@ class VqVae(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
-        model_name = cfg.model_name
+        self.model_name = cfg.model_name
 
-        self.is_conv = "conv" in model_name
+        self.is_conv = "conv" in self.model_name
 
         self.quant_spatial = cfg.quant_spatial
 
-        self.encoder = AUTO_ENCODER_MAPPING[model_name](cfg)
-        self.decoder = AUTO_DECODER_MAPPING[model_name](cfg)
+        self.encoder = AUTO_ENCODER_MAPPING[self.model_name](cfg)
+        self.decoder = AUTO_DECODER_MAPPING[self.model_name](cfg)
+
+        if self.model_name in ["wm_transformer"]:
+            self.update_net = UpdateNet(cfg)
 
         assert self.cfg.quantizer in [
             "Vq",
@@ -114,12 +122,21 @@ class VqVae(nn.Module):
         if self.quant_spatial:
             logits = rearrange(logits, "b n c -> b c n")
         # update this later? when evaluation, we does not need loss_dict
+        if self.model_name in ["wm_transformer"]:
+            logits, target_logits = (
+                logits[:, : self.encoder.sample_step],
+                logits[:, self.encoder.sample_step :],
+            )
         quant_logits, indice, loss_dict = self.quantizer(logits)
 
         if self.quant_spatial:
             quant_logits = rearrange(quant_logits, "b c n -> b n c")
         if self.is_conv:
             quant_logits = rearrange(quant_logits, "b h w c -> b c h w")
+
+        if self.model_name in ["wm_transformer"]:
+            quant_logits, wm_l1_loss = self.update_net(quant_logits, target_logits)
+            loss_dict.update({"wm_l1_loss": wm_l1_loss})
 
         return quant_logits, indice, loss_dict
 

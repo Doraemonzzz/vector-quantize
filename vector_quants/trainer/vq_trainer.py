@@ -46,9 +46,11 @@ class VQTrainer(BaseTrainer):
         cfg_train = cfg.train
         cfg_data = cfg.data
         cfg_loss = cfg.loss
+        cfg_sample = cfg.sample
         # for transformer
         cfg_model.image_size = cfg_data.image_size
         cfg_model.num_patch = compute_num_patch(cfg_model)
+        cfg_model.sample_step = cfg_sample.sample_step
 
         set_random_seed(cfg_train.seed)
 
@@ -109,6 +111,7 @@ class VQTrainer(BaseTrainer):
             kl_loss_weight=cfg_model.kl_loss_weight,
             sample_entropy_loss_weight=cfg_model.sample_entropy_loss_weight,
             codebook_entropy_loss_weight=cfg_model.codebook_entropy_loss_weight,
+            wm_l1_loss_weight=cfg_loss.wm_l1_loss_weight,
         )
         torch.distributed.barrier()
 

@@ -17,6 +17,7 @@ AUTO_VQVAE_MAPPING = {
     "feature_dct_transformer": VqVae,
     "spatial_feature_transformer": VqVae,
     "gmlp": VqVae,
+    "wm_transformer": VqVae,
 }
 
 

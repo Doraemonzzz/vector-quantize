@@ -69,6 +69,7 @@ class ModelConfig:
                 "feature_dct_transformer",
                 "spatial_feature_transformer",
                 "gmlp",
+                "wm_transformer",
             ],
         },
     )
@@ -260,6 +261,20 @@ class ModelConfig:
     use_channel_pe: bool = field(
         default=False,
         metadata={"help": "Whether use channel pe or not in transformer"},
+    )
+    update_net_type: str = field(
+        default="additive",
+        metadata={
+            "help": "Model name",
+            "choices": [
+                "additive",
+                "di_decay",  # data independent decay
+                "dd_decay",  # data dependent decay
+                "cosine",
+                "rope",
+                "delta",
+            ],
+        },
     )
 
 
@@ -511,6 +526,9 @@ class LossConfig:
     )
     codebook_loss_weight: float = field(
         default=1.0, metadata={"help": "Codebook loss weight"}
+    )
+    wm_l1_loss_weight: float = field(
+        default=0.0, metadata={"help": "Weight Matric loss weight"}
     )
     metrics_list: str = field(default="", metadata={"help": "Evaluation Metrics list"})
 

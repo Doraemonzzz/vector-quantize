@@ -19,5 +19,8 @@ from .ae import (
     SFTransformerEncoder,
     TransformerDecoder,
     TransformerEncoder,
+    UpdateNet,
+    WeightMatrixTransformerDecoder,
+    WeightMatrixTransformerEncoder,
 )
 from .ar import TransformerLlamaGen, TransformerModel

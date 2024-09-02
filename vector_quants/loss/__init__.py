@@ -65,6 +65,7 @@ class Loss(nn.Module):
         sample_entropy_loss_weight=0.0,
         codebook_entropy_loss_weight=0.0,
         kl_loss_weight=5e-4,
+        wm_l1_loss_weight=1.0,
     ):
         super().__init__()
         self.perceptual_loss = get_perceptual_loss(perceptual_loss_type)
@@ -79,6 +80,7 @@ class Loss(nn.Module):
         self.kl_loss_weight = kl_loss_weight
         self.sample_entropy_loss_weight = sample_entropy_loss_weight
         self.codebook_entropy_loss_weight = codebook_entropy_loss_weight
+        self.wm_l1_loss_weight = wm_l1_loss_weight
 
     @property
     def keys(self):
@@ -93,6 +95,7 @@ class Loss(nn.Module):
             "codebook_entropy_loss",
             "kl_loss",
             "loss",
+            "wm_l1_loss",
         ]
         valid_keys = ["valid_" + key for key in train_keys]
         keys = train_keys + valid_keys
@@ -113,6 +116,8 @@ class Loss(nn.Module):
             "codebook_entropy_loss", torch.tensor(0.0).cuda().float()
         )
 
+        wm_l1_loss = kwargs.get("wm_l1_loss", torch.tensor(0.0).cuda().float())
+
         loss = (
             self.l1_loss_weight * l1_loss
             + self.l2_loss_weight * l2_loss
@@ -123,6 +128,7 @@ class Loss(nn.Module):
             + self.kl_loss_weight * kl_loss
             + self.sample_entropy_loss_weight * sample_entropy_loss
             + self.codebook_entropy_loss_weight * codebook_entropy_loss
+            + self.wm_l1_loss_weight * wm_l1_loss
         )
 
         loss_dict = {
@@ -136,6 +142,7 @@ class Loss(nn.Module):
             "codebook_entropy_loss": codebook_entropy_loss.cpu().item(),
             "kl_loss": kl_loss.cpu().item(),
             "loss": loss.cpu().item(),
+            "wm_l1_loss": wm_l1_loss.cpu().item(),
         }
 
         return loss, loss_dict
