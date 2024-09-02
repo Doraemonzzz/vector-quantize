@@ -13,18 +13,18 @@ class ResidualFiniteScalarQuantizer(BaseVectorQuantizer):
         super().__init__()
         # get params start
         num_residual = cfg.num_residual
-        levels = cfg.levels
+        cfg.levels
         # get params end
 
         self.num_residual = num_residual
         self.fsq = FiniteScalarQuantizer(cfg)
         self._num_embed = self.fsq.num_embed
 
-        scales = []
-        levels = torch.Tensor(levels)
-        for i in range(self.num_residual):
-            scales.append((levels - 1) ** -i)
-        self.register_buffer("scales", torch.stack(scales), persistent=False)
+        # scales = []
+        # levels = torch.Tensor(levels)
+        # for i in range(self.num_residual):
+        #     scales.append((levels - 1) ** -i)
+        # self.register_buffer("scales", torch.stack(scales), persistent=False)
 
         # init codebook
         self.init_codebook()
@@ -46,8 +46,11 @@ class ResidualFiniteScalarQuantizer(BaseVectorQuantizer):
         residual = x
 
         for i in range(self.num_residual):
-            residual_quant, indice, loss_dict = self.fsq(residual / self.scales[i])
-            residual_quant = residual_quant * self.scales[i]
+            residual_quant, indice, loss_dict = self.fsq(residual)
+            residual_quant = residual_quant
+
+            # residual_quant, indice, loss_dict = self.fsq(residual / self.scales[i])
+            # residual_quant = residual_quant * self.scales[i]
 
             # update
             residual = residual - residual_quant.detach()

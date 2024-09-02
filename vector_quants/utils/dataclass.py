@@ -29,7 +29,7 @@ class ModelConfig:
                 "Raq",
                 "Rfsq",
                 "Rcq",
-                "Ivq"
+                "Ivq",
             ],
         },
     )
