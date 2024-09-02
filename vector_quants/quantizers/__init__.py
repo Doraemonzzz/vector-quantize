@@ -10,6 +10,7 @@ from .residual_finite_scalar_quantizer import ResidualFiniteScalarQuantizer
 from .residual_vector_quantizer import ResidualVectorQuantizer
 from .test import ResidualCoefQuantizer
 from .vector_quantizer import VectorQuantizer
+from .identity_vector_quantizer import IdentityVectorQuantizer
 
 QUANTIZER_DICT = {
     "Vq": VectorQuantizer,
@@ -24,6 +25,7 @@ QUANTIZER_DICT = {
     "Raq": RadialQuantizer,
     "Rfsq": ResidualFiniteScalarQuantizer,
     "Rcq": ResidualCoefQuantizer,
+    "Ivq": IdentityVectorQuantizer,
 }
 
 

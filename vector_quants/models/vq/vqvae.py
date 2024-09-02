@@ -86,6 +86,7 @@ class VqVae(nn.Module):
             "Raq",
             "Rfsq",
             "Rcq",
+            "Ivq"
         ], f"quantizer {self.cfg.quantizer} does not support!"
 
         if self.is_conv and self.quant_spatial:
