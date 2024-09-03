@@ -160,6 +160,7 @@ class WeightMatrixTransformerEncoder(nn.Module):
         cfg.use_channel_pe
         sample_step = cfg.sample_step
         num_extra_token = cfg.num_extra_token
+        token_pe_type = cfg.token_pe_type
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -195,6 +196,10 @@ class WeightMatrixTransformerEncoder(nn.Module):
             )
         else:
             self.extra_token = nn.Parameter(torch.randn(embed_dim))
+
+        self.token_pe_type = token_pe_type
+        if self.token_pe_type == "learnable":
+            self.token_pe = nn.Parameter(torch.randn(self.num_extra_token, embed_dim))
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
@@ -246,11 +251,26 @@ class WeightMatrixTransformerEncoder(nn.Module):
                 self.extra_token, "d -> b n d", b=x.shape[0], n=self.sample_step
             )
 
-        x = torch.cat((x, token), dim=1)
-
         if self.use_ape:
-            shape = x.shape[1:-1]
-            x = self.pe(x, shape)
+            if self.token_pe_type == "concat":
+                x = torch.cat((x, token), dim=1)
+                shape = x.shape[1:-1]
+                x = self.pe(x, shape)
+            elif self.token_pe_type == "sincos":
+                token = self.pe(token, shape=token.shape[1:-1])
+                x = self.pe(x, shape=x.shape[1:-1])
+                x = torch.cat((x, token), dim=1)
+            else:
+                token = token + self.token_pe
+                x = self.pe(x, shape=x.shape[1:-1])
+                x = torch.cat((x, token), dim=1)
+        else:
+            if self.token_pe_type == "learnable":
+                token = token + self.token_pe
+                x = torch.cat((x, token), dim=1)
+            else:
+                token = self.pe(token, shape=token.shape[1:-1])
+                x = torch.cat((x, token), dim=1)
 
         for layer in self.layers:
             x = layer(x, self.input_shape)

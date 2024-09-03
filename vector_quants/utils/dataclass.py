@@ -277,6 +277,17 @@ class ModelConfig:
             ],
         },
     )
+    token_pe_type: str = field(
+        default="concat",
+        metadata={
+            "help": "Whether use token pe type in weight matrix transformer",
+            "choices": [
+                "concat",  # concat to the origin token, then pe
+                "sincos",  # no concat, sincos
+                "learnable",  # no concat, learnable
+            ],
+        },
+    )
 
 
 @dataclass
