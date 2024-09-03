@@ -191,15 +191,13 @@ class WeightMatrixTransformerEncoder(nn.Module):
         self.num_extra_token = num_extra_token
         if self.num_extra_token > 0:
             assert self.num_extra_token == sample_step
-            self.extra_token = nn.Parameter(
-                torch.randn(self.num_extra_token, embed_dim)
-            )
+            self.extra_token = nn.Parameter(torch.randn(sample_step, embed_dim))
         else:
             self.extra_token = nn.Parameter(torch.randn(embed_dim))
 
         self.token_pe_type = token_pe_type
         if self.token_pe_type == "learnable":
-            self.token_pe = nn.Parameter(torch.randn(self.num_extra_token, embed_dim))
+            self.token_pe = nn.Parameter(torch.randn(sample_step, embed_dim))
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
