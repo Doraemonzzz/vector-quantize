@@ -159,6 +159,7 @@ class WeightMatrixTransformerEncoder(nn.Module):
         cfg.patch_merge_size
         cfg.use_channel_pe
         sample_step = cfg.sample_step
+        num_extra_token = cfg.num_extra_token
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -186,7 +187,14 @@ class WeightMatrixTransformerEncoder(nn.Module):
         self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
         self.out_proj = nn.Linear(embed_dim, out_dim, bias=bias)
 
-        self.extra_token = nn.Parameter(torch.randn(embed_dim))
+        self.num_extra_token = num_extra_token
+        if self.num_extra_token > 0:
+            assert self.num_extra_token == sample_step
+            self.extra_token = nn.Parameter(
+                torch.randn(self.num_extra_token, embed_dim)
+            )
+        else:
+            self.extra_token = nn.Parameter(torch.randn(embed_dim))
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
@@ -231,7 +239,12 @@ class WeightMatrixTransformerEncoder(nn.Module):
         # b c h w -> b n d
         x = self.patch_embed(x)
 
-        token = repeat(self.extra_token, "d -> b n d", b=x.shape[0], n=self.sample_step)
+        if self.num_extra_token:
+            token = repeat(self.extra_token, "n d -> b n d", b=x.shape[0])
+        else:
+            token = repeat(
+                self.extra_token, "d -> b n d", b=x.shape[0], n=self.sample_step
+            )
 
         x = torch.cat((x, token), dim=1)
 
