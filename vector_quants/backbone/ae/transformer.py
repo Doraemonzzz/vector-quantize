@@ -188,6 +188,7 @@ class TransformerDecoder(nn.Module):
             self.reverse_patch_embed.num_h_patch,
             self.reverse_patch_embed.num_w_patch,
         ]
+        self.num_token = self.input_shape[0] * self.input_shape[1]
 
     @property
     def num_patch(self):
@@ -206,12 +207,13 @@ class TransformerDecoder(nn.Module):
         n = x.shape[1]
 
         if self.num_extra_token > 0:
+            n = self.num_token
             # if num extra token > 0, we use mask token to reconstruct
             # see the difference between repeat and expand: https://github.com/arogozhnikov/einops/issues/202
             mask_tokens = repeat(self.mask_token, "d -> b n d", b=b, n=n)
 
             if self.use_ape:
-                mask_tokens = self.pe(mask_tokens, shape=self.input_shape)
+                mask_tokens = self.pe(mask_tokens, shape=mask_tokens.shape[1:-1])
 
             extra_token_shape = (self.num_extra_token,)
             x = self.extra_token_pe(x, extra_token_shape)
