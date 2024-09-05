@@ -18,6 +18,7 @@ AUTO_VQVAE_MAPPING = {
     "spatial_feature_transformer": VqVae,
     "gmlp": VqVae,
     "wm_transformer": VqVae,
+    "wm_transformer_v2": VqVae,
 }
 
 

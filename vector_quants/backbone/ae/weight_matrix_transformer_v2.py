@@ -1,5 +1,5 @@
 """
-Use update net after decoder
+Use update net after encoder
 """
 
 import torch
@@ -26,7 +26,7 @@ class UpdateNet(nn.Module):
         cfg.num_w_patch
         sample_step = cfg.sample_step
         update_net_type = cfg.update_net_type
-        in_dim = cfg.embed_dim
+        in_dim = cfg.hidden_channels
         bias = cfg.bias
         base = cfg.base
         # get params end
@@ -62,7 +62,7 @@ class UpdateNet(nn.Module):
                 ).float().reshape(self.in_dim, 1, -1)
                 self.register_buffer("theta", theta, persistent=False)
 
-    def forward(self, token, target):
+    def forward(self, token):
         if self.update_net_type in ["additive", "cosine", "rope"]:
             kv = self.proj(token)
             kv = rearrange(kv, "b n (h d) -> b h n d", h=self.in_dim)
@@ -92,9 +92,7 @@ class UpdateNet(nn.Module):
             weight_matrix = torch.einsum("b h n d, b h n e -> b d e h", k, v)
             weight_matrix = rearrange(weight_matrix, "b n m d -> b (n m) d")
 
-        loss = (target - weight_matrix).abs().mean()
-
-        return weight_matrix, loss
+        return weight_matrix
 
 
 class TransformerLayer(nn.Module):
@@ -113,6 +111,7 @@ class TransformerLayer(nn.Module):
         token_mixer = cfg.token_mixer
         channel_mixer = cfg.channel_mixer
         bias = cfg.bias
+        norm_type = cfg.norm_type
         # get params end
 
         self.token_mixer = AUTO_TOKEN_MIXER_MAPPING[token_mixer](
@@ -123,6 +122,7 @@ class TransformerLayer(nn.Module):
             lrpe_type=lrpe_type,
             base=base,
             causal=causal,
+            norm_type=norm_type,
         )
         self.channel_mixer = AUTO_CHANNEL_MIXER_MAPPING[channel_mixer](
             embed_dim=embed_dim,
@@ -140,7 +140,7 @@ class TransformerLayer(nn.Module):
         return x
 
 
-class WeightMatrixTransformerEncoder(nn.Module):
+class WeightMatrixTransformerEncoderV2(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
@@ -283,7 +283,7 @@ class WeightMatrixTransformerEncoder(nn.Module):
         return x
 
 
-class WeightMatrixTransformerDecoder(nn.Module):
+class WeightMatrixTransformerDecoderV2(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
@@ -303,6 +303,7 @@ class WeightMatrixTransformerDecoder(nn.Module):
         use_freq_patch = cfg.use_freq_patch
         use_init = cfg.use_init
         init_std = cfg.init_std
+        cfg.causal = cfg.decoder_causal
         # get params end
 
         self.use_ape = use_ape
@@ -330,11 +331,7 @@ class WeightMatrixTransformerDecoder(nn.Module):
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
 
-        # use in md lrpe
-        self.input_shape = [
-            self.reverse_patch_embed.num_h_patch,
-            self.reverse_patch_embed.num_w_patch,
-        ]
+        self.update_net = UpdateNet(cfg)
 
         self.embed_dim = embed_dim
         self.use_init = use_init
@@ -372,14 +369,16 @@ class WeightMatrixTransformerDecoder(nn.Module):
     ):
         # b n d -> b n d
         x = self.in_proj(x)
+        shape = x.shape[1:-1]
 
         if self.use_ape:
-            shape = x.shape[1:-1]
             x = self.pe(x, shape=shape)
 
         # (b, *)
         for layer in self.layers:
-            x = layer(x, self.input_shape)
+            x = layer(x, shape)
+
+        x = self.update_net(x)
 
         x = self.reverse_patch_embed(self.final_norm(x))
 

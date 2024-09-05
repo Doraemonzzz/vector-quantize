@@ -71,6 +71,7 @@ class ModelConfig:
                 "spatial_feature_transformer",
                 "gmlp",
                 "wm_transformer",
+                "wm_transformer_v2",
             ],
         },
     )
@@ -199,9 +200,7 @@ class ModelConfig:
         default="softmax",
         metadata={
             "help": "Token Mixer type",
-            "choices": [
-                "softmax",
-            ],
+            "choices": ["softmax", "linear_attention", "gmlp"],
         },
     )
     channel_mixer: str = field(
@@ -287,6 +286,10 @@ class ModelConfig:
                 "learnable",  # no concat, learnable
             ],
         },
+    )
+    decoder_causal: bool = field(
+        default=False,
+        metadata={"help": "Whether use causal attention or not in decoder"},
     )
 
 

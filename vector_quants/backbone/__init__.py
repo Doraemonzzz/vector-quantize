@@ -21,6 +21,8 @@ from .ae import (
     TransformerEncoder,
     UpdateNet,
     WeightMatrixTransformerDecoder,
+    WeightMatrixTransformerDecoderV2,
     WeightMatrixTransformerEncoder,
+    WeightMatrixTransformerEncoderV2,
 )
 from .ar import TransformerLlamaGen, TransformerModel

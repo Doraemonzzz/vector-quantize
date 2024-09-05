@@ -19,3 +19,7 @@ from .weight_matrix_transformer import (
     WeightMatrixTransformerDecoder,
     WeightMatrixTransformerEncoder,
 )
+from .weight_matrix_transformer_v2 import (
+    WeightMatrixTransformerDecoderV2,
+    WeightMatrixTransformerEncoderV2,
+)

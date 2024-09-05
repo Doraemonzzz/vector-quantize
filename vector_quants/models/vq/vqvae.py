@@ -24,7 +24,9 @@ from vector_quants.backbone import (
     TransformerEncoder,
     UpdateNet,
     WeightMatrixTransformerDecoder,
+    WeightMatrixTransformerDecoderV2,
     WeightMatrixTransformerEncoder,
+    WeightMatrixTransformerEncoderV2,
 )
 from vector_quants.quantizers import get_quantizer
 
@@ -40,6 +42,7 @@ AUTO_ENCODER_MAPPING = {
     "spatial_feature_transformer": SFTransformerEncoder,
     "gmlp": GMlpEncoder,
     "wm_transformer": WeightMatrixTransformerEncoder,
+    "wm_transformer_v2": WeightMatrixTransformerEncoderV2,
 }
 
 AUTO_DECODER_MAPPING = {
@@ -54,6 +57,7 @@ AUTO_DECODER_MAPPING = {
     "spatial_feature_transformer": SFTransformerDecoder,
     "gmlp": GMlpDecoder,
     "wm_transformer": WeightMatrixTransformerDecoder,
+    "wm_transformer_v2": WeightMatrixTransformerDecoderV2,
 }
 
 
