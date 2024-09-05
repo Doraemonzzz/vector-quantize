@@ -128,6 +128,7 @@ class TransformerEncoder(nn.Module):
             extra_token_shape = (self.num_extra_token,)
             extra_token = self.extra_token_pe(extra_token, extra_token_shape)
             x = torch.cat([extra_token, x], dim=1)
+
         for layer in self.layers:
             x = layer(x, self.input_shape)
 
