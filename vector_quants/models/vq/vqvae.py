@@ -129,9 +129,10 @@ class VqVae(nn.Module):
         # update this later? when evaluation, we does not need loss_dict
         if self.model_name in ["wm_transformer"]:
             logits, target_logits = (
-                logits[:, : self.encoder.sample_step],
-                logits[:, self.encoder.sample_step :],
+                logits[:, -self.encoder.sample_step :],
+                logits[:, : -self.encoder.sample_step],
             )
+
         quant_logits, indice, loss_dict = self.quantizer(logits)
 
         if self.quant_spatial:

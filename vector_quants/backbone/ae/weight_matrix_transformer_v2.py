@@ -277,6 +277,8 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         for layer in self.layers:
             x = layer(x, self.input_shape)
 
+        x = x[:, self.num_patch :]
+
         # b n d -> b n e
         x = self.out_proj(self.final_norm(x))
 
