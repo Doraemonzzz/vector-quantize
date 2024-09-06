@@ -62,7 +62,7 @@ class SoftmaxAttention(nn.Module):
         if self.use_lrpe:
             q = self.lrpe(q, shape=shape)
             k = self.lrpe(k, shape=shape)
-        print(self.causal)
+
         output = F.scaled_dot_product_attention(q, k, v, is_causal=self.causal)
         # reshape
         output = rearrange(output, "... h n d -> ... n (h d)")
