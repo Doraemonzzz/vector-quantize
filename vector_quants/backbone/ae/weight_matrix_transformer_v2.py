@@ -71,9 +71,13 @@ class UpdateNet(nn.Module):
             k = F.silu(k)
             if self.update_net_type in ["cosine", "rope"]:
                 if self.index.shape[0] == 0:
-                    self.index = n - torch.arange(
-                        n, device=torch.cuda.current_device()
-                    ).reshape(-1, 1)
+                    self.index = (
+                        n
+                        - 1
+                        - torch.arange(n, device=torch.cuda.current_device()).reshape(
+                            -1, 1
+                        )
+                    )
                 theta = self.theta * self.index
 
                 if self.update_net_type == "cosine":
