@@ -90,6 +90,7 @@ class Loss(nn.Module):
             "perceptual_loss",
             "adversarial_loss",
             "codebook_loss",
+            "commitment_loss",
             "entropy_loss",
             "sample_entropy_loss",
             "codebook_entropy_loss",
@@ -107,6 +108,9 @@ class Loss(nn.Module):
         perceptual_loss = self.compute_perceptual_loss(images, reconstructions)
         adversarial_loss = self.compute_adversarial_loss(images, reconstructions)
         codebook_loss = kwargs.get("codebook_loss", torch.tensor(0.0).cuda().float())
+        commitment_loss = kwargs.get(
+            "commitment_loss", torch.tensor(0.0).cuda().float()
+        )
         entropy_loss = kwargs.get("entropy_loss", torch.tensor(0.0).cuda().float())
         kl_loss = kwargs.get("kl_loss", torch.tensor(0.0).cuda().float())
         sample_entropy_loss = kwargs.get(
@@ -137,6 +141,7 @@ class Loss(nn.Module):
             "perceptual_loss": perceptual_loss.cpu().item(),
             "adversarial_loss": adversarial_loss.cpu().item(),
             "codebook_loss": codebook_loss.cpu().item(),
+            "commitment_loss": commitment_loss.cpu().item(),
             "entropy_loss": entropy_loss.cpu().item(),
             "sample_entropy_loss": sample_entropy_loss.cpu().item(),
             "codebook_entropy_loss": codebook_entropy_loss.cpu().item(),

@@ -48,14 +48,20 @@ class VectorQuantizer(BaseVectorQuantizer):
         x_quant = self.indice_to_code(indice)
 
         # compute codebook loss
-        codebook_loss = F.mse_loss(
-            x_quant, x.detach()
-        ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        # codebook_loss = F.mse_loss(
+        #     x_quant, x.detach()
+        # ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
+        commitment_loss = F.mse_loss(x_quant.detach(), x)
+        codebook_loss = (
+            F.mse_loss(x_quant, x.detach())
+            + self.commitment_loss_weight * commitment_loss
+        )
 
         entropy_loss = self.entropy_loss(x)
 
         loss_dict = {
             "codebook_loss": codebook_loss,
+            "commitment_loss": commitment_loss,
             "entropy_loss": entropy_loss,
         }
 
