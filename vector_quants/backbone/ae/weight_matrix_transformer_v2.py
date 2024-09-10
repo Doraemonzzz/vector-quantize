@@ -169,6 +169,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         sample_step = cfg.sample_step
         num_extra_token = cfg.num_extra_token
         token_pe_type = cfg.token_pe_type
+        token_first = cfg.token_first
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -213,6 +214,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         self.sample_step = sample_step
         self.use_init = use_init
         self.init_std = init_std
+        self.token_first = token_first
 
         if self.use_init:
             self.initialize_weights()
@@ -259,29 +261,49 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
 
         if self.use_ape:
             if self.token_pe_type == "concat":
-                x = torch.cat((x, token), dim=1)
+                if self.token_first:
+                    x = torch.cat((token, x), dim=1)
+                else:
+                    x = torch.cat((x, token), dim=1)
                 shape = x.shape[1:-1]
                 x = self.pe(x, shape)
             elif self.token_pe_type == "sincos":
                 token = self.pe(token, shape=token.shape[1:-1])
                 x = self.pe(x, shape=x.shape[1:-1])
-                x = torch.cat((x, token), dim=1)
+                if self.token_first:
+                    x = torch.cat((token, x), dim=1)
+                else:
+                    x = torch.cat((x, token), dim=1)
             else:
                 token = token + self.token_pe
                 x = self.pe(x, shape=x.shape[1:-1])
-                x = torch.cat((x, token), dim=1)
+                if self.token_first:
+                    x = torch.cat((token, x), dim=1)
+                else:
+                    x = torch.cat((x, token), dim=1)
         else:
             if self.token_pe_type == "learnable":
                 token = token + self.token_pe
-                x = torch.cat((x, token), dim=1)
+                if self.token_first:
+                    x = torch.cat((token, x), dim=1)
+                else:
+                    x = torch.cat((x, token), dim=1)
             else:
                 token = self.pe(token, shape=token.shape[1:-1])
-                x = torch.cat((x, token), dim=1)
+                if self.token_first:
+                    x = torch.cat((token, x), dim=1)
+                else:
+                    x = torch.cat((x, token), dim=1)
 
         for layer in self.layers:
             x = layer(x, self.input_shape)
 
-        x = x[:, self.num_patch :]
+        if self.token_first:
+            # [m n] -> [m]
+            x = x[:, : -self.num_patch]
+        else:
+            # [n m] -> [m]
+            x = x[:, self.num_patch :]
 
         # b n d -> b n e
         x = self.out_proj(self.final_norm(x))

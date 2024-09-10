@@ -291,6 +291,12 @@ class ModelConfig:
         default=False,
         metadata={"help": "Whether use causal attention or not in decoder"},
     )
+    token_first: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether use concat[token, x] or concat[x, token] in wm transformer"
+        },
+    )
 
 
 @dataclass
