@@ -1,0 +1,13 @@
+model:
+  model_name: freq_transformer
+  patch_embed_name: freq
+  hidden_channels: 384
+  mid_dim: 1024
+  num_layers: 12
+  num_heads: 6
+  use_ape: True
+train:
+  weight_decay: 0.05
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  clip_grad: 1.0
