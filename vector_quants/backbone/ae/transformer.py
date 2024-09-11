@@ -71,6 +71,8 @@ class TransformerEncoder(nn.Module):
         num_extra_token = cfg.num_extra_token
         norm_type = cfg.norm_type
         patch_embed_name = cfg.patch_embed_name
+        use_init = cfg.use_init
+        init_std = cfg.init_std
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -105,6 +107,28 @@ class TransformerEncoder(nn.Module):
 
         # use in md lrpe
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
+
+        self.use_init = use_init
+        self.init_std = init_std
+
+        if self.use_init:
+            self.initialize_weights()
+
+    def initialize_weights(self):
+        # Initialize nn.Linear and nn.Embedding
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        std = self.init_std
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
 
     @property
     def num_patch(self):
@@ -155,6 +179,8 @@ class TransformerDecoder(nn.Module):
         num_extra_token = cfg.num_extra_token
         norm_type = cfg.norm_type
         patch_embed_name = cfg.patch_embed_name
+        use_init = cfg.use_init
+        init_std = cfg.init_std
         # get params end
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
@@ -190,6 +216,28 @@ class TransformerDecoder(nn.Module):
             self.reverse_patch_embed.num_w_patch,
         ]
         self.num_token = self.input_shape[0] * self.input_shape[1]
+
+        self.use_init = use_init
+        self.init_std = init_std
+
+        if self.use_init:
+            self.initialize_weights()
+
+    def initialize_weights(self):
+        # Initialize nn.Linear and nn.Embedding
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        std = self.init_std
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
 
     @property
     def num_patch(self):
