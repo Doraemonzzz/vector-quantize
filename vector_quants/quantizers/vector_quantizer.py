@@ -19,6 +19,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         entropy_temperature = cfg.entropy_temperature
         entropy_loss_type = cfg.entropy_loss_type
         entropy_loss_weight = cfg.entropy_loss_weight
+        vq_norm_type = cfg.vq_norm_type
         # get params end
 
         self._num_embed = num_embed
@@ -27,7 +28,13 @@ class VectorQuantizer(BaseVectorQuantizer):
         self.entropy_temperature = entropy_temperature
         self.entropy_loss_type = entropy_loss_type
         self.entropy_loss_weight = entropy_loss_weight
-
+        self.vq_norm_type = vq_norm_type
+        if self.vq_norm_type == "l2":
+            self.fn = lambda x: F.normalize(x, p=2, dim=-1)
+        elif self.vq_norm_type == "l1":
+            self.fn = lambda x: F.normalize(x, p=1, dim=-1)
+        else:
+            self.fn = lambda x: x
         # init codebook
         self.init_codebook()
 
@@ -48,9 +55,6 @@ class VectorQuantizer(BaseVectorQuantizer):
         x_quant = self.indice_to_code(indice)
 
         # compute codebook loss
-        # codebook_loss = F.mse_loss(
-        #     x_quant, x.detach()
-        # ) + self.commitment_loss_weight * F.mse_loss(x_quant.detach(), x)
         commitment_loss = F.mse_loss(x_quant.detach(), x)
         codebook_loss = (
             F.mse_loss(x_quant, x.detach())
@@ -73,7 +77,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         # n, m
-        dist = compute_dist(latent, self.codebook.weight)
+        dist = compute_dist(self.fn(latent), self.fn(self.codebook.weight))
         # n, 1
         indice = torch.argmin(dist, dim=-1)
         indice = unpack_one(indice, ps, "*")

@@ -33,6 +33,7 @@ class ModelConfig:
             ],
         },
     )
+    vq_norm_type: str = field(default="none", metadata={"help": "Norm type in vq"})
     levels: List[int] = field(
         default_factory=lambda: [8, 5, 5, 5], metadata={"help": "FSQ levels"}
     )
