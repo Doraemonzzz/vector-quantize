@@ -20,6 +20,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         entropy_loss_type = cfg.entropy_loss_type
         entropy_loss_weight = cfg.entropy_loss_weight
         vq_norm_type = cfg.vq_norm_type
+        vq_init_type = cfg.vq_init_type
         # get params end
 
         self._num_embed = num_embed
@@ -36,15 +37,20 @@ class VectorQuantizer(BaseVectorQuantizer):
         else:
             self.fn = lambda x: x
         # init codebook
-        self.init_codebook()
+        self.init_codebook(vq_init_type)
 
     @property
     def num_embed(self):
         return self._num_embed
 
-    def init_codebook(self):
+    def init_codebook(self, vq_init_type):
         self.codebook = nn.Embedding(self.num_embed, self.embed_dim)
-        nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
+        if vq_init_type == "normal":
+            nn.init.normal_(self.codebook.weight, mean=0, std=self.embed_dim**-0.5)
+        else:
+            nn.init.uniform_(
+                self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed
+            )
 
     def forward(self, x, use_group_id=False):
         x = self.fn(x)
