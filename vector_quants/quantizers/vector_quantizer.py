@@ -47,6 +47,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         nn.init.uniform_(self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed)
 
     def forward(self, x, use_group_id=False):
+        x = self.fn(x)
 
         # get indice
         indice = self.latent_to_indice(x)
@@ -77,7 +78,7 @@ class VectorQuantizer(BaseVectorQuantizer):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         # n, m
-        dist = compute_dist(self.fn(latent), self.fn(self.codebook.weight))
+        dist = compute_dist(latent, self.fn(self.codebook.weight))
         # n, 1
         indice = torch.argmin(dist, dim=-1)
         indice = unpack_one(indice, ps, "*")
@@ -87,4 +88,4 @@ class VectorQuantizer(BaseVectorQuantizer):
     def indice_to_code(self, indice, use_group_id=False):
         if len(indice.shape) >= 3 and indice.shape[-1] == 1:
             indice = indice.squeeze(-1)
-        return self.codebook(indice)
+        return self.fn(self.codebook(indice))
