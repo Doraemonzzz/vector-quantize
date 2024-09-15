@@ -57,6 +57,7 @@ class Loss(nn.Module):
         kl_loss_weight=5e-4,
         wm_l1_loss_weight=1.0,
         # d loss
+        disc_loss_start_iter=20000,
         disc_type=None,
         gen_loss_type="hinge",
         gen_loss_weight=0.1,
@@ -79,6 +80,7 @@ class Loss(nn.Module):
         self.codebook_entropy_loss_weight = codebook_entropy_loss_weight
         self.wm_l1_loss_weight = wm_l1_loss_weight
         # d loss
+        self.disc_loss_start_iter = disc_loss_start_iter
         self.disc_type = disc_type
         self.gen_loss = AUTO_GEN_LOSS_MAPPING[gen_loss_type]
         self.gen_loss_weight = gen_loss_weight
@@ -127,10 +129,13 @@ class Loss(nn.Module):
     def eval(self):
         return self.train(False)
 
-    def forward(self, images, reconstructions, is_disc=False, **kwargs):
+    def use_disc(self, num_iter):
+        return num_iter >= self.disc_loss_start_iter and self.discriminator != None
+
+    def forward(self, images, reconstructions, num_iter=0, is_disc=False, **kwargs):
         if is_disc:
             disc_loss = torch.tensor(0.0).cuda().float()
-            if self.discriminator != None:
+            if self.use_disc(num_iter):
                 logits_real = self.discriminator(images.detach())
                 logits_fake = self.discriminator(reconstructions.detach())
                 disc_loss = self.disc_loss(logits_real, logits_fake)
@@ -163,7 +168,7 @@ class Loss(nn.Module):
             wm_l1_loss = kwargs.get("wm_l1_loss", torch.tensor(0.0).cuda().float())
 
             gen_loss = torch.tensor(0.0).cuda().float()
-            if self.disc_type != "none":
+            if self.use_disc(num_iter):
                 logits_fake = self.discriminator(reconstructions)
                 gen_loss = self.gen_loss(logits_fake)
 

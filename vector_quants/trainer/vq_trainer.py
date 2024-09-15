@@ -112,6 +112,7 @@ class VQTrainer(BaseTrainer):
             codebook_entropy_loss_weight=cfg_model.codebook_entropy_loss_weight,
             wm_l1_loss_weight=cfg_loss.wm_l1_loss_weight,
             # d loss
+            disc_loss_start_iter=cfg_loss.disc_loss_start_iter,
             disc_type=cfg_loss.disc_type,
             gen_loss_type=cfg_loss.gen_loss_type,
             gen_loss_weight=cfg_loss.gen_loss_weight,
@@ -273,7 +274,7 @@ class VQTrainer(BaseTrainer):
 
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
-
+            # self.eval()
             if epoch % self.eval_interval == 0:
                 self.eval()
 
@@ -319,6 +320,7 @@ class VQTrainer(BaseTrainer):
                     loss, loss_dict = self.loss_fn(
                         input_img,
                         reconstructions,
+                        num_iter=num_iter,
                         **loss_dict,
                     )
 
@@ -331,6 +333,7 @@ class VQTrainer(BaseTrainer):
                         loss_disc, loss_disc_dict = self.loss_fn(
                             input_img,
                             reconstructions,
+                            num_iter=num_iter,
                             is_disc=True,
                         )
                     # backward
@@ -473,6 +476,7 @@ class VQTrainer(BaseTrainer):
                             loss_disc, loss_disc_dict = self.loss_fn(
                                 input_img,
                                 reconstructions,
+                                num_iter=1e5,
                                 is_disc=True,
                             )
                         loss_dict = update_dict(loss_dict, loss_disc_dict)
