@@ -101,7 +101,6 @@ class VQTrainer(BaseTrainer):
         # 4. get loss
         self.loss_fn = Loss(
             perceptual_loss_type=cfg_loss.perceptual_loss_type,
-            adversarial_loss_type=cfg_loss.adversarial_loss_type,
             l1_loss_weight=cfg_loss.l1_loss_weight,
             l2_loss_weight=cfg_loss.l2_loss_weight,
             perceptual_loss_weight=cfg_loss.perceptual_loss_weight,
@@ -112,7 +111,58 @@ class VQTrainer(BaseTrainer):
             sample_entropy_loss_weight=cfg_model.sample_entropy_loss_weight,
             codebook_entropy_loss_weight=cfg_model.codebook_entropy_loss_weight,
             wm_l1_loss_weight=cfg_loss.wm_l1_loss_weight,
-        )
+            # d loss
+            disc_type=cfg_loss.disc_type,
+            gen_loss_type=cfg_loss.gen_loss_type,
+            gen_loss_weight=cfg_loss.gen_loss_weight,
+            disc_loss_type=cfg_loss.disc_loss_type,
+            disc_loss_weight=cfg_loss.disc_loss_weight,
+            in_channels=cfg_model.in_channels,
+            image_size=cfg_data.image_size,
+        ).to(torch.cuda.current_device())
+        logging_info(self.loss_fn)
+        loss_fn_keys = self.loss_fn.keys
+
+        # setup disc optimizer
+        self.disc_type = cfg_loss.disc_type
+        if self.disc_type != "none":
+            self.optimizer_disc = get_optimizer(cfg_train, self.loss_fn.discriminator)
+            self.lr_scheduler_disc = AnnealingLR(
+                self.optimizer_disc,
+                start_lr=cfg_train.lr,
+                warmup_iter=cfg_train.warmup * cfg_train.train_iters,
+                num_iters=cfg_train.train_iters,
+                decay_style=cfg_train.lr_decay_style,
+                last_iter=-1,
+                decay_ratio=cfg_train.lr_decay_ratio,
+            )
+            self.scaler_disc = torch.cuda.amp.GradScaler()
+
+            logging_info(
+                "num. disc model params: {:,} (num. trained: {:,})".format(
+                    sum(
+                        getattr(p, "_orig_size", p).numel()
+                        for p in self.loss_fn.discriminator.parameters()
+                    ),
+                    sum(
+                        getattr(p, "_orig_size", p).numel()
+                        for p in self.loss_fn.discriminator.parameters()
+                        if p.requires_grad
+                    ),
+                )
+            )
+
+            self.loss_fn = torch.nn.parallel.DistributedDataParallel(
+                self.loss_fn,
+                device_ids=[cfg_train.gpu],
+            )
+        else:
+            self.optimizer_disc = None
+            self.lr_scheduler_disc = None
+            self.scaler_disc = None
+
+        self.disc_loss_start_iter = cfg_loss.disc_loss_start_iter
+
         torch.distributed.barrier()
 
         # 5. resume
@@ -121,7 +171,7 @@ class VQTrainer(BaseTrainer):
 
         num_embed = self.model.num_embed
         self.model = torch.nn.parallel.DistributedDataParallel(
-            self.model, device_ids=[cfg_train.gpu], find_unused_parameters=True
+            self.model, device_ids=[cfg_train.gpu]  # , find_unused_parameters=True
         )
 
         # evaluation
@@ -136,10 +186,7 @@ class VQTrainer(BaseTrainer):
 
         # logger
         self.logger = Logger(
-            keys=["epoch", "iter", "lr"]
-            + self.loss_fn.keys
-            + metrics_names
-            + ["gnorm"],
+            keys=["epoch", "iter", "lr"] + loss_fn_keys + metrics_names + ["gnorm"],
             use_wandb=cfg_train.use_wandb,
             cfg=cfg,
             wandb_entity=cfg_train.wandb_entity,
@@ -180,6 +227,7 @@ class VQTrainer(BaseTrainer):
 
         pkg = torch.load(ckpt_path, map_location="cpu")
 
+        ##### g load
         # create new OrderedDict that does not contain `module.`
         state_dict = OrderedDict()
         for k, v in pkg["model_state_dict"].items():
@@ -189,17 +237,30 @@ class VQTrainer(BaseTrainer):
         model_msg = self.model.load_state_dict(state_dict)
 
         self.optimizer.load_state_dict(pkg["optimizer_state_dict"])
-
         self.lr_scheduler.load_state_dict(pkg["scheduler_state_dict"])
-
         self.scaler.load_state_dict(pkg["scaler_state_dict"])
 
         num_iter = pkg["iter"]
         start_epoch = pkg["epoch"]
 
+        ##### d load
+        if self.disc_type != "none":
+            # create new OrderedDict that does not contain `module.`
+            state_disc_dict = OrderedDict()
+            for k, v in pkg["model_disc_state_dict"].items():
+                name = k.replace("module.", "")
+                state_disc_dict[name] = v
+            # load params
+            model_disc_msg = self.loss_fn.discriminator.load_state_dict(state_disc_dict)
+
+            self.optimizer_disc.load_state_dict(pkg["optimizer_disc_state_dict"])
+            self.lr_scheduler_disc.load_state_dict(pkg["scheduler_disc_state_dict"])
+            self.scaler_disc.load_state_dict(pkg["scaler_disc_state_dict"])
+            logging_info(f"Discriminator: {model_disc_msg}")
+
         # logging
         logging_info(f"Load from {ckpt_path}")
-        logging_info(model_msg)
+        logging_info(f"Generator: {model_msg}")
         logging_info(f"Resume from epoch {start_epoch}, iter {num_iter}")
 
         return start_epoch, num_iter
@@ -217,6 +278,7 @@ class VQTrainer(BaseTrainer):
                 self.eval()
 
             self.model.train()
+            self.loss_fn.train()
 
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
@@ -230,6 +292,19 @@ class VQTrainer(BaseTrainer):
                             "scheduler_state_dict": self.lr_scheduler.state_dict(),
                             "scaler_state_dict": self.scaler.state_dict(),
                             "cfg": self.cfg,
+                            # disc
+                            "model_disc_state_dict": self.loss_fn.module.discriminator.state_dict()
+                            if self.disc_type != "none"
+                            else None,  # remove ddp
+                            "optimizer_disc_state_dict": self.optimizer_disc.state_dict()
+                            if self.disc_type != "none"
+                            else None,
+                            "scheduler_disc_state_dict": self.lr_scheduler_disc.state_dict()
+                            if self.disc_type != "none"
+                            else None,
+                            "scaler_disc_state_dict": self.scaler_disc.state_dict()
+                            if self.disc_type != "none"
+                            else None,
                         },
                         os.path.join(self.save, f"ckpts/{epoch}.pt"),
                     )
@@ -250,12 +325,32 @@ class VQTrainer(BaseTrainer):
                 # backward
                 self.scaler.scale(loss).backward()
 
+                ##### update d
+                if self.use_disc(num_iter):
+                    with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                        loss_disc, loss_disc_dict = self.loss_fn(
+                            input_img,
+                            reconstructions,
+                            is_disc=True,
+                        )
+                    # backward
+                    self.scaler_disc.scale(loss_disc).backward()
+                else:
+                    loss_disc_dict = {}
+
                 # compute grad norm
                 grad_norm = 0
+                grad_disc_norm = 0
                 if self.is_main_process and num_iter % self.log_interval == 0:
                     grad_norm = compute_grad_norm(
                         self.model, scale=self.scaler.get_scale()
                     )
+                    # disc
+                    if self.use_disc(num_iter):
+                        grad_disc_norm = compute_grad_norm(
+                            self.loss_fn.module.discriminator,
+                            scale=self.scaler_disc.get_scale(),
+                        )
 
                 if num_iter % self.gradient_accumulation_steps == 0:
                     if self.clip_grad:
@@ -263,17 +358,31 @@ class VQTrainer(BaseTrainer):
                         torch.nn.utils.clip_grad_norm_(
                             self.model.parameters(), self.clip_grad
                         )
+                        # disc
+                        if self.use_disc(num_iter):
+                            self.scaler_disc.unscale_(self.optimizer_disc)
+                            torch.nn.utils.clip_grad_norm_(
+                                self.loss_fn.module.discriminator.parameters(),
+                                self.clip_grad,
+                            )
 
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.lr_scheduler.step()
                     self.optimizer.zero_grad()
+                    # disc
+                    if self.use_disc(num_iter):
+                        self.scaler_disc.step(self.optimizer_disc)
+                        self.scaler_disc.update()
+                        self.lr_scheduler_disc.step()
+                        self.optimizer_disc.zero_grad()
 
                 # print info
                 if num_iter % self.log_interval == 0:
                     self.logger.log(
                         **(
                             loss_dict
+                            | loss_disc_dict
                             | {
                                 "epoch": epoch,
                                 "iter": num_iter,
@@ -281,6 +390,7 @@ class VQTrainer(BaseTrainer):
                                     "lr"
                                 ],
                                 "gnorm": grad_norm,
+                                "grad_disc_norm": grad_disc_norm,
                             }
                         ),
                     )
@@ -295,11 +405,24 @@ class VQTrainer(BaseTrainer):
                     {
                         "epoch": epoch + 1,  # next epoch
                         "iter": num_iter,
-                        "model_state_dict": self.model.module.state_dict(),
+                        "model_state_dict": self.model.module.state_dict(),  # remove ddp
                         "optimizer_state_dict": self.optimizer.state_dict(),
                         "scheduler_state_dict": self.lr_scheduler.state_dict(),
                         "scaler_state_dict": self.scaler.state_dict(),
                         "cfg": self.cfg,
+                        # disc
+                        "model_disc_state_dict": self.loss_fn.module.discriminator.state_dict()
+                        if self.disc_type != "none"
+                        else None,  # remove ddp
+                        "optimizer_disc_state_dict": self.optimizer_disc.state_dict()
+                        if self.disc_type != "none"
+                        else None,
+                        "scheduler_disc_state_dict": self.lr_scheduler_disc.state_dict()
+                        if self.disc_type != "none"
+                        else None,
+                        "scaler_disc_state_dict": self.scaler_disc.state_dict()
+                        if self.disc_type != "none"
+                        else None,
                     },
                     os.path.join(self.save, f"ckpts/{epoch}.pt"),
                 )
@@ -318,6 +441,9 @@ class VQTrainer(BaseTrainer):
         logging_info("Training time {}".format(total_time_str))
 
         self.eval()
+
+    def use_disc(self, num_iter):
+        return self.disc_type != "none" and num_iter >= self.disc_loss_start_iter
 
     def eval(self):
         logging_info("Start Evaluation")
@@ -341,6 +467,15 @@ class VQTrainer(BaseTrainer):
                         reconstructions,
                         **loss_dict,
                     )
+
+                    if self.use_disc(num_iter=1e5):
+                        with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                            loss_disc, loss_disc_dict = self.loss_fn(
+                                input_img,
+                                reconstructions,
+                                is_disc=True,
+                            )
+                        loss_dict = update_dict(loss_dict, loss_disc_dict)
 
                 loss_dict_total = update_dict(loss_dict_total, loss_dict)
 

@@ -531,9 +531,6 @@ class LossConfig:
     perceptual_loss_type: int = field(
         default=1, metadata={"help": "Perceptual loss type"}
     )
-    adversarial_loss_type: int = field(
-        default=0, metadata={"help": "Adversarial loss type"}
-    )
     post_transform_type: int = field(
         default=1, metadata={"help": "Post transform type before compute loss"}
     )
@@ -552,6 +549,37 @@ class LossConfig:
         default=0.0, metadata={"help": "Weight Matric loss weight"}
     )
     metrics_list: str = field(default="", metadata={"help": "Evaluation Metrics list"})
+    # for discriminator
+    disc_loss_start_iter: int = field(
+        default=20000, metadata={"help": "Discriminator loss start iteration"}
+    )
+    disc_type: str = field(
+        default="none",
+        metadata={
+            "help": "Discriminator type",
+            "choices": ["patchgan", "stylegan", "none"],
+        },
+    )
+    gen_loss_type: str = field(
+        default="hinge",
+        metadata={
+            "help": "Generator loss type",
+            "choices": ["hinge", "non-saturating"],
+        },
+    )
+    gen_loss_weight: float = field(
+        default=0.1, metadata={"help": "Generator loss weight"}
+    )
+    disc_loss_type: str = field(
+        default="hinge",
+        metadata={
+            "help": "Discriminator loss type",
+            "choices": ["hinge", "vanilla", "non-saturating"],
+        },
+    )
+    disc_loss_weight: float = field(
+        default=1.0, metadata={"help": "Discriminator loss weight"}
+    )
 
 
 @dataclass
