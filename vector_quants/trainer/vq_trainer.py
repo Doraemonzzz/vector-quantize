@@ -327,6 +327,18 @@ class VQTrainer(BaseTrainer):
                 # backward
                 self.scaler.scale(loss).backward()
 
+                if num_iter % self.gradient_accumulation_steps == 0:
+                    if self.clip_grad:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model.parameters(), self.clip_grad
+                        )
+
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                    self.lr_scheduler.step()
+                    self.optimizer.zero_grad()
+
                 ##### update d
                 if self.use_disc(num_iter):
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
@@ -338,6 +350,20 @@ class VQTrainer(BaseTrainer):
                         )
                     # backward
                     self.scaler_disc.scale(loss_disc).backward()
+
+                    if num_iter % self.gradient_accumulation_steps == 0:
+                        if self.clip_grad:
+                            # disc
+                            self.scaler_disc.unscale_(self.optimizer_disc)
+                            torch.nn.utils.clip_grad_norm_(
+                                self.loss_fn.module.discriminator.parameters(),
+                                self.clip_grad,
+                            )
+
+                        self.scaler_disc.step(self.optimizer_disc)
+                        self.scaler_disc.update()
+                        self.lr_scheduler_disc.step()
+                        self.optimizer_disc.zero_grad()
                 else:
                     loss_disc_dict = {}
 
@@ -355,30 +381,30 @@ class VQTrainer(BaseTrainer):
                             scale=self.scaler_disc.get_scale(),
                         )
 
-                if num_iter % self.gradient_accumulation_steps == 0:
-                    if self.clip_grad:
-                        self.scaler.unscale_(self.optimizer)
-                        torch.nn.utils.clip_grad_norm_(
-                            self.model.parameters(), self.clip_grad
-                        )
-                        # disc
-                        if self.use_disc(num_iter):
-                            self.scaler_disc.unscale_(self.optimizer_disc)
-                            torch.nn.utils.clip_grad_norm_(
-                                self.loss_fn.module.discriminator.parameters(),
-                                self.clip_grad,
-                            )
+                # if num_iter % self.gradient_accumulation_steps == 0:
+                #     if self.clip_grad:
+                #         self.scaler.unscale_(self.optimizer)
+                #         torch.nn.utils.clip_grad_norm_(
+                #             self.model.parameters(), self.clip_grad
+                #         )
+                #         # disc
+                #         if self.use_disc(num_iter):
+                #             self.scaler_disc.unscale_(self.optimizer_disc)
+                #             torch.nn.utils.clip_grad_norm_(
+                #                 self.loss_fn.module.discriminator.parameters(),
+                #                 self.clip_grad,
+                #             )
 
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                    self.lr_scheduler.step()
-                    self.optimizer.zero_grad()
-                    # disc
-                    if self.use_disc(num_iter):
-                        self.scaler_disc.step(self.optimizer_disc)
-                        self.scaler_disc.update()
-                        self.lr_scheduler_disc.step()
-                        self.optimizer_disc.zero_grad()
+                #     self.scaler.step(self.optimizer)
+                #     self.scaler.update()
+                #     self.lr_scheduler.step()
+                #     self.optimizer.zero_grad()
+                #     # disc
+                #     if self.use_disc(num_iter):
+                #         self.scaler_disc.step(self.optimizer_disc)
+                #         self.scaler_disc.update()
+                #         self.lr_scheduler_disc.step()
+                #         self.optimizer_disc.zero_grad()
 
                 # print info
                 if num_iter % self.log_interval == 0:
