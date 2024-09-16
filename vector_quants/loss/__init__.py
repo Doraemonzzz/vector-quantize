@@ -144,7 +144,9 @@ class Loss(nn.Module):
                 "disc_loss": disc_loss.cpu().item(),
             }
 
-            return disc_loss, loss_dict
+            loss = self.disc_loss_weight * disc_loss
+
+            return loss, loss_dict
         else:
             l1_loss = self.compute_l1_loss(images, reconstructions)
             l2_loss = self.compute_l2_loss(images, reconstructions)
