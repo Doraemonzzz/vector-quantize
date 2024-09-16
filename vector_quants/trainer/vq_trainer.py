@@ -187,7 +187,10 @@ class VQTrainer(BaseTrainer):
 
         # logger
         self.logger = Logger(
-            keys=["epoch", "iter", "lr"] + loss_fn_keys + metrics_names + ["gnorm"],
+            keys=["epoch", "iter", "lr"]
+            + loss_fn_keys
+            + metrics_names
+            + ["gnorm", "grad_disc_norm"],
             use_wandb=cfg_train.use_wandb,
             cfg=cfg,
             wandb_entity=cfg_train.wandb_entity,
@@ -327,6 +330,13 @@ class VQTrainer(BaseTrainer):
                 # backward
                 self.scaler.scale(loss).backward()
 
+                # compute grad norm
+                grad_norm = 0
+                if self.is_main_process and num_iter % self.log_interval == 0:
+                    grad_norm = compute_grad_norm(
+                        self.model, scale=self.scaler.get_scale()
+                    )
+
                 if num_iter % self.gradient_accumulation_steps == 0:
                     if self.clip_grad:
                         self.scaler.unscale_(self.optimizer)
@@ -340,6 +350,7 @@ class VQTrainer(BaseTrainer):
                     self.optimizer.zero_grad()
 
                 ##### update d
+                grad_disc_norm = 0
                 if self.use_disc(num_iter):
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                         loss_disc, loss_disc_dict = self.loss_fn(
@@ -350,6 +361,13 @@ class VQTrainer(BaseTrainer):
                         )
                     # backward
                     self.scaler_disc.scale(loss_disc).backward()
+
+                    # disc
+                    if self.use_disc(num_iter):
+                        grad_disc_norm = compute_grad_norm(
+                            self.loss_fn.module.discriminator,
+                            scale=self.scaler_disc.get_scale(),
+                        )
 
                     if num_iter % self.gradient_accumulation_steps == 0:
                         if self.clip_grad:
@@ -367,19 +385,19 @@ class VQTrainer(BaseTrainer):
                 else:
                     loss_disc_dict = {}
 
-                # compute grad norm
-                grad_norm = 0
-                grad_disc_norm = 0
-                if self.is_main_process and num_iter % self.log_interval == 0:
-                    grad_norm = compute_grad_norm(
-                        self.model, scale=self.scaler.get_scale()
-                    )
-                    # disc
-                    if self.use_disc(num_iter):
-                        grad_disc_norm = compute_grad_norm(
-                            self.loss_fn.module.discriminator,
-                            scale=self.scaler_disc.get_scale(),
-                        )
+                # # compute grad norm
+                # grad_norm = 0
+                # grad_disc_norm = 0
+                # if self.is_main_process and num_iter % self.log_interval == 0:
+                #     grad_norm = compute_grad_norm(
+                #         self.model, scale=self.scaler.get_scale()
+                #     )
+                #     # disc
+                #     if self.use_disc(num_iter):
+                #         grad_disc_norm = compute_grad_norm(
+                #             self.loss_fn.module.discriminator,
+                #             scale=self.scaler_disc.get_scale(),
+                #         )
 
                 # if num_iter % self.gradient_accumulation_steps == 0:
                 #     if self.clip_grad:
