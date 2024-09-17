@@ -37,6 +37,8 @@ class VectorQuantizer(BaseVectorQuantizer):
         else:
             self.fn = lambda x: x
         # init codebook
+        self.vq_init_type = vq_init_type
+        self.need_init = True
         self.init_codebook(vq_init_type)
 
     @property
@@ -52,7 +54,30 @@ class VectorQuantizer(BaseVectorQuantizer):
                 self.codebook.weight, -1 / self.num_embed, 1 / self.num_embed
             )
 
+    def data_init(self, x):
+        # use the first batch to init
+        import torch.distributed as dist
+
+        x_flatten = x.reshape(-1, x.shape[-1])
+        x_mean = torch.mean(x_flatten, dim=0)
+        x_var = torch.mean(x_flatten**2, dim=0)
+        num_group = torch.tensor([1.0], device=x.device)
+        # all reduce
+        dist.all_reduce(x_mean)
+        dist.all_reduce(x_var)
+        dist.all_reduce(num_group)
+        mean = x_mean / num_group
+        std = (x_var / num_group) ** 0.5
+        # init
+        randn = (
+            torch.randn(self.num_embed, self.embed_dim, device=x.device) * std + mean
+        )
+        self.codebook.weight.data.copy_(randn)
+        self.need_init = False
+
     def forward(self, x, use_group_id=False):
+        if self.training and self.vq_init_type == "data" and self.need_init:
+            self.data_init(x)
         x = self.fn(x)
 
         # get indice

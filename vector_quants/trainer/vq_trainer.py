@@ -316,6 +316,8 @@ class VQTrainer(BaseTrainer):
 
                 # forward
                 input_img = input_img.cuda(torch.cuda.current_device())
+                self.optimizer.zero_grad()
+
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     reconstructions, indices, loss_dict = self.model(input_img)
                     input_img = self.post_transform(input_img)
@@ -347,11 +349,13 @@ class VQTrainer(BaseTrainer):
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.lr_scheduler.step()
-                    self.optimizer.zero_grad()
+                    # self.optimizer.zero_grad()
 
                 ##### update d
                 grad_disc_norm = 0
                 if self.use_disc(num_iter):
+                    self.optimizer_disc.zero_grad()  # !!!!!! important
+
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                         loss_disc, loss_disc_dict = self.loss_fn(
                             input_img,
@@ -381,7 +385,7 @@ class VQTrainer(BaseTrainer):
                         self.scaler_disc.step(self.optimizer_disc)
                         self.scaler_disc.update()
                         self.lr_scheduler_disc.step()
-                        self.optimizer_disc.zero_grad()
+                        # self.optimizer_disc.zero_grad()
                 else:
                     loss_disc_dict = {}
 

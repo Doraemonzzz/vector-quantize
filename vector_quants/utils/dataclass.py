@@ -35,7 +35,10 @@ class ModelConfig:
     )
     vq_init_type: str = field(
         default="uniform",
-        metadata={"help": "Codebook init type in vq", "choices": ["uniform", "normal"]},
+        metadata={
+            "help": "Codebook init type in vq",
+            "choices": ["uniform", "normal", "data"],
+        },
     )
     vq_norm_type: str = field(default="none", metadata={"help": "Norm type in vq"})
     levels: List[int] = field(
