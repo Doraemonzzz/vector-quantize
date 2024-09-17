@@ -136,7 +136,7 @@ class Loss(nn.Module):
         if is_disc:
             disc_loss = torch.tensor(0.0).cuda().float()
             if self.use_disc(num_iter):
-                logits_real = self.discriminator(images.detach())
+                logits_real = self.discriminator(images)
                 logits_fake = self.discriminator(reconstructions.detach())
                 disc_loss = self.disc_loss(logits_real, logits_fake)
 

@@ -131,9 +131,11 @@ class VQTrainer(BaseTrainer):
             self.lr_scheduler_disc = AnnealingLR(
                 self.optimizer_disc,
                 start_lr=cfg_train.lr,
-                warmup_iter=cfg_train.warmup * cfg_train.train_iters,
+                # warmup_iter=cfg_train.warmup * cfg_train.train_iters,
+                warmup_iter=0,
                 num_iters=cfg_train.train_iters,
-                decay_style=cfg_train.lr_decay_style,
+                # decay_style=cfg_train.lr_decay_style,
+                decay_style="cosine",
                 last_iter=-1,
                 decay_ratio=cfg_train.lr_decay_ratio,
             )
@@ -187,7 +189,7 @@ class VQTrainer(BaseTrainer):
 
         # logger
         self.logger = Logger(
-            keys=["epoch", "iter", "lr"]
+            keys=["epoch", "iter", "lr", "d_lr"]
             + loss_fn_keys
             + metrics_names
             + ["gnorm", "grad_disc_norm"],
@@ -316,7 +318,8 @@ class VQTrainer(BaseTrainer):
 
                 # forward
                 input_img = input_img.cuda(torch.cuda.current_device())
-                self.optimizer.zero_grad()
+                if num_iter % self.gradient_accumulation_steps == 0:
+                    self.optimizer.zero_grad()
 
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     reconstructions, indices, loss_dict = self.model(input_img)
@@ -354,7 +357,8 @@ class VQTrainer(BaseTrainer):
                 ##### update d
                 grad_disc_norm = 0
                 if self.use_disc(num_iter):
-                    self.optimizer_disc.zero_grad()  # !!!!!! important
+                    if num_iter % self.gradient_accumulation_steps == 0:
+                        self.optimizer_disc.zero_grad()  # !!!!!! important
 
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                         loss_disc, loss_disc_dict = self.loss_fn(
@@ -367,7 +371,7 @@ class VQTrainer(BaseTrainer):
                     self.scaler_disc.scale(loss_disc).backward()
 
                     # disc
-                    if self.use_disc(num_iter):
+                    if self.is_main_process and num_iter % self.log_interval == 0:
                         grad_disc_norm = compute_grad_norm(
                             self.loss_fn.module.discriminator,
                             scale=self.scaler_disc.get_scale(),
@@ -440,6 +444,11 @@ class VQTrainer(BaseTrainer):
                                 "lr": self.optimizer.state_dict()["param_groups"][0][
                                     "lr"
                                 ],
+                                "d_lr": self.optimizer_disc.state_dict()[
+                                    "param_groups"
+                                ][0]["lr"]
+                                if self.disc_type != "none"
+                                else 0,
                                 "gnorm": grad_norm,
                                 "grad_disc_norm": grad_disc_norm,
                             }
