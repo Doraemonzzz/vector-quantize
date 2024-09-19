@@ -131,11 +131,9 @@ class VQTrainer(BaseTrainer):
             self.lr_scheduler_disc = AnnealingLR(
                 self.optimizer_disc,
                 start_lr=cfg_train.lr,
-                # warmup_iter=cfg_train.warmup * cfg_train.train_iters,
-                warmup_iter=0,
+                warmup_iter=cfg_train.warmup * cfg_train.train_iters,
                 num_iters=cfg_train.train_iters,
-                # decay_style=cfg_train.lr_decay_style,
-                decay_style="cosine",
+                decay_style=cfg_train.lr_decay_style,
                 last_iter=-1,
                 decay_ratio=cfg_train.lr_decay_ratio,
             )
