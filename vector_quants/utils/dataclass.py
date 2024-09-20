@@ -256,6 +256,13 @@ class ModelConfig:
         default=False,
         metadata={"help": "Whether use special initialization in transformer or not"},
     )
+    init_method: str = field(
+        default="no_init",
+        metadata={
+            "help": "Initialization method",
+            "choices": ["timm", "vit_jax", "llama_gen", "no_init"],
+        },
+    )
     patch_merge_size: int = field(
         default=1,
         metadata={

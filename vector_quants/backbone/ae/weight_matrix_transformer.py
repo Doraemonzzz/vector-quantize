@@ -158,7 +158,6 @@ class WeightMatrixTransformerEncoder(nn.Module):
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
-        use_init = cfg.use_init
         init_std = cfg.init_std
         cfg.patch_merge_size
         cfg.use_channel_pe

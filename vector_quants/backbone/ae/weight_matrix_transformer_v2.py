@@ -15,7 +15,7 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.utils import print_module
+from vector_quants.utils import AUTO_INIT_MAPPING, print_module
 
 
 class UpdateNet(nn.Module):
@@ -162,8 +162,8 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
-        use_init = cfg.use_init
         init_std = cfg.init_std
+        init_method = cfg.init_method
         cfg.patch_merge_size
         cfg.use_channel_pe
         sample_step = cfg.sample_step
@@ -212,31 +212,16 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         self.input_shape = [self.patch_embed.num_h_patch, self.patch_embed.num_w_patch]
 
         self.sample_step = sample_step
-        self.use_init = use_init
         self.init_std = init_std
         self.token_first = token_first
-
-        if self.use_init:
-            self.initialize_weights()
 
         cfg.num_h_patch = self.patch_embed.num_h_patch
         cfg.num_w_patch = self.patch_embed.num_w_patch
 
-    def initialize_weights(self):
-        # Initialize nn.Linear and nn.Embedding
-        self.apply(self._init_weights)
+        self.initialize_weights(init_method)
 
-    def _init_weights(self, module):
-        std = self.init_std
-        if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=std)
-            if module.bias is not None:
-                module.bias.data.zero_()
-        elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-        elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=std)
+    def initialize_weights(self, init_method):
+        self.apply(AUTO_INIT_MAPPING[init_method])
 
     @property
     def num_patch(self):
@@ -329,8 +314,8 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
-        use_init = cfg.use_init
         init_std = cfg.init_std
+        init_method = cfg.init_method
         cfg.causal = cfg.decoder_causal
         # get params end
 
@@ -362,27 +347,12 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
         self.update_net = UpdateNet(cfg)
 
         self.embed_dim = embed_dim
-        self.use_init = use_init
         self.init_std = init_std
 
-        if self.use_init:
-            self.initialize_weights()
+        self.initialize_weights(init_method)
 
-    def initialize_weights(self):
-        # Initialize nn.Linear and nn.Embedding
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        std = self.init_std
-        if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=std)
-            if module.bias is not None:
-                module.bias.data.zero_()
-        elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-        elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=std)
+    def initialize_weights(self, init_method):
+        self.apply(AUTO_INIT_MAPPING[init_method])
 
     @property
     def num_patch(self):

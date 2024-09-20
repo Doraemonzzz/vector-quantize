@@ -9,7 +9,7 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.utils import print_module
+from vector_quants.utils import AUTO_INIT_MAPPING, print_module
 
 
 class TransformerLayer(nn.Module):
@@ -73,8 +73,8 @@ class FreqTransformerEncoder(nn.Module):
         dct_block_size = cfg.dct_block_size
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
-        use_init = cfg.use_init
-        init_std = cfg.init_std
+        cfg.init_std
+        init_method = cfg.init_method
         patch_merge_size = cfg.patch_merge_size
         use_channel_pe = cfg.use_channel_pe
         # get params end
@@ -119,27 +119,10 @@ class FreqTransformerEncoder(nn.Module):
                 base=base,
             )
 
-        self.use_init = use_init
-        self.init_std = init_std
+        self.initialize_weights(init_method)
 
-        if self.use_init:
-            self.initialize_weights()
-
-    def initialize_weights(self):
-        # Initialize nn.Linear and nn.Embedding
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        std = self.init_std
-        if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=std)
-            if module.bias is not None:
-                module.bias.data.zero_()
-        elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-        elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=std)
+    def initialize_weights(self, init_method):
+        self.apply(AUTO_INIT_MAPPING[init_method])
 
     @property
     def num_patch(self):
@@ -206,8 +189,8 @@ class FreqTransformerDecoder(nn.Module):
         use_zigzag = cfg.use_zigzag
         use_freq_patch = cfg.use_freq_patch
         transpose_feature = cfg.transpose_feature
-        use_init = cfg.use_init
-        init_std = cfg.init_std
+        cfg.init_std
+        init_method = cfg.init_method
         patch_merge_size = cfg.patch_merge_size
         use_channel_pe = cfg.use_channel_pe
         # get params end
@@ -266,27 +249,10 @@ class FreqTransformerDecoder(nn.Module):
             )
 
         self.embed_dim = embed_dim
-        self.use_init = use_init
-        self.init_std = init_std
+        self.initialize_weights(init_method)
 
-        if self.use_init:
-            self.initialize_weights()
-
-    def initialize_weights(self):
-        # Initialize nn.Linear and nn.Embedding
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        std = self.init_std
-        if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=std)
-            if module.bias is not None:
-                module.bias.data.zero_()
-        elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-        elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=std)
+    def initialize_weights(self, init_method):
+        self.apply(AUTO_INIT_MAPPING[init_method])
 
     @property
     def num_patch(self):
