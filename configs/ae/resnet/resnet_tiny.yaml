@@ -1,0 +1,11 @@
+model:
+  model_name: res_conv
+  in_channels: 3
+  hidden_channels: 128
+  num_res_blocks: 1
+  channel_multipliers: [1, 2, 4]
+train:
+  weight_decay: 0.05
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  clip_grad: 1.0

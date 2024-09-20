@@ -220,7 +220,6 @@ def compute_num_patch(cfg_model):
         num_patch = (cfg_model.image_size // cfg_model.patch_size) ** 2
     else:
         num_patch = 0
-        assert False
 
     return num_patch
 
