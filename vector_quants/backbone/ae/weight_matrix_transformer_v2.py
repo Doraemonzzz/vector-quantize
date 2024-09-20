@@ -15,7 +15,7 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.utils import AUTO_INIT_MAPPING, print_module
+from vector_quants.utils import AUTO_INIT_MAPPING, AUTO_TOKEN_INIT_MAPPING, print_module
 
 
 class UpdateNet(nn.Module):
@@ -164,6 +164,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         use_freq_patch = cfg.use_freq_patch
         init_std = cfg.init_std
         init_method = cfg.init_method
+        token_init_method = cfg.token_init_method
         cfg.patch_merge_size
         cfg.use_channel_pe
         sample_step = cfg.sample_step
@@ -214,14 +215,18 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         self.sample_step = sample_step
         self.init_std = init_std
         self.token_first = token_first
+        self.embed_dim = embed_dim
 
         cfg.num_h_patch = self.patch_embed.num_h_patch
         cfg.num_w_patch = self.patch_embed.num_w_patch
 
-        self.initialize_weights(init_method)
+        self.initialize_weights(init_method, token_init_method)
 
-    def initialize_weights(self, init_method):
+    def initialize_weights(self, init_method, token_init_method):
         self.apply(AUTO_INIT_MAPPING[init_method])
+        AUTO_TOKEN_INIT_MAPPING[token_init_method](
+            self.extra_token, std=self.embed_dim**-0.5
+        )  # std only use when init_method="titok"
 
     @property
     def num_patch(self):

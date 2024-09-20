@@ -263,6 +263,13 @@ class ModelConfig:
             "choices": ["timm", "vit_jax", "llama_gen", "no_init"],
         },
     )
+    token_init_method: str = field(
+        default="no_init",
+        metadata={
+            "help": "Token initialization method",
+            "choices": ["titok", "vit_vqgan_jax", "mae", "timm", "no_init"],
+        },
+    )
     patch_merge_size: int = field(
         default=1,
         metadata={

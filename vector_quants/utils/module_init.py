@@ -1,8 +1,10 @@
 import math
 
+import torch
 import torch.nn as nn
 
 
+##### module init
 def init_weights_timm(module):
     """ViT weight initialization, original timm impl (for reproducibility)"""
     if (
@@ -62,9 +64,38 @@ def no_init(module):
     return
 
 
+##### token init
+def init_token_titok(token, std):
+    torch.nn.init.normal_(token, std=std)
+
+
+def init_token_vit_vqgan_jax(token, **kwargs):
+    torch.nn.init.zeros_(token)
+
+
+def init_token_mae(token, **kwargs):
+    torch.nn.init.normal_(token, std=0.02)
+
+
+def init_token_timm(token, **kwargs):
+    torch.nn.init.normal_(token, std=1e-6)
+
+
+def init_token_no_init(token, **kwargs):
+    torch.nn.init.normal_(token, std=1)
+
+
 AUTO_INIT_MAPPING = {
     "timm": init_weights_timm,
     "vit_jax": init_weights_vit_jax,
     "llama_gen": init_weights_llama_gen,
     "no_init": no_init,
+}
+
+AUTO_TOKEN_INIT_MAPPING = {
+    "titok": init_token_titok,
+    "vit_vqgan_jax": init_token_vit_vqgan_jax,
+    "mae": init_token_mae,
+    "timm": init_token_timm,
+    "no_init": init_token_no_init,
 }
