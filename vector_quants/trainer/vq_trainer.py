@@ -172,7 +172,7 @@ class VQTrainer(BaseTrainer):
 
         num_embed = self.model.num_embed
         self.model = torch.nn.parallel.DistributedDataParallel(
-            self.model, device_ids=[cfg_train.gpu]  # , find_unused_parameters=True
+            self.model, device_ids=[cfg_train.gpu]
         )
 
         # evaluation
