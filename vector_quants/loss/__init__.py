@@ -12,7 +12,12 @@ from vector_quants.utils import (
     type_dict,
 )
 
-from .gan_loss import AUTO_DISC_LOSS_MAPPING, AUTO_DISC_MAPPING, AUTO_GEN_LOSS_MAPPING
+from .gan_loss import (
+    AUTO_DISC_LOSS_MAPPING,
+    AUTO_DISC_MAPPING,
+    AUTO_GEN_LOSS_MAPPING,
+    gradient_penalty_loss,
+)
 from .utils import get_post_transform
 
 perceptual_loss_type_dict = {2: "alex", 3: "squeeze", 4: "vgg"}
@@ -44,12 +49,10 @@ class Loss(nn.Module):
     def __init__(
         self,
         perceptual_loss_type=0,
-        adversarial_loss_type=0,
         # weight
         l1_loss_weight=1.0,
         l2_loss_weight=0.0,
         perceptual_loss_weight=1.0,
-        adversarial_loss_weight=0.0,
         codebook_loss_weight=1.0,
         entropy_loss_weight=0.0,
         sample_entropy_loss_weight=0.0,
@@ -63,6 +66,7 @@ class Loss(nn.Module):
         gen_loss_weight=0.1,
         disc_loss_type="hinge",
         disc_loss_weight=1.0,
+        gp_loss_weight=0,
         in_channels=3,
         image_size=128,
     ):
@@ -72,7 +76,6 @@ class Loss(nn.Module):
         self.l1_loss_weight = l1_loss_weight
         self.l2_loss_weight = l2_loss_weight
         self.perceptual_loss_weight = perceptual_loss_weight
-        self.adversarial_loss_weight = adversarial_loss_weight
         self.codebook_loss_weight = codebook_loss_weight
         self.entropy_loss_weight = entropy_loss_weight
         self.kl_loss_weight = kl_loss_weight
@@ -86,6 +89,7 @@ class Loss(nn.Module):
         self.gen_loss_weight = gen_loss_weight
         self.disc_loss = AUTO_DISC_LOSS_MAPPING[disc_loss_type]
         self.disc_loss_weight = disc_loss_weight
+        self.gp_loss_weight = gp_loss_weight
         if self.disc_type != "none":
             self.discriminator = AUTO_DISC_MAPPING[self.disc_type](
                 input_nc=in_channels, image_size=image_size
@@ -111,6 +115,7 @@ class Loss(nn.Module):
             # d loss
             "gen_loss",
             "disc_loss",
+            "gp_loss",
         ]
         valid_keys = ["valid_" + key for key in train_keys]
         keys = train_keys + valid_keys
@@ -135,23 +140,30 @@ class Loss(nn.Module):
     def forward(self, images, reconstructions, num_iter=0, is_disc=False, **kwargs):
         if is_disc:
             disc_loss = torch.tensor(0.0).cuda().float()
+            gp_loss = torch.tensor(0.0).cuda().float()
             if self.use_disc(num_iter):
+                if self.gp_loss_weight > 0:
+                    images.requires_grad_()
+
                 logits_real = self.discriminator(images)
                 logits_fake = self.discriminator(reconstructions.detach())
                 disc_loss = self.disc_loss(logits_real, logits_fake)
 
+                if self.gp_loss_weight > 0:
+                    gp_loss = gradient_penalty_loss(images, logits_real)
+
             loss_dict = {
                 "disc_loss": disc_loss.cpu().item(),
+                "gp_loss": gp_loss.cpu().item(),
             }
 
-            loss = self.disc_loss_weight * disc_loss
+            loss = self.disc_loss_weight * disc_loss + self.gp_loss_weight * gp_loss
 
             return loss, loss_dict
         else:
             l1_loss = self.compute_l1_loss(images, reconstructions)
             l2_loss = self.compute_l2_loss(images, reconstructions)
             perceptual_loss = self.compute_perceptual_loss(images, reconstructions)
-            adversarial_loss = self.compute_adversarial_loss(images, reconstructions)
             codebook_loss = kwargs.get(
                 "codebook_loss", torch.tensor(0.0).cuda().float()
             )
@@ -178,7 +190,6 @@ class Loss(nn.Module):
                 self.l1_loss_weight * l1_loss
                 + self.l2_loss_weight * l2_loss
                 + self.perceptual_loss_weight * perceptual_loss
-                + self.adversarial_loss_weight * adversarial_loss
                 + self.codebook_loss_weight * codebook_loss
                 + self.entropy_loss_weight * entropy_loss
                 + self.kl_loss_weight * kl_loss
@@ -192,7 +203,6 @@ class Loss(nn.Module):
                 "l1_loss": l1_loss.cpu().item(),
                 "l2_loss": l2_loss.cpu().item(),
                 "perceptual_loss": perceptual_loss.cpu().item(),
-                "adversarial_loss": adversarial_loss.cpu().item(),
                 "codebook_loss": codebook_loss.cpu().item(),
                 "commitment_loss": commitment_loss.cpu().item(),
                 "entropy_loss": entropy_loss.cpu().item(),
@@ -224,14 +234,6 @@ class Loss(nn.Module):
 
     def compute_perceptual_loss(self, images, reconstructions):
         if self.perceptual_loss_weight == 0 or self.perceptual_loss is None:
-            loss = torch.tensor(0.0).cuda().float()
-        else:
-            loss = self.perceptual_loss(images, reconstructions)
-
-        return loss.mean()
-
-    def compute_adversarial_loss(self, images, reconstructions):
-        if self.adversarial_loss_weight == 0 or self.adversarial_loss is None:
             loss = torch.tensor(0.0).cuda().float()
         else:
             loss = self.perceptual_loss(images, reconstructions)

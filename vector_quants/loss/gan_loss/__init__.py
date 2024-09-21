@@ -1,6 +1,7 @@
 from .discriminator_patchgan import PatchGANDiscriminator
 from .discriminator_stylegan import StyleGANDiscriminator
 from .loss import (
+    gradient_penalty_loss,
     hinge_d_loss,
     hinge_gen_loss,
     non_saturating_d_loss,

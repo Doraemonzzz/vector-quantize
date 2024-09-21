@@ -560,9 +560,6 @@ class LossConfig:
     perceptual_loss_weight: float = field(
         default=1.0, metadata={"help": "Perceptual loss weight"}
     )
-    adversarial_loss_weight: float = field(
-        default=0.0, metadata={"help": "Adversarial loss weight"}
-    )
     codebook_loss_weight: float = field(
         default=1.0, metadata={"help": "Codebook loss weight"}
     )
@@ -600,6 +597,9 @@ class LossConfig:
     )
     disc_loss_weight: float = field(
         default=1.0, metadata={"help": "Discriminator loss weight"}
+    )
+    gp_loss_weight: float = field(
+        default=0.0, metadata={"help": "Gradient penalty loss weight for discriminator"}
     )
 
 

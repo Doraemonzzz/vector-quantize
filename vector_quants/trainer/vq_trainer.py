@@ -104,7 +104,6 @@ class VQTrainer(BaseTrainer):
             l1_loss_weight=cfg_loss.l1_loss_weight,
             l2_loss_weight=cfg_loss.l2_loss_weight,
             perceptual_loss_weight=cfg_loss.perceptual_loss_weight,
-            adversarial_loss_weight=cfg_loss.adversarial_loss_weight,
             codebook_loss_weight=cfg_loss.codebook_loss_weight,
             entropy_loss_weight=cfg_model.entropy_loss_weight,
             kl_loss_weight=cfg_model.kl_loss_weight,
@@ -118,6 +117,7 @@ class VQTrainer(BaseTrainer):
             gen_loss_weight=cfg_loss.gen_loss_weight,
             disc_loss_type=cfg_loss.disc_loss_type,
             disc_loss_weight=cfg_loss.disc_loss_weight,
+            gp_loss_weight=cfg_loss.gp_loss_weight,
             in_channels=cfg_model.in_channels,
             image_size=cfg_data.image_size,
         ).to(torch.cuda.current_device())

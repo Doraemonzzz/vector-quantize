@@ -1,6 +1,8 @@
 # credit to: https://github.com/FoundationVision/LlamaGen/blob/main/tokenizer/tokenizer_image/vq_loss.py
 import torch
 import torch.nn.functional as F
+from einops import rearrange
+from torch.autograd import grad as torch_grad
 
 
 def hinge_d_loss(logits_real, logits_fake):
@@ -36,3 +38,17 @@ def non_saturating_gen_loss(logit_fake):
     return torch.mean(
         F.binary_cross_entropy_with_logits(torch.ones_like(logit_fake), logit_fake)
     )
+
+
+def gradient_penalty_loss(images, output):
+    gradients = torch_grad(
+        outputs=output,
+        inputs=images,
+        grad_outputs=torch.ones(output.size(), device=images.device),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )[0]
+
+    gradients = rearrange(gradients, "b ... -> b (...)")
+    return ((gradients.norm(2, dim=1) - 1) ** 2).mean()
