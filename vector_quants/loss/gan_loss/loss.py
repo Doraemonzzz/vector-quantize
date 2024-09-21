@@ -40,15 +40,35 @@ def non_saturating_gen_loss(logit_fake):
     )
 
 
-def gradient_penalty_loss(images, output):
-    gradients = torch_grad(
-        outputs=output,
-        inputs=images,
-        grad_outputs=torch.ones(output.size(), device=images.device),
-        create_graph=True,
-        retain_graph=True,
-        only_inputs=True,
-    )[0]
+def gradient_penalty_l2_loss(images, output, scale=1):
+    gradients = (
+        torch_grad(
+            outputs=output,
+            inputs=images,
+            grad_outputs=torch.ones(output.size(), device=images.device),
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+        / scale
+    )
+
+    gradients = rearrange(gradients, "b ... -> b (...)")
+    return (gradients.norm(2, dim=1) ** 2).mean()
+
+
+def gradient_penalty_wgan_loss(images, output, scale=1):
+    gradients = (
+        torch_grad(
+            outputs=output,
+            inputs=images,
+            grad_outputs=torch.ones(output.size(), device=images.device),
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+        / scale
+    )
 
     gradients = rearrange(gradients, "b ... -> b (...)")
     return ((gradients.norm(2, dim=1) - 1) ** 2).mean()

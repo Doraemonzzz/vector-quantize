@@ -598,6 +598,13 @@ class LossConfig:
     disc_loss_weight: float = field(
         default=1.0, metadata={"help": "Discriminator loss weight"}
     )
+    gp_loss_type: str = field(
+        default="none",
+        metadata={
+            "help": "Gradient penalty loss type",
+            "choices": ["wgan", "l2", "none"],
+        },
+    )
     gp_loss_weight: float = field(
         default=0.0, metadata={"help": "Gradient penalty loss weight for discriminator"}
     )

@@ -16,7 +16,7 @@ from .gan_loss import (
     AUTO_DISC_LOSS_MAPPING,
     AUTO_DISC_MAPPING,
     AUTO_GEN_LOSS_MAPPING,
-    gradient_penalty_loss,
+    AUTO_GP_LOSS_MAPPING,
 )
 from .utils import get_post_transform
 
@@ -66,6 +66,7 @@ class Loss(nn.Module):
         gen_loss_weight=0.1,
         disc_loss_type="hinge",
         disc_loss_weight=1.0,
+        gp_loss_type="none",
         gp_loss_weight=0,
         in_channels=3,
         image_size=128,
@@ -89,13 +90,19 @@ class Loss(nn.Module):
         self.gen_loss_weight = gen_loss_weight
         self.disc_loss = AUTO_DISC_LOSS_MAPPING[disc_loss_type]
         self.disc_loss_weight = disc_loss_weight
-        self.gp_loss_weight = gp_loss_weight
         if self.disc_type != "none":
             self.discriminator = AUTO_DISC_MAPPING[self.disc_type](
                 input_nc=in_channels, image_size=image_size
             )
         else:
             self.discriminator = None
+
+        self.gp_loss_type = gp_loss_type
+        self.gp_loss_weight = gp_loss_weight
+        if self.gp_loss_type != "none":
+            self.gp_loss = AUTO_GP_LOSS_MAPPING[self.gp_loss_type]
+        else:
+            self.gp_loss = None
 
     @property
     def keys(self):
@@ -137,7 +144,9 @@ class Loss(nn.Module):
     def use_disc(self, num_iter):
         return num_iter >= self.disc_loss_start_iter and self.discriminator != None
 
-    def forward(self, images, reconstructions, num_iter=0, is_disc=False, **kwargs):
+    def forward(
+        self, images, reconstructions, num_iter=0, is_disc=False, scale=1, **kwargs
+    ):
         if is_disc:
             disc_loss = torch.tensor(0.0).cuda().float()
             gp_loss = torch.tensor(0.0).cuda().float()
@@ -150,7 +159,7 @@ class Loss(nn.Module):
                 disc_loss = self.disc_loss(logits_real, logits_fake)
 
                 if self.gp_loss_weight > 0:
-                    gp_loss = gradient_penalty_loss(images, logits_real)
+                    gp_loss = self.gp_loss(images, logits_real, scale)
 
             loss_dict = {
                 "disc_loss": disc_loss.cpu().item(),

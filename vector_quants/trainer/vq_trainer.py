@@ -117,6 +117,7 @@ class VQTrainer(BaseTrainer):
             gen_loss_weight=cfg_loss.gen_loss_weight,
             disc_loss_type=cfg_loss.disc_loss_type,
             disc_loss_weight=cfg_loss.disc_loss_weight,
+            gp_loss_type=cfg_loss.gp_loss_type,
             gp_loss_weight=cfg_loss.gp_loss_weight,
             in_channels=cfg_model.in_channels,
             image_size=cfg_data.image_size,
@@ -364,6 +365,7 @@ class VQTrainer(BaseTrainer):
                             reconstructions,
                             num_iter=num_iter,
                             is_disc=True,
+                            scale=self.scaler_disc.get_scale(),
                         )
                     # backward
                     self.scaler_disc.scale(loss_disc).backward()
