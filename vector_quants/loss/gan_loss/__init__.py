@@ -19,7 +19,6 @@ AUTO_GEN_LOSS_MAPPING = {
     "non-saturating": non_saturating_gen_loss,
 }
 
-
 AUTO_DISC_LOSS_MAPPING = {
     "hinge": hinge_d_loss,
     "vanilla": vanilla_d_loss,
