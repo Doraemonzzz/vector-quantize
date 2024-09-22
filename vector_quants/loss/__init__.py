@@ -158,7 +158,7 @@ class Loss(nn.Module):
                 logits_fake = self.discriminator(reconstructions.detach())
                 disc_loss = self.disc_loss(logits_real, logits_fake)
 
-                if self.gp_loss_weight > 0:
+                if self.gp_loss_weight > 0 and self.training:
                     gp_loss = self.gp_loss(images, logits_real, scale)
 
             loss_dict = {
