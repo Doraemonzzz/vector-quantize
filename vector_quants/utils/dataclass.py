@@ -655,7 +655,7 @@ def process_args(args):
 
     output_name = args.train.output_name
     if output_name is None:
-        output_name = f"{args.model.quantizer}-is{args.data.img_size}-bs{total_batch_size}-lr{args.train.lr}-wd{args.train.weight_decay}"
+        output_name = f"{args.model.quantizer}-is{args.data.image_size}-bs{total_batch_size}-lr{args.train.lr}-wd{args.train.weight_decay}"
     args.train.save = f"{args.train.output_dir}/{output_name}"
     quantizer = args.model.quantizer
 
