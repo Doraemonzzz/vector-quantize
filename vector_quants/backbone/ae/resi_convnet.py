@@ -144,7 +144,7 @@ class ResConvDecoder(nn.Module):
         channels = cfg.hidden_channels
         num_res_blocks = cfg.num_res_blocks
         channel_multipliers = cfg.channel_multipliers
-        embed_dim = cfg.hidden_channels
+        embed_dim = cfg.embed_dim
         bias = cfg.bias
         # get params end
 
@@ -180,4 +180,5 @@ class ResConvDecoder(nn.Module):
         x = self.norm(x)
         x = F.silu(x)
         x = self.conv_out(x)
+
         return x
