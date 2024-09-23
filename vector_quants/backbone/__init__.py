@@ -24,5 +24,7 @@ from .ae import (
     WeightMatrixTransformerDecoderV2,
     WeightMatrixTransformerEncoder,
     WeightMatrixTransformerEncoderV2,
+    WMTCDecoder,
+    WMTCEncoder,
 )
 from .ar import TransformerLlamaGen, TransformerModel

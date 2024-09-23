@@ -12,6 +12,9 @@ from simple_parsing import ArgumentParser
 class ModelConfig:
     in_channels: int = field(default=3, metadata={"help": "Input Channel"})
     hidden_channels: int = field(default=512, metadata={"help": "Hidden Channel"})
+    hidden_channels_wt: int = field(
+        default=512, metadata={"help": "Hidden Channel use in weight_matrix_tc"}
+    )
     quantizer: str = field(
         default="ema",
         metadata={
@@ -80,6 +83,7 @@ class ModelConfig:
                 "gmlp",
                 "wm_transformer",
                 "wm_transformer_v2",
+                "wmtc",
             ],
         },
     )

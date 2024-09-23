@@ -144,7 +144,7 @@ class ResConvDecoder(nn.Module):
         channels = cfg.hidden_channels
         num_res_blocks = cfg.num_res_blocks
         channel_multipliers = cfg.channel_multipliers
-        embed_dim = cfg.embed_dim
+        embed_dim = cfg.hidden_channels
         bias = cfg.bias
         # get params end
 

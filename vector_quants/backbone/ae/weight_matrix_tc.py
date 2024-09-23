@@ -1,5 +1,5 @@
 """
-Use update net after encoder -> quant -> decoder -> updatenet
+Use update net after encoder
 """
 
 import torch
@@ -11,11 +11,126 @@ from vector_quants.modules import (
     AUTO_CHANNEL_MIXER_MAPPING,
     AUTO_NORM_MAPPING,
     AUTO_PATCH_EMBED_MAPPING,
-    AUTO_REVERSE_PATCH_EMBED_MAPPING,
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
 from vector_quants.utils import AUTO_INIT_MAPPING, AUTO_TOKEN_INIT_MAPPING, print_module
+
+from ..utils import GroupNorm
+
+NUM_GROUPS = 1
+
+
+class Upsample(nn.Module):
+    def __init__(
+        self,
+        channels: int,
+        scale_factor: float = 2.0,
+        mode: str = "nearest-exact",
+        bias: bool = False,
+    ):
+        super().__init__()
+
+        self.scale_factor = scale_factor
+        self.mode = mode
+
+        self.conv = nn.Conv2d(
+            channels, channels, kernel_size=3, stride=1, padding="same", bias=bias
+        )
+
+    def forward(self, x):
+        x = F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
+        return self.conv(x)
+
+
+class ResBlock(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int = None, bias: bool = False):
+        """
+        :param in_channels: input channels of the residual block
+        :param out_channels: if None, use in_channels. Else, adds a 1x1 conv layer.
+        """
+        super().__init__()
+
+        if out_channels is None or out_channels == in_channels:
+            out_channels = in_channels
+            self.conv_shortcut = None
+        else:
+            self.conv_shortcut = nn.Conv2d(
+                in_channels, out_channels, kernel_size=1, padding="same", bias=bias
+            )
+
+        self.norm1 = GroupNorm(num_groups=NUM_GROUPS, num_channels=in_channels)
+        self.conv1 = nn.Conv2d(
+            in_channels, out_channels, kernel_size=3, padding="same", bias=bias
+        )
+
+        self.norm2 = GroupNorm(num_groups=NUM_GROUPS, num_channels=out_channels)
+        self.conv2 = nn.Conv2d(
+            out_channels, out_channels, kernel_size=3, padding="same", bias=bias
+        )
+
+    def forward(self, x):
+
+        residual = F.silu(self.norm1(x))
+        residual = self.conv1(residual)
+
+        residual = F.silu(self.norm2(residual))
+        residual = self.conv2(residual)
+
+        if self.conv_shortcut is not None:
+            # contiguous prevents warning:
+            # https://github.com/pytorch/pytorch/issues/47163
+            # https://discuss.pytorch.org/t/why-does-pytorch-prompt-w-accumulate-grad-h-170-warning-grad-and-param-do-not-obey-the-gradient-layout-contract-this-is-not-an-error-but-may-impair-performance/107760
+            x = self.conv_shortcut(x.contiguous())
+
+        return x + residual
+
+
+class ResConvDecoder(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+
+        # get params start
+        channels = cfg.hidden_channels_wt
+        num_res_blocks = cfg.num_res_blocks
+        channel_multipliers = cfg.channel_multipliers
+        embed_dim = cfg.embed_dim
+        bias = cfg.bias
+        # get params end
+
+        ch_in = channels * channel_multipliers[-1]
+
+        self.conv_in = nn.Conv2d(
+            embed_dim, ch_in, kernel_size=3, stride=1, padding=1, bias=bias
+        )
+        self.initial_residual = nn.Sequential(
+            *[ResBlock(ch_in, ch_in, bias) for _ in range(num_res_blocks)]
+        )
+
+        blocks = []
+        for i in reversed(range(len(channel_multipliers))):
+            blocks.append(Upsample(ch_in))
+            ch_out = channels * channel_multipliers[i - 1] if i > 0 else channels
+
+            for _ in range(num_res_blocks):
+                blocks.append(ResBlock(ch_in, ch_out, bias))
+                ch_in = ch_out
+
+        self.blocks = nn.Sequential(*blocks)
+
+        self.norm = GroupNorm(num_groups=NUM_GROUPS, num_channels=channels)
+        self.conv_out = nn.Conv2d(
+            channels, 3, kernel_size=3, stride=1, padding=1, bias=bias
+        )
+
+    def forward(self, x):
+        x = self.conv_in(x)
+        x = self.initial_residual(x)
+        x = self.blocks(x)
+        x = self.norm(x)
+        x = F.silu(x)
+        x = self.conv_out(x)
+        return x
 
 
 class UpdateNet(nn.Module):
@@ -26,7 +141,7 @@ class UpdateNet(nn.Module):
         cfg.num_w_patch
         sample_step = cfg.sample_step
         update_net_type = cfg.update_net_type
-        in_dim = cfg.hidden_channels
+        in_dim = cfg.embed_dim
         bias = cfg.bias
         base = cfg.base
         # get params end
@@ -94,7 +209,7 @@ class UpdateNet(nn.Module):
                     k = k * cos + k_half * sin
 
             weight_matrix = torch.einsum("b h n d, b h n e -> b d e h", k, v)
-            weight_matrix = rearrange(weight_matrix, "b n m d -> b (n m) d")
+            weight_matrix = rearrange(weight_matrix, "b h w c -> b c h w")
 
         return weight_matrix
 
@@ -144,7 +259,7 @@ class TransformerLayer(nn.Module):
         return x
 
 
-class WeightMatrixTransformerEncoderV2(nn.Module):
+class WMTCEncoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
@@ -301,55 +416,30 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         return x
 
 
-class WeightMatrixTransformerDecoderV2(nn.Module):
+class WMTCDecoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # get params start
-        image_size = cfg.image_size
-        patch_size = cfg.patch_size
-        channels = cfg.in_channels
-        flatten = True
-        bias = cfg.bias
-        use_ape = cfg.use_ape
+        cfg.image_size
+        cfg.patch_size
+        cfg.in_channels
+        cfg.bias
+        cfg.use_ape
         embed_dim = cfg.hidden_channels
-        in_dim = cfg.embed_dim
-        base = cfg.theta_base
-        norm_type = cfg.norm_type
-        patch_embed_name = cfg.patch_embed_name
-        dct_block_size = cfg.dct_block_size
-        use_zigzag = cfg.use_zigzag
-        use_freq_patch = cfg.use_freq_patch
+        cfg.embed_dim
+        cfg.theta_base
+        cfg.norm_type
+        cfg.patch_embed_name
+        cfg.dct_block_size
+        cfg.use_zigzag
+        cfg.use_freq_patch
         init_std = cfg.init_std
         init_method = cfg.init_method
         cfg.causal = cfg.decoder_causal
         # get params end
 
-        self.use_ape = use_ape
-        if self.use_ape:
-            self.pe = SinCosPe(
-                embed_dim=embed_dim,
-                base=base,
-            )
-
-        self.layers = nn.ModuleList(
-            [TransformerLayer(cfg) for i in range(cfg.num_layers)]
-        )
-        self.final_norm = AUTO_NORM_MAPPING[norm_type](embed_dim)
-        self.reverse_patch_embed = AUTO_REVERSE_PATCH_EMBED_MAPPING[patch_embed_name](
-            image_size=image_size,
-            patch_size=patch_size,
-            embed_dim=embed_dim,
-            channels=channels,
-            flatten=flatten,
-            bias=bias,
-            dct_block_size=dct_block_size,
-            use_zigzag=use_zigzag,
-            use_freq_patch=use_freq_patch,
-        )
-
-        self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
-
         self.update_net = UpdateNet(cfg)
+        self.layers = ResConvDecoder(cfg)
 
         self.embed_dim = embed_dim
         self.init_std = init_std
@@ -370,19 +460,8 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
         self,
         x,
     ):
-        # b n d -> b n d
-        x = self.in_proj(x)
-        shape = x.shape[1:-1]
-
-        if self.use_ape:
-            x = self.pe(x, shape=shape)
-
-        # (b, *)
-        for layer in self.layers:
-            x = layer(x, shape)
-
+        # b n d -> b c h w
         x = self.update_net(x)
-
-        x = self.reverse_patch_embed(self.final_norm(x))
+        x = self.layers(x)
 
         return x

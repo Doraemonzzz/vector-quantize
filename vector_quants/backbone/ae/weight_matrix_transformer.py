@@ -1,5 +1,5 @@
 """
-Use update net after decoder
+Use update net encoder -> extra_token -> quant -> updatenet -> decoder
 """
 
 import torch

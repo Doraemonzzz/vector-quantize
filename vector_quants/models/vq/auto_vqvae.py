@@ -19,6 +19,7 @@ AUTO_VQVAE_MAPPING = {
     "gmlp": VqVae,
     "wm_transformer": VqVae,
     "wm_transformer_v2": VqVae,
+    "wmtc": VqVae,
 }
 
 
