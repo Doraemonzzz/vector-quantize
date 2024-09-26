@@ -18,27 +18,29 @@ from .gan_loss import (
     AUTO_GEN_LOSS_MAPPING,
     AUTO_GP_LOSS_MAPPING,
 )
+from .lpips import LPIPS
+from .perceptual_loss import LPIPS, LpipsTimm
 from .utils import get_post_transform
 
 perceptual_loss_type_dict = {2: "alex", 3: "squeeze", 4: "vgg"}
 
 
-def get_perceptual_loss(perceptual_loss_type):
+def get_perceptual_loss(perceptual_loss_type, perceptual_model_name):
     if perceptual_loss_type == 0:
         logging_info(f"Perceptual loss: None")
         model = None
     else:
         if perceptual_loss_type == 1:
             logging_info(f"Perceptual loss: Vgg lpips from fsq_pytorch")
-            from .lpips import LPIPS
 
             model = LPIPS().eval()
-        else:
+        elif perceptual_loss_type in [2, 3, 4]:
             net_type = perceptual_loss_type_dict[perceptual_loss_type]
             logging_info(f"Perceptual loss: {net_type} lpips")
-            from .perceptual_loss import LPIPS
 
             model = LPIPS(net_type=net_type).eval()
+        else:
+            model = LpipsTimm(model_name=perceptual_model_name).eval()
 
         model.cuda(torch.cuda.current_device())
 
@@ -49,6 +51,7 @@ class Loss(nn.Module):
     def __init__(
         self,
         perceptual_loss_type=0,
+        perceptual_model_name="resnet18.a1_in1k",
         # weight
         l1_loss_weight=1.0,
         l2_loss_weight=0.0,
@@ -72,7 +75,9 @@ class Loss(nn.Module):
         image_size=128,
     ):
         super().__init__()
-        self.perceptual_loss = get_perceptual_loss(perceptual_loss_type)
+        self.perceptual_loss = get_perceptual_loss(
+            perceptual_loss_type, perceptual_model_name
+        )
 
         self.l1_loss_weight = l1_loss_weight
         self.l2_loss_weight = l2_loss_weight

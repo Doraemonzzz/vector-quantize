@@ -3,6 +3,7 @@
 import torch
 
 from .lpips import LPIPS
+from .lpips_timm import LpipsTimm
 
 
 def lpips(

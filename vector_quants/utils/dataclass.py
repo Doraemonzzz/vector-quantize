@@ -556,6 +556,24 @@ class LossConfig:
     perceptual_loss_type: int = field(
         default=1, metadata={"help": "Perceptual loss type"}
     )
+    perceptual_model_name: str = field(
+        default="resnet18.a1_in1k",
+        metadata={
+            "help": "Perceptual model name",
+            "choices": [
+                "resnet18.a1_in1k",
+                "resnet34.a2_in1k",
+                "resnet50.tv_in1k",
+                "resnet152.a3_in1k",
+                "deit_tiny_distilled_patch16_224.fb_in1k",
+                "deit_small_distilled_patch16_224.fb_in1k",
+                "deit_base_distilled_patch16_224.fb_in1k",
+                "swin_tiny_patch4_window7_224.ms_in22k",
+                "swin_small_patch4_window7_224.ms_in22k",
+                "swin_base_patch4_window7_224.ms_in22k",
+            ],
+        },
+    )
     post_transform_type: int = field(
         default=1, metadata={"help": "Post transform type before compute loss"}
     )

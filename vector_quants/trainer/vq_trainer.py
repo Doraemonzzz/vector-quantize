@@ -101,6 +101,7 @@ class VQTrainer(BaseTrainer):
         # 4. get loss
         self.loss_fn = Loss(
             perceptual_loss_type=cfg_loss.perceptual_loss_type,
+            perceptual_model_name=cfg_loss.perceptual_model_name,
             l1_loss_weight=cfg_loss.l1_loss_weight,
             l2_loss_weight=cfg_loss.l2_loss_weight,
             perceptual_loss_weight=cfg_loss.perceptual_loss_weight,
@@ -155,8 +156,7 @@ class VQTrainer(BaseTrainer):
             )
 
             self.loss_fn = torch.nn.parallel.DistributedDataParallel(
-                self.loss_fn,
-                device_ids=[cfg_train.gpu],
+                self.loss_fn, device_ids=[cfg_train.gpu], find_unused_parameters=True
             )
         else:
             self.optimizer_disc = None
