@@ -1,13 +1,13 @@
 model:
   model_name: wmtc
   patch_embed_name: freq
-  hidden_channels: 192
-  mid_dim: 512
+  hidden_channels: 384
+  mid_dim: 1024
   num_layers: 12
-  num_heads: 3
+  num_heads: 6
   use_ape: True
-  num_res_blocks: 1
-  channel_multipliers: [1, 1, 2, 2]
+  num_res_blocks: 4
+  channel_multipliers: [1, 2, 2, 4]
   hidden_channels_wt: 128
 train:
   weight_decay: 0.05

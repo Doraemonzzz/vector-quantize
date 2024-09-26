@@ -6,8 +6,8 @@ model:
   num_layers: 12
   num_heads: 3
   use_ape: True
-  num_res_blocks: 1
-  channel_multipliers: [1, 1, 2, 2]
+  num_res_blocks: 4
+  channel_multipliers: [1, 2, 2, 4]
   hidden_channels_wt: 128
 train:
   weight_decay: 0.05

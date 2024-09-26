@@ -126,13 +126,13 @@ class ResConvEncoder(nn.Module):
         )
 
     def forward(self, x):
-
         x = self.conv_in(x)
         x = self.blocks(x)
         x = self.final_residual(x)
         x = self.norm(x)
         x = F.silu(x)
         x = self.conv_out(x)
+
         return x
 
 

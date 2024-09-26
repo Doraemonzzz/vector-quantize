@@ -21,28 +21,6 @@ from ..utils import GroupNorm
 NUM_GROUPS = 1
 
 
-class Upsample(nn.Module):
-    def __init__(
-        self,
-        channels: int,
-        scale_factor: float = 2.0,
-        mode: str = "nearest-exact",
-        bias: bool = False,
-    ):
-        super().__init__()
-
-        self.scale_factor = scale_factor
-        self.mode = mode
-
-        self.conv = nn.Conv2d(
-            channels, channels, kernel_size=3, stride=1, padding="same", bias=bias
-        )
-
-    def forward(self, x):
-        x = F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
-        return self.conv(x)
-
-
 class ResBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int = None, bias: bool = False):
         """
@@ -86,6 +64,28 @@ class ResBlock(nn.Module):
         return x + residual
 
 
+class Upsample(nn.Module):
+    def __init__(
+        self,
+        channels: int,
+        scale_factor: float = 2.0,
+        mode: str = "nearest-exact",
+        bias: bool = False,
+    ):
+        super().__init__()
+
+        self.scale_factor = scale_factor
+        self.mode = mode
+
+        self.conv = nn.Conv2d(
+            channels, channels, kernel_size=3, stride=1, padding="same", bias=bias
+        )
+
+    def forward(self, x):
+        x = F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
+        return self.conv(x)
+
+
 class ResConvDecoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
@@ -94,7 +94,7 @@ class ResConvDecoder(nn.Module):
         channels = cfg.hidden_channels_wt
         num_res_blocks = cfg.num_res_blocks
         channel_multipliers = cfg.channel_multipliers
-        embed_dim = cfg.embed_dim
+        embed_dim = cfg.hidden_channels
         bias = cfg.bias
         # get params end
 
@@ -141,7 +141,7 @@ class UpdateNet(nn.Module):
         cfg.num_w_patch
         sample_step = cfg.sample_step
         update_net_type = cfg.update_net_type
-        in_dim = cfg.embed_dim
+        in_dim = cfg.hidden_channels
         bias = cfg.bias
         base = cfg.base
         # get params end
@@ -423,11 +423,11 @@ class WMTCDecoder(nn.Module):
         cfg.image_size
         cfg.patch_size
         cfg.in_channels
-        cfg.bias
-        cfg.use_ape
+        bias = cfg.bias
+        use_ape = cfg.use_ape
         embed_dim = cfg.hidden_channels
-        cfg.embed_dim
-        cfg.theta_base
+        in_dim = cfg.embed_dim
+        base = cfg.theta_base
         cfg.norm_type
         cfg.patch_embed_name
         cfg.dct_block_size
@@ -438,8 +438,19 @@ class WMTCDecoder(nn.Module):
         cfg.causal = cfg.decoder_causal
         # get params end
 
+        self.use_ape = use_ape
+        if self.use_ape:
+            self.pe = SinCosPe(
+                embed_dim=embed_dim,
+                base=base,
+            )
+
+        self.layers = nn.ModuleList(
+            [TransformerLayer(cfg) for i in range(cfg.num_layers)]
+        )
+        self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
         self.update_net = UpdateNet(cfg)
-        self.layers = ResConvDecoder(cfg)
+        self.cnn_decoder = ResConvDecoder(cfg)
 
         self.embed_dim = embed_dim
         self.init_std = init_std
@@ -460,8 +471,18 @@ class WMTCDecoder(nn.Module):
         self,
         x,
     ):
-        # b n d -> b c h w
+        # b n d -> b n d
+        x = self.in_proj(x)
+        shape = x.shape[1:-1]
+
+        if self.use_ape:
+            x = self.pe(x, shape=shape)
+
+        # (b, *)
+        for layer in self.layers:
+            x = layer(x, shape)
+
         x = self.update_net(x)
-        x = self.layers(x)
+        x = self.cnn_decoder(x)
 
         return x
