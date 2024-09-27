@@ -7,11 +7,6 @@ class LpipsTimm(nn.Module):
     """
     Creates a criterion that measures
     Learned Perceptual Image Patch Similarity (LPIPS).
-
-    Arguments:
-        net_type (str): the network type to compare the features:
-                        'alex' | 'squeeze' | 'vgg'. Default: 'alex'.
-        version (str): the version of LPIPS. Default: 0.1.
     """
 
     def __init__(self, model_name):
@@ -21,6 +16,8 @@ class LpipsTimm(nn.Module):
         self.model = model
         data_config = timm.data.resolve_model_data_config(model)
         self.transforms = timm.data.create_transform(**data_config, is_training=False)
+        for param in self.parameters():
+            param.requires_grad = False
 
     def forward(self, x, y):
         feature_x = self.model(self.transforms(x))
