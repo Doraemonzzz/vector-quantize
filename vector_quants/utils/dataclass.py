@@ -561,6 +561,7 @@ class LossConfig:
         metadata={
             "help": "Perceptual model name",
             "choices": [
+                "vgg16.tv_in1k",
                 "resnet18.a1_in1k",
                 "resnet34.a2_in1k",
                 "resnet50.tv_in1k",

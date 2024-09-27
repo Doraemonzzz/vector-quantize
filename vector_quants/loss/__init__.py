@@ -18,7 +18,6 @@ from .gan_loss import (
     AUTO_GEN_LOSS_MAPPING,
     AUTO_GP_LOSS_MAPPING,
 )
-from .lpips import LPIPS
 from .perceptual_loss import LPIPS, LpipsTimm
 from .utils import get_post_transform
 
@@ -32,6 +31,7 @@ def get_perceptual_loss(perceptual_loss_type, perceptual_model_name):
     else:
         if perceptual_loss_type == 1:
             logging_info(f"Perceptual loss: Vgg lpips from fsq_pytorch")
+            from .lpips import LPIPS
 
             model = LPIPS().eval()
         elif perceptual_loss_type in [2, 3, 4]:
