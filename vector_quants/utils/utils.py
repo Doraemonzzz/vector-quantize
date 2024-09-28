@@ -6,6 +6,7 @@ import socket
 import numpy as np
 import torch
 import torch.distributed as dist
+import torch.nn.functional as F
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -252,3 +253,34 @@ def get_is_1d_token(vqvae_config):
             return False
     except:
         return False
+
+
+def get_activation_fn(activation):
+    if activation == "gelu":
+        return F.gelu
+    elif activation == "relu":
+        return F.relu
+    elif activation == "elu":
+        return F.elu
+    elif activation == "sigmoid":
+        return F.sigmoid
+    elif activation == "exp":
+        return torch.exp
+    elif activation == "leak":
+        return F.leaky_relu
+    elif activation == "1+elu":
+
+        def f(x):
+            return 1 + F.elu(x)
+
+        return f
+    elif activation == "2+elu":
+
+        def f(x):
+            return 2 + F.elu(x)
+
+        return f
+    elif activation == "silu":
+        return F.silu
+    else:
+        return lambda x: x

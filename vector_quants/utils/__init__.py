@@ -6,6 +6,7 @@ from .module_init import AUTO_INIT_MAPPING, AUTO_TOKEN_INIT_MAPPING
 from .utils import (
     compute_grad_norm,
     compute_num_patch,
+    get_activation_fn,
     get_is_1d_token,
     get_metrics_list,
     get_num_group,

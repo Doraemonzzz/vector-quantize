@@ -288,6 +288,10 @@ class ModelConfig:
         default=False,
         metadata={"help": "Whether use channel pe or not in transformer"},
     )
+    update_net_version: int = field(
+        default=1,
+        metadata={"help": "The version of update net"},
+    )
     update_net_type: str = field(
         default="additive",
         metadata={
@@ -300,6 +304,13 @@ class ModelConfig:
                 "rope",
                 "delta",
             ],
+        },
+    )
+    update_net_act: str = field(
+        default="silu",
+        metadata={
+            "help": "Update net activation function type",
+            "choices": ["silu", "none"],
         },
     )
     token_pe_type: str = field(

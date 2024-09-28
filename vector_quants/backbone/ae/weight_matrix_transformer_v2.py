@@ -15,7 +15,12 @@ from vector_quants.modules import (
     AUTO_TOKEN_MIXER_MAPPING,
     SinCosPe,
 )
-from vector_quants.utils import AUTO_INIT_MAPPING, AUTO_TOKEN_INIT_MAPPING, print_module
+from vector_quants.utils import (
+    AUTO_INIT_MAPPING,
+    AUTO_TOKEN_INIT_MAPPING,
+    get_activation_fn,
+    print_module,
+)
 
 
 class UpdateNet(nn.Module):
@@ -69,6 +74,97 @@ class UpdateNet(nn.Module):
             b, h, n, d = kv.shape
             k, v = kv.split([d - self.v_dim, self.v_dim], dim=-1)
             k = F.silu(k)
+            if self.update_net_type in ["cosine", "rope"]:
+                if self.index.shape[0] == 0:
+                    self.index = (
+                        n
+                        - 1
+                        - torch.arange(n, device=torch.cuda.current_device()).reshape(
+                            -1, 1
+                        )
+                    )
+                theta = self.theta * self.index
+
+                if self.update_net_type == "cosine":
+                    cos = torch.cos(theta)
+                    sin = torch.sin(theta)
+                    k = torch.cat([k * cos, k * sin], dim=-1)
+                else:
+                    theta = repeat(theta, "... d -> ... (d g)", g=2)
+                    cos = torch.cos(theta)
+                    sin = torch.sin(theta)
+                    k_half = torch.stack(
+                        [-k[..., 1::2], k[..., ::2]], dim=-1
+                    ).reshape_as(k)
+                    k = k * cos + k_half * sin
+
+            weight_matrix = torch.einsum("b h n d, b h n e -> b d e h", k, v)
+            weight_matrix = rearrange(weight_matrix, "b n m d -> b (n m) d")
+
+        return weight_matrix
+
+
+class UpdateNetV2(nn.Module):
+    # low rank decompose
+    def __init__(self, cfg):
+        super().__init__()
+        # get params start
+        num_h_patch = cfg.num_h_patch
+        cfg.num_w_patch
+        sample_step = cfg.sample_step
+        update_net_type = cfg.update_net_type
+        in_dim = cfg.hidden_channels
+        bias = cfg.bias
+        base = cfg.base
+        update_net_act = cfg.update_net_act
+        # get params end
+
+        self.sample_step = sample_step
+        self.update_net_type = update_net_type
+        self.v_dim = num_h_patch
+        self.in_dim = in_dim
+        self.act = get_activation_fn(update_net_act)
+        self.index = torch.empty(0)
+
+        if self.update_net_type in [
+            "additive",
+            "cosine",
+            "rope",
+        ]:
+            out_dim = 2 * num_h_patch
+            if update_net_type == "cosine":
+                out_dim = int(1.5 * num_h_patch)
+            self.kv_proj = nn.Linear(in_dim, out_dim, bias=bias)
+            self.kv_h_proj = nn.Linear(in_dim, 2 * in_dim, bias=bias)
+            d = (out_dim - num_h_patch) * in_dim
+            if self.update_net_type == "cosine":
+                theta = base ** (
+                    -2 / d * torch.arange(d, dtype=torch.int64)
+                ).float().reshape(
+                    self.in_dim,
+                    1,
+                    -1,
+                )
+                self.register_buffer("theta", theta, persistent=False)
+            else:
+                theta = base ** (
+                    -2 / d * torch.arange(d // 2, dtype=torch.int64)
+                ).float().reshape(self.in_dim, 1, -1)
+                self.register_buffer("theta", theta, persistent=False)
+
+    def forward(self, token):
+        if self.update_net_type in ["additive", "cosine", "rope"]:
+            kv = self.kv_proj(token)
+            # b n h
+            kv_h = self.kv_h_proj(token)
+            b, n, d = kv.shape
+            k, v = kv.split([d - self.v_dim, self.v_dim], dim=-1)
+            k_h, v_h = kv_h.chunk(2, dim=-1)
+            k = torch.einsum("b n d, b n h -> b h n d", k, k_h)
+            v = torch.einsum("b n d, b n h -> b h n d", v, v_h)
+            k = self.act(k)
+            v = self.act(v)
+
             if self.update_net_type in ["cosine", "rope"]:
                 if self.index.shape[0] == 0:
                     self.index = (
@@ -322,6 +418,7 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
         init_std = cfg.init_std
         init_method = cfg.init_method
         cfg.causal = cfg.decoder_causal
+        update_net_version = cfg.update_net_version
         # get params end
 
         self.use_ape = use_ape
@@ -349,7 +446,10 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
 
-        self.update_net = UpdateNet(cfg)
+        if update_net_version == 1:
+            self.update_net = UpdateNet(cfg)
+        else:
+            self.update_net = UpdateNetV2(cfg)
 
         self.embed_dim = embed_dim
         self.init_std = init_std
