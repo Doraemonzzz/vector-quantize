@@ -117,6 +117,7 @@ class UpdateNetV2(nn.Module):
         bias = cfg.bias
         base = cfg.base
         update_net_act = cfg.update_net_act
+        update_net_use_conv = cfg.update_net_use_conv
         # get params end
 
         self.sample_step = sample_step
@@ -125,6 +126,10 @@ class UpdateNetV2(nn.Module):
         self.in_dim = in_dim
         self.act = get_activation_fn(update_net_act)
         self.index = torch.empty(0)
+        self.update_net_use_conv = update_net_use_conv
+
+        if self.update_net_use_conv:
+            self.conv = nn.Conv2d(in_dim, in_dim, kernel_size=3, padding=1, bias=bias)
 
         if self.update_net_type in [
             "additive",
@@ -189,8 +194,13 @@ class UpdateNetV2(nn.Module):
                     ).reshape_as(k)
                     k = k * cos + k_half * sin
 
-            weight_matrix = torch.einsum("b h n d, b h n e -> b d e h", k, v)
-            weight_matrix = rearrange(weight_matrix, "b n m d -> b (n m) d")
+            if self.update_net_use_conv:
+                weight_matrix = torch.einsum("b h n d, b h n e -> b h d e", k, v)
+                weight_matrix = self.conv(weight_matrix)
+                weight_matrix = rearrange(weight_matrix, "b d n m -> b (n m) d")
+            else:
+                weight_matrix = torch.einsum("b h n d, b h n e -> b d e h", k, v)
+                weight_matrix = rearrange(weight_matrix, "b n m d -> b (n m) d")
 
         return weight_matrix
 

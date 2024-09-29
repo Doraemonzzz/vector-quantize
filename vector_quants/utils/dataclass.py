@@ -310,7 +310,12 @@ class ModelConfig:
         default="silu",
         metadata={
             "help": "Update net activation function type",
-            "choices": ["silu", "none"],
+        },
+    )
+    update_net_use_conv: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether use conv in update net or not",
         },
     )
     token_pe_type: str = field(
