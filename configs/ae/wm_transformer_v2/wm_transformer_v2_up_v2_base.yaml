@@ -1,0 +1,15 @@
+model:
+  model_name: wm_transformer_v2
+  patch_embed_name: freq
+  hidden_channels: 768
+  mid_dim: 2048
+  num_layers: 12
+  num_heads: 12
+  use_ape: True
+  update_net_version: 2
+  update_net_act: none
+train:
+  weight_decay: 0.05
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  clip_grad: 1.0

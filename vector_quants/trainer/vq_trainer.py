@@ -10,7 +10,7 @@ from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
-from vector_quants.data import get_data_loaders
+from vector_quants.data import DATASET_CONFIGS, get_data_loaders
 from vector_quants.logger import Logger
 from vector_quants.loss import Loss, get_post_transform
 from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
@@ -62,6 +62,13 @@ class VQTrainer(BaseTrainer):
         # 1, load dataset
         self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
         self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False)
+        cfg_train.train_iters = int(
+            DATASET_CONFIGS[cfg_data.data_set]["samples"]
+            / cfg_train.batch_size
+            / cfg_train.world_size
+            * cfg_train.max_train_epochs
+        )
+        logging_info(f"train_iters: {cfg_train.train_iters}")
 
         # 2, load model
         self.model = AutoVqVae.from_config(cfg_model)
