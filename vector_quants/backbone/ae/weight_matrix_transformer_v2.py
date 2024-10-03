@@ -277,6 +277,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         num_extra_token = cfg.num_extra_token
         token_pe_type = cfg.token_pe_type
         token_first = cfg.token_first
+        mask_ratio = cfg.mask_ratio
         # get params end
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
@@ -322,6 +323,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         self.init_std = init_std
         self.token_first = token_first
         self.embed_dim = embed_dim
+        self.mask_ratio = mask_ratio  # only concat support this
 
         cfg.num_h_patch = self.patch_embed.num_h_patch
         cfg.num_w_patch = self.patch_embed.num_w_patch
@@ -340,6 +342,36 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
 
     def extra_repr(self):
         return print_module(self)
+
+    def random_masking(self, x, mask_ratio):
+        # credit to: https://github.com/facebookresearch/mae
+        """
+        Perform per-sample random masking by per-sample shuffling.
+        Per-sample shuffling is done by argsort random noise.
+        x: [b, n, d], sequence
+        """
+        b, n, d = x.shape  # batch, length, dim
+        len_keep = int(n * (1 - mask_ratio))
+
+        noise = torch.rand(b, n, device=x.device)  # noise in [0, 1]
+
+        # sort noise for each sample
+        ids_shuffle = torch.argsort(
+            noise, dim=1
+        )  # ascend: small is keep, large is remove
+        ids_restore = torch.argsort(ids_shuffle, dim=1)
+
+        # keep the first subset
+        ids_keep = ids_shuffle[:, :len_keep]
+        x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, d))
+
+        # generate the binary mask: 0 is keep, 1 is remove
+        mask = torch.ones([b, n], device=x.device)
+        mask[:, :len_keep] = 0
+        # unshuffle to get the binary mask
+        mask = torch.gather(mask, dim=1, index=ids_restore)
+
+        return x_masked, mask, ids_restore
 
     def forward(
         self,
@@ -363,6 +395,20 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
                     x = torch.cat((x, token), dim=1)
                 shape = x.shape[1:-1]
                 x = self.pe(x, shape)
+
+                if self.training and self.mask_ratio:
+                    if self.token_first:
+                        x, token = x[:, self.sample_step :], x[:, : self.sample_step]
+                    else:
+                        x, token = x[:, : self.sample_step], x[:, self.sample_step :]
+
+                    x, mask, ids_restore = self.random_masking(x, self.mask_ratio)
+
+                    if self.token_first:
+                        x = torch.cat((token, x), dim=1)
+                    else:
+                        x = torch.cat((x, token), dim=1)
+
             elif self.token_pe_type == "sincos":
                 token = self.pe(token, shape=token.shape[1:-1])
                 x = self.pe(x, shape=x.shape[1:-1])

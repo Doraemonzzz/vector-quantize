@@ -339,6 +339,7 @@ class ModelConfig:
             "help": "Whether use concat[token, x] or concat[x, token] in wm transformer"
         },
     )
+    mask_ratio: float = field(default=0, metadata={"help": "Mask ratio for encoder"})
 
 
 @dataclass
