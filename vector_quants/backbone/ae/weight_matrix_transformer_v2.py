@@ -303,7 +303,7 @@ class UpdateNetV2(nn.Module):
                 weight_matrix = self.conv(S)
                 weight_matrix = rearrange(weight_matrix, "b d n m -> b (n m) d")
             else:
-                weight_matrix = rearrange(S, "b n m d -> b (n m) d")
+                weight_matrix = rearrange(S, "b d n m -> b (n m) d")
 
         return weight_matrix
 
