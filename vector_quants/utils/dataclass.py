@@ -300,6 +300,8 @@ class ModelConfig:
                 "additive",
                 "di_decay",  # data independent decay
                 "dd_decay",  # data dependent decay
+                "dd_share_decay",  # data dependent decay with head share
+                "additive_decay",
                 "cosine",
                 "rope",
                 "delta",

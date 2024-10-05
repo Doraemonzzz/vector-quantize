@@ -135,6 +135,11 @@ class UpdateNetV2(nn.Module):
             "additive",
             "cosine",
             "rope",
+            "di_decay",
+            "dd_decay",
+            "dd_share_decay",
+            "additive_decay",
+            "delta",
         ]:
             out_dim = 2 * num_h_patch
             if update_net_type == "cosine":
@@ -151,33 +156,62 @@ class UpdateNetV2(nn.Module):
                     -1,
                 )
                 self.register_buffer("theta", theta, persistent=False)
-            else:
+            elif self.update_net_type == "rope":
                 theta = base ** (
                     -2 / d * torch.arange(d // 2, dtype=torch.int64)
                 ).float().reshape(self.in_dim, 1, -1)
                 self.register_buffer("theta", theta, persistent=False)
+            elif self.update_net_type == "di_decay":
+                # h, 1, 1
+                log_decay = (
+                    -torch.arange(1, in_dim + 1, device=torch.cuda.current_device())
+                    .unsqueeze(-1)
+                    .unsqueeze(-1)
+                    * 8.0
+                    / in_dim
+                )
+                self.register_buffer("log_decay", log_decay, persistent=False)
+            elif self.update_net_type == "dd_decay":
+                self.decay_proj = nn.Linear(in_dim, num_h_patch, bias=bias)
+                self.decay_h_proj = nn.Linear(in_dim, in_dim, bias=bias)
+            elif self.update_net_type == "dd_share_decay":
+                self.decay_h_proj = nn.Linear(in_dim, in_dim, bias=bias)
+            elif self.update_net_type == "delta":
+                self.beta_proj = nn.Linear(in_dim, in_dim, bias=bias)
 
     def forward(self, token):
-        if self.update_net_type in ["additive", "cosine", "rope"]:
-            kv = self.kv_proj(token)
-            # b n h
-            kv_h = self.kv_h_proj(token)
-            b, n, d = kv.shape
-            k, v = kv.split([d - self.v_dim, self.v_dim], dim=-1)
-            k_h, v_h = kv_h.chunk(2, dim=-1)
-            k = torch.einsum("b n d, b n h -> b h n d", k, k_h)
-            v = torch.einsum("b n d, b n h -> b h n d", v, v_h)
-            k = self.act(k)
-            v = self.act(v)
+        kv = self.kv_proj(token)
+        # b n h
+        kv_h = self.kv_h_proj(token)
+        b, n, d = kv.shape
+        k, v = kv.split([d - self.v_dim, self.v_dim], dim=-1)
+        k_h, v_h = kv_h.chunk(2, dim=-1)
+        k = torch.einsum("b n d, b n h -> b h n d", k, k_h)
+        v = torch.einsum("b n d, b n h -> b h n d", v, v_h)
 
+        if self.update_net_type in [
+            "additive",
+            "cosine",
+            "rope",
+            "di_decay",
+            "dd_decay",
+            "dd_share_decay",
+            "additive_decay",
+        ]:
+            if self.update_net_type not in ["additive_decay"]:
+                k = self.act(k)
+            else:
+                k = F.softmax(k, dim=-2)
+
+            v = self.act(v)
             if self.update_net_type in ["cosine", "rope"]:
                 if self.index.shape[0] == 0:
                     self.index = (
                         n
                         - 1
-                        - torch.arange(n, device=torch.cuda.current_device()).reshape(
-                            -1, 1
-                        )
+                        - torch.arange(
+                            n, dtype=torch.int64, device=torch.cuda.current_device()
+                        ).reshape(-1, 1)
                     )
                 theta = self.theta * self.index
 
@@ -193,6 +227,51 @@ class UpdateNetV2(nn.Module):
                         [-k[..., 1::2], k[..., ::2]], dim=-1
                     ).reshape_as(k)
                     k = k * cos + k_half * sin
+            elif self.update_net_type == "di_decay":
+                # kv = lambda_ * kv + ki * vi
+                if self.index.shape[0] == 0:
+                    self.index = (
+                        n
+                        - 1
+                        - torch.arange(
+                            n, dtype=torch.int64, device=torch.cuda.current_device()
+                        ).reshape(-1, 1)
+                    )
+                log_decay = self.index.float() * self.log_decay.float()
+                decay = torch.exp(log_decay)
+                k = (k * decay).to(v.dtype)
+
+            elif self.update_net_type == "dd_decay":
+                decay = self.decay_proj(token)
+                decay_h = self.decay_h_proj(token)
+                h = decay_h.shape[-1]
+                # b h n d
+                decay = torch.einsum("b n d, b n h -> b h n d", decay, decay_h)
+                log_decay = F.logsigmoid(decay)
+                # kv = lambda_ * kv + ki * vi
+                # 1, a(n-1), a(n-2), ..., a2
+                zero = torch.zeros(
+                    (b, h, 1, log_decay.shape[-1]), device=torch.cuda.current_device()
+                )
+                log_decay_reverse = torch.cat(
+                    [zero, torch.flip(log_decay, dims=[-2])[:, :, :-1]], dim=-2
+                )
+                log_decay_cum = torch.cumsum(log_decay_reverse.float(), dim=-2)
+                k = (k * torch.exp(log_decay_cum)).to(v.dtype)
+            elif self.update_net_type == "dd_share_decay":
+                decay_h = self.decay_h_proj(token)
+                h = decay_h.shape[-1]
+                # b n h -> b h n -> b h n 1
+                decay = decay_h.transpose(-1, -2).unsqueeze(-1)
+                log_decay = F.logsigmoid(decay)
+                # kv = lambda_ * kv + ki * vi
+                # 1, a(n-1), a(n-2), ..., a2
+                zero = torch.zeros((b, h, 1, 1), device=torch.cuda.current_device())
+                log_decay_reverse = torch.cat(
+                    [zero, torch.flip(log_decay, dims=[-2])[:, :, :-1]], dim=-2
+                )
+                log_decay_cum = torch.cumsum(log_decay_reverse.float(), dim=-2)
+                k = (k * torch.exp(log_decay_cum)).to(v.dtype)
 
             if self.update_net_use_conv:
                 weight_matrix = torch.einsum("b h n d, b h n e -> b h d e", k, v)
@@ -201,6 +280,30 @@ class UpdateNetV2(nn.Module):
             else:
                 weight_matrix = torch.einsum("b h n d, b h n e -> b d e h", k, v)
                 weight_matrix = rearrange(weight_matrix, "b n m d -> b (n m) d")
+        elif self.update_net_type == "delta":
+            k = self.act(k)
+            k = F.normalize(k, dim=-1)
+            v = self.act(v)
+            # b n h -> b h n 1
+            beta = F.sigmoid(self.beta_proj(token))
+            h = beta.shape[-1]
+            e = k.shape[-1]
+            beta = beta.transpose(-1, -2).unsqueeze(-1)
+            S = torch.zeros(b, h, e, e, dtype=torch.float32).to(v)
+
+            for i in range(n):
+                _k = k[:, :, i]
+                _v = v[:, :, i].clone()
+                beta_i = beta[:, :, i]
+                _v = _v - (S.clone() * _k[..., None]).sum(-2)
+                _v = _v * beta_i
+                S = S.clone() + _k.unsqueeze(-1) * _v.unsqueeze(-2)
+
+            if self.update_net_use_conv:
+                weight_matrix = self.conv(S)
+                weight_matrix = rearrange(weight_matrix, "b d n m -> b (n m) d")
+            else:
+                weight_matrix = rearrange(S, "b n m d -> b (n m) d")
 
         return weight_matrix
 
