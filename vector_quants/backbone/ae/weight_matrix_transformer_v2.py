@@ -482,6 +482,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
     ):
         # b c h w -> b n d
         x = self.patch_embed(x)
+        num_patch = self.num_patch
 
         if self.num_extra_token:
             token = repeat(self.extra_token, "n d -> b n d", b=x.shape[0])
@@ -506,6 +507,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
                         x, token = x[:, : self.sample_step], x[:, self.sample_step :]
 
                     x, mask, ids_restore = self.random_masking(x, self.mask_ratio)
+                    num_patch = x.shape[1]
 
                     if self.token_first:
                         x = torch.cat((token, x), dim=1)
@@ -545,10 +547,10 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
 
         if self.token_first:
             # [m n] -> [m]
-            x = x[:, : -self.num_patch]
+            x = x[:, :-num_patch]
         else:
             # [n m] -> [m]
-            x = x[:, self.num_patch :]
+            x = x[:, num_patch:]
 
         # b n d -> b n e
         x = self.out_proj(self.final_norm(x))
