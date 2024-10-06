@@ -84,6 +84,7 @@ class ModelConfig:
                 "wm_transformer",
                 "wm_transformer_v2",
                 "wmtc",
+                "transformer_resnet",
             ],
         },
     )

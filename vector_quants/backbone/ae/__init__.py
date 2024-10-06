@@ -14,6 +14,7 @@ from .gmlp import GMlpDecoder, GMlpEncoder
 from .resi_convnet import ResConvDecoder, ResConvEncoder
 from .spatial_feature_transformer import SFTransformerDecoder, SFTransformerEncoder
 from .transformer import TransformerDecoder, TransformerEncoder
+from .transformer_resnet import TransformerResConvDecoder, TransformerResConvEncoder
 from .weight_matrix_tc import WMTCDecoder, WMTCEncoder
 from .weight_matrix_transformer import (
     UpdateNet,

@@ -1,5 +1,5 @@
 """
-Use update net after encoder
+Use update net after encoder, transformer encoder + resnet decoder
 """
 
 import torch

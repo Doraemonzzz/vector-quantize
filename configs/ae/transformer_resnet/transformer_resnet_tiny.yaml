@@ -1,0 +1,17 @@
+model:
+  model_name: transformer_resnet
+  patch_embed_name: freq
+  hidden_channels: 192
+  mid_dim: 512
+  num_layers: 12
+  num_heads: 3
+  use_ape: True
+  in_channels: 3
+  hidden_channels: 128
+  num_res_blocks: 2
+  channel_multipliers: [1, 2, 2, 4]
+train:
+  weight_decay: 0.05
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  clip_grad: 1.0

@@ -19,6 +19,8 @@ from .ae import (
     SFTransformerEncoder,
     TransformerDecoder,
     TransformerEncoder,
+    TransformerResConvDecoder,
+    TransformerResConvEncoder,
     UpdateNet,
     WeightMatrixTransformerDecoder,
     WeightMatrixTransformerDecoderV2,

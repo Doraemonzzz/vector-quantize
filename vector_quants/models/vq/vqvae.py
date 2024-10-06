@@ -22,6 +22,8 @@ from vector_quants.backbone import (
     SFTransformerEncoder,
     TransformerDecoder,
     TransformerEncoder,
+    TransformerResConvDecoder,
+    TransformerResConvEncoder,
     UpdateNet,
     WeightMatrixTransformerDecoder,
     WeightMatrixTransformerDecoderV2,
@@ -46,6 +48,7 @@ AUTO_ENCODER_MAPPING = {
     "wm_transformer": WeightMatrixTransformerEncoder,
     "wm_transformer_v2": WeightMatrixTransformerEncoderV2,
     "wmtc": WMTCEncoder,
+    "transformer_resnet": TransformerResConvEncoder,
 }
 
 AUTO_DECODER_MAPPING = {
@@ -62,6 +65,7 @@ AUTO_DECODER_MAPPING = {
     "wm_transformer": WeightMatrixTransformerDecoder,
     "wm_transformer_v2": WeightMatrixTransformerDecoderV2,
     "wmtc": WMTCDecoder,
+    "transformer_resnet": TransformerResConvDecoder,
 }
 
 

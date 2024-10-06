@@ -268,6 +268,8 @@ def get_activation_fn(activation):
         return torch.exp
     elif activation == "leak":
         return F.leaky_relu
+    elif activation == "softmax":
+        return lambda x: F.softmax(x, dim=-1)
     elif activation == "1+elu":
 
         def f(x):
