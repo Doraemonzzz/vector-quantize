@@ -9,7 +9,7 @@ model:
   in_channels: 3
   hidden_channels_wt: 128
   num_res_blocks: 2
-  channel_multipliers: [1, 2, 2, 4]
+  channel_multipliers: [1, 2, 4]
 train:
   weight_decay: 0.05
   adam_beta1: 0.9
