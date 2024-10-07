@@ -106,9 +106,10 @@ class DINO(torch.nn.Module):
 
         self.model = make_vit_backbone(
             timm.create_model(model_name, pretrained=True),
-            patch_size=[16, 16],
             hooks=hooks,
             hook_patch=hook_patch,
+            # start_index=1 if "reg" not in model_name else 2, # if use reg, start index is 2
+            use_reg="reg" in model_name,
         )
         self.model = self.model.eval().requires_grad_(False)
 
@@ -158,8 +159,9 @@ class ProjectedDiscriminator(nn.Module):
         if self.diffaug:
             x = DiffAugment(x, policy="color,translation,cutout")
 
-        # Transform to [0, 1].
-        x = x.add(1).div(2)
+        # need check
+        # # Transform to [0, 1].
+        # x = x.add(1).div(2)
 
         # Take crops with probablity p_crop if the image is larger.
         if x.size(-1) > self.dino.img_resolution and np.random.random() < self.p_crop:
@@ -171,7 +173,10 @@ class ProjectedDiscriminator(nn.Module):
         # Apply discriminator heads.
         logits = []
         for k, head in self.heads.items():
+            # b c n -> b 1 n -> b n
+            # head(features[k], c): b c
             logits.append(head(features[k], c).view(x.size(0), -1))
+
         logits = torch.cat(logits, dim=1)
 
         return logits

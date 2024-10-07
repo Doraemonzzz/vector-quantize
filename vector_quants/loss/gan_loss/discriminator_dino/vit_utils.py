@@ -17,10 +17,8 @@ class AddReadout(nn.Module):
         self.start_index = start_index
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.start_index == 2:
-            readout = (x[:, 0] + x[:, 1]) / 2
-        else:
-            readout = x[:, 0]
+        readout = x[:, : self.start_index].mean(dim=1)
+
         return x[:, self.start_index :] + readout.unsqueeze(1)
 
 
@@ -42,10 +40,13 @@ def forward_vit(pretrained: nn.Module, x: torch.Tensor) -> dict:
 
 
 def _resize_pos_embed(self, posemb: torch.Tensor, gs_h: int, gs_w: int) -> torch.Tensor:
-    posemb_tok, posemb_grid = (
-        posemb[:, : self.start_index],
-        posemb[0, self.start_index :],
-    )
+    if not self.use_reg:
+        posemb_tok, posemb_grid = (
+            posemb[:, : self.start_index],
+            posemb[0, self.start_index :],
+        )
+    else:
+        posemb_grid = posemb[0]
 
     gs_old = int(math.sqrt(len(posemb_grid)))
 
@@ -55,7 +56,10 @@ def _resize_pos_embed(self, posemb: torch.Tensor, gs_h: int, gs_w: int) -> torch
     )
     posemb_grid = posemb_grid.permute(0, 2, 3, 1).reshape(1, gs_h * gs_w, -1)
 
-    posemb = torch.cat([posemb_tok, posemb_grid], dim=1)
+    if not self.use_reg:
+        posemb = torch.cat([posemb_tok, posemb_grid], dim=1)
+    else:
+        posemb = posemb_grid
 
     return posemb
 
@@ -68,12 +72,22 @@ def forward_flex(self, x: torch.Tensor) -> torch.Tensor:
         self.pos_embed, H // self.patch_size[1], W // self.patch_size[0]
     )
 
-    # add cls token
-    cls_tokens = self.cls_token.expand(x.size(0), -1, -1)
-    x = torch.cat((cls_tokens, x), dim=1)
+    if not self.use_reg:
+        # add cls token
+        cls_tokens = self.cls_token.expand(x.size(0), -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
 
-    # forward pass
-    x = x + pos_embed
+        # forward pass
+        x = x + pos_embed
+    else:
+        # forward pass
+        x = x + pos_embed
+
+        to_cat = []
+        to_cat.append(self.cls_token.expand(x.shape[0], -1, -1))
+        to_cat.append(self.reg_token.expand(x.shape[0], -1, -1))
+        x = torch.cat(to_cat + [x], dim=1)
+
     x = self.pos_drop(x)
 
     for blk in self.blocks:
@@ -95,10 +109,10 @@ def get_activation(name: str) -> Callable:
 
 def make_vit_backbone(
     model: nn.Module,
-    patch_size: list[int] = [16, 16],
     hooks: list[int] = [2, 5, 8, 11],
     hook_patch: bool = True,
-    start_index: list[int] = 1,
+    # start_index: list[int] = 1,
+    use_reg: bool = False,
 ):
     assert len(hooks) == 4
 
@@ -114,9 +128,15 @@ def make_vit_backbone(
         pretrained.model.pos_drop.register_forward_hook(get_activation("4"))
 
     # configure readout
+    if not use_reg:
+        start_index = 1
+    else:
+        start_index = 1 + pretrained.model.reg_token.shape[1]
+
     pretrained.rearrange = nn.Sequential(AddReadout(start_index), Transpose(1, 2))
     pretrained.model.start_index = start_index
-    pretrained.model.patch_size = patch_size
+    pretrained.model.patch_size = model.patch_embed.patch_size
+    pretrained.model.use_reg = use_reg
 
     # We inject this function into the VisionTransformer instances so that
     # we can use it with interpolated position embeddings without modifying the library source.
