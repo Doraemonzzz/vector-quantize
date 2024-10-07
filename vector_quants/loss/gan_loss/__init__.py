@@ -1,3 +1,4 @@
+from .discriminator_dino import ProjectedDiscriminator
 from .discriminator_patchgan import PatchGANDiscriminator
 from .discriminator_stylegan import StyleGANDiscriminator
 from .loss import (
@@ -13,6 +14,7 @@ from .loss import (
 AUTO_DISC_MAPPING = {
     "patchgan": PatchGANDiscriminator,
     "stylegan": StyleGANDiscriminator,
+    "dino": ProjectedDiscriminator,
 }
 
 AUTO_GEN_LOSS_MAPPING = {

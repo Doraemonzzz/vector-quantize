@@ -69,6 +69,7 @@ class Loss(nn.Module):
         gen_loss_weight=0.1,
         disc_loss_type="hinge",
         disc_loss_weight=1.0,
+        disc_model_name="vit_small_patch16_224_dino",
         gp_loss_type="none",
         gp_loss_weight=0,
         in_channels=3,
@@ -97,7 +98,7 @@ class Loss(nn.Module):
         self.disc_loss_weight = disc_loss_weight
         if self.disc_type != "none":
             self.discriminator = AUTO_DISC_MAPPING[self.disc_type](
-                input_nc=in_channels, image_size=image_size
+                input_nc=in_channels, image_size=image_size, model_name=disc_model_name
             )
         else:
             self.discriminator = None
@@ -105,6 +106,7 @@ class Loss(nn.Module):
         self.gp_loss_type = gp_loss_type
         self.gp_loss_weight = gp_loss_weight
         if self.gp_loss_type != "none":
+            assert self.disc_type != "dino", "dino does not support gradient penalty"
             self.gp_loss = AUTO_GP_LOSS_MAPPING[self.gp_loss_type]
         else:
             self.gp_loss = None
@@ -163,7 +165,11 @@ class Loss(nn.Module):
                 logits_fake = self.discriminator(reconstructions.detach())
                 disc_loss = self.disc_loss(logits_real, logits_fake)
 
-                if self.gp_loss_weight > 0 and self.training:
+                if (
+                    self.gp_loss is not None
+                    and self.gp_loss_weight > 0
+                    and self.training
+                ):
                     gp_loss = self.gp_loss(images, logits_real, scale)
 
             loss_dict = {

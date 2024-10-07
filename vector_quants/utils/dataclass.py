@@ -618,7 +618,7 @@ class LossConfig:
         default="none",
         metadata={
             "help": "Discriminator type",
-            "choices": ["patchgan", "stylegan", "none"],
+            "choices": ["patchgan", "stylegan", "dino", "none"],
         },
     )
     gen_loss_type: str = field(
@@ -636,6 +636,18 @@ class LossConfig:
         metadata={
             "help": "Discriminator loss type",
             "choices": ["hinge", "vanilla", "non-saturating"],
+        },
+    )
+    disc_model_name: str = field(
+        default="vit_small_patch16_224.dino",
+        metadata={
+            "help": "Discriminator model name",
+            "choices": [
+                "vit_small_patch16_224.dino",
+                "vit_small_patch8_224.dino",
+                "vit_small_patch14_dinov2.lvd142m",
+                "vit_small_patch14_reg4_dinov2.lvd142m",
+            ],
         },
     )
     disc_loss_weight: float = field(

@@ -16,7 +16,13 @@ except:
 
 class StyleGANDiscriminator(nn.Module):
     def __init__(
-        self, input_nc=3, ndf=64, n_layers=3, channel_multiplier=1, image_size=256
+        self,
+        input_nc=3,
+        ndf=64,
+        n_layers=3,
+        channel_multiplier=1,
+        image_size=256,
+        **kwargs
     ):
         super().__init__()
         channels = {

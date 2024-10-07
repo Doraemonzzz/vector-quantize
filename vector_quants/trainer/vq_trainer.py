@@ -125,6 +125,7 @@ class VQTrainer(BaseTrainer):
             gen_loss_weight=cfg_loss.gen_loss_weight,
             disc_loss_type=cfg_loss.disc_loss_type,
             disc_loss_weight=cfg_loss.disc_loss_weight,
+            disc_model_name=cfg_loss.disc_model_name,
             gp_loss_type=cfg_loss.gp_loss_type,
             gp_loss_weight=cfg_loss.gp_loss_weight,
             in_channels=cfg_model.in_channels,

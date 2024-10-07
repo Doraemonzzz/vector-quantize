@@ -146,6 +146,7 @@ vqvae gumbel
 14. https://drscotthawley.github.io/blog/posts/2023-06-12-RVQ.html
 15. https://dsp.stackexchange.com/questions/27551/8-times-8-block-matrix-in-jpeg-image-compression
 16. https://stackoverflow.com/questions/10780425/why-jpeg-compression-processes-image-by-8x8-blocks
+17. https://github.com/autonomousvision/stylegan-t
 
 ## Citation
 If you find this repo useful, please consider citing my work:
