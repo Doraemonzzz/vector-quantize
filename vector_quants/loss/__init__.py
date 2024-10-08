@@ -130,6 +130,8 @@ class Loss(nn.Module):
             "gen_loss",
             "disc_loss",
             "gp_loss",
+            "logits_real",
+            "logits_fake",
         ]
         valid_keys = ["valid_" + key for key in train_keys]
         keys = train_keys + valid_keys
@@ -157,6 +159,8 @@ class Loss(nn.Module):
         if is_disc:
             disc_loss = torch.tensor(0.0).cuda().float()
             gp_loss = torch.tensor(0.0).cuda().float()
+            logits_real = torch.tensor(0.0).cuda().float()
+            logits_fake = torch.tensor(0.0).cuda().float()
             if self.use_disc(num_iter):
                 if self.gp_loss_weight > 0:
                     images.requires_grad_()
@@ -175,6 +179,8 @@ class Loss(nn.Module):
             loss_dict = {
                 "disc_loss": disc_loss.cpu().item(),
                 "gp_loss": gp_loss.cpu().item(),
+                "logits_fake": logits_fake.mean().cpu().item(),
+                "logits_real": logits_real.mean().cpu().item(),
             }
 
             loss = self.disc_loss_weight * disc_loss + self.gp_loss_weight * gp_loss
