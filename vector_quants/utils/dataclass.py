@@ -625,7 +625,7 @@ class LossConfig:
         default="hinge",
         metadata={
             "help": "Generator loss type",
-            "choices": ["hinge", "non-saturating"],
+            "choices": ["hinge", "vanilla", "non-saturating"],
         },
     )
     gen_loss_weight: float = field(

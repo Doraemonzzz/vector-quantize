@@ -9,6 +9,7 @@ from .loss import (
     non_saturating_d_loss,
     non_saturating_gen_loss,
     vanilla_d_loss,
+    vanilla_gen_loss,
 )
 
 AUTO_DISC_MAPPING = {
@@ -19,6 +20,7 @@ AUTO_DISC_MAPPING = {
 
 AUTO_GEN_LOSS_MAPPING = {
     "hinge": hinge_gen_loss,
+    "vanilla": vanilla_gen_loss,
     "non-saturating": non_saturating_gen_loss,
 }
 

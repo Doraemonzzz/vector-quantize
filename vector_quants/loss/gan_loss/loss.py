@@ -30,13 +30,17 @@ def non_saturating_d_loss(logits_real, logits_fake):
     return d_loss
 
 
-def hinge_gen_loss(logit_fake):
-    return -torch.mean(logit_fake)
+def hinge_gen_loss(logits_fake):
+    return -torch.mean(logits_fake)
 
 
-def non_saturating_gen_loss(logit_fake):
+def vanilla_gen_loss(logits_fake):
+    return torch.mean(F.softplus(-logits_fake))
+
+
+def non_saturating_gen_loss(logits_fake):
     return torch.mean(
-        F.binary_cross_entropy_with_logits(torch.ones_like(logit_fake), logit_fake)
+        F.binary_cross_entropy_with_logits(torch.ones_like(logits_fake), logits_fake)
     )
 
 
