@@ -551,6 +551,10 @@ class TrainingConfig:
     adam_epsilon: float = field(
         default=1e-8, metadata={"help": "Epsilon for Adam optimizer."}
     )
+    only_load_model: bool = field(
+        default=False,
+        metadata={"help": "Only load model without optimizer, scheduler, etc."},
+    )
 
 
 @dataclass

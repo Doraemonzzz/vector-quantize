@@ -176,6 +176,7 @@ class VQTrainer(BaseTrainer):
         torch.distributed.barrier()
 
         # 5. resume
+        self.only_load_model = cfg_train.only_load_model
         self.start_epoch, self.num_iter = self.resume(cfg_train.ckpt_path_stage1)
         logging_info(f"Start epoch: {self.start_epoch}")
 
@@ -233,11 +234,31 @@ class VQTrainer(BaseTrainer):
     def is_main_process(self):
         return is_main_process()
 
+    def process_state_dict(self, current_model_dict, state_dict):
+        miss_match_keys = []
+        for k in current_model_dict.keys():
+            if (
+                k not in state_dict.keys()
+                or current_model_dict[k].size() != state_dict[k].size()
+            ):
+                miss_match_keys.append(k)
+        for k in miss_match_keys:
+            logging_info(f"Miss match key: {k}")
+        new_state_dict = {
+            k: v
+            if (k not in miss_match_keys and v.size() == current_model_dict[k].size())
+            else current_model_dict[k]
+            for k, v in zip(current_model_dict.keys(), state_dict.values())
+        }
+
+        return new_state_dict
+
     def resume(self, ckpt_path):
         if ckpt_path == None:
             logging_info(f"Train from scratch")
             return 1, 1
 
+        logging_info(f"Only load model: {self.only_load_model}")
         pkg = torch.load(ckpt_path, map_location="cpu")
 
         ##### g load
@@ -246,15 +267,21 @@ class VQTrainer(BaseTrainer):
         for k, v in pkg["model_state_dict"].items():
             name = k.replace("module.", "")
             state_dict[name] = v
+
+        # process state dict
         # load params
-        model_msg = self.model.load_state_dict(state_dict)
+        new_state_dict = self.process_state_dict(self.model.state_dict(), state_dict)
+        model_msg = self.model.load_state_dict(new_state_dict, strict=False)
+        num_iter = 1
+        start_epoch = 1
 
-        self.optimizer.load_state_dict(pkg["optimizer_state_dict"])
-        self.lr_scheduler.load_state_dict(pkg["scheduler_state_dict"])
-        self.scaler.load_state_dict(pkg["scaler_state_dict"])
+        if not self.only_load_model:
+            self.optimizer.load_state_dict(pkg["optimizer_state_dict"])
+            self.lr_scheduler.load_state_dict(pkg["scheduler_state_dict"])
+            self.scaler.load_state_dict(pkg["scaler_state_dict"])
 
-        num_iter = pkg["iter"]
-        start_epoch = pkg["epoch"]
+            num_iter = pkg["iter"]
+            start_epoch = pkg["epoch"]
 
         ##### d load
         if self.disc_type != "none":
