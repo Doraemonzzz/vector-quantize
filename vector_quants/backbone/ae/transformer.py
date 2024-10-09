@@ -73,7 +73,11 @@ class TransformerEncoder(nn.Module):
         patch_embed_name = cfg.patch_embed_name
         use_init = cfg.use_init
         init_std = cfg.init_std
+        mask_ratio = cfg.mask_ratio
         # get params end
+        assert not (
+            num_extra_token > 0 and mask_ratio > 0
+        ), f"Only support: num_extra_token and mask_ratio cant be both > 0, but got: num_extra_token={num_extra_token}, mask_ratio={mask_ratio}"
 
         self.patch_embed = AUTO_PATCH_EMBED_MAPPING[patch_embed_name](
             image_size=image_size,
@@ -110,6 +114,7 @@ class TransformerEncoder(nn.Module):
 
         self.use_init = use_init
         self.init_std = init_std
+        self.mask_ratio = mask_ratio
 
         if self.use_init:
             self.initialize_weights()
@@ -137,6 +142,36 @@ class TransformerEncoder(nn.Module):
     def extra_repr(self):
         return print_module(self)
 
+    def random_masking(self, x, mask_ratio):
+        # credit to: https://github.com/facebookresearch/mae
+        """
+        Perform per-sample random masking by per-sample shuffling.
+        Per-sample shuffling is done by argsort random noise.
+        x: [b, n, d], sequence
+        """
+        b, n, d = x.shape  # batch, length, dim
+        len_keep = int(n * (1 - mask_ratio))
+
+        noise = torch.rand(b, n, device=x.device)  # noise in [0, 1]
+
+        # sort noise for each sample
+        ids_shuffle = torch.argsort(
+            noise, dim=1
+        )  # ascend: small is keep, large is remove
+        ids_restore = torch.argsort(ids_shuffle, dim=1)
+
+        # keep the first subset
+        ids_keep = ids_shuffle[:, :len_keep]
+        x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, d))
+
+        # generate the binary mask: 0 is keep, 1 is remove
+        mask = torch.ones([b, n], device=x.device)
+        mask[:, :len_keep] = 0
+        # unshuffle to get the binary mask
+        mask = torch.gather(mask, dim=1, index=ids_restore)
+
+        return x_masked, mask, ids_restore
+
     def forward(
         self,
         x,
@@ -152,6 +187,9 @@ class TransformerEncoder(nn.Module):
             extra_token_shape = (self.num_extra_token,)
             extra_token = self.extra_token_pe(extra_token, extra_token_shape)
             x = torch.cat([extra_token, x], dim=1)
+
+        if self.training and self.mask_ratio:
+            x, mask, ids_restore = self.random_masking(x, self.mask_ratio)
 
         for layer in self.layers:
             x = layer(x, self.input_shape)
@@ -181,6 +219,7 @@ class TransformerDecoder(nn.Module):
         patch_embed_name = cfg.patch_embed_name
         use_init = cfg.use_init
         init_std = cfg.init_std
+        mask_ratio = cfg.mask_ratio
         # get params end
 
         self.in_proj = nn.Linear(in_dim, embed_dim, bias=bias)
@@ -203,12 +242,14 @@ class TransformerDecoder(nn.Module):
         )
 
         self.num_extra_token = num_extra_token
-        if self.num_extra_token > 0:
+        self.mask_ratio = mask_ratio
+        if self.num_extra_token > 0 or self.mask_ratio > 0:
             self.mask_token = nn.Parameter(torch.randn(embed_dim))
-            self.extra_token_pe = SinCosPe(
-                embed_dim=embed_dim,
-                base=base,
-            )
+            if self.num_extra_token > 0:
+                self.extra_token_pe = SinCosPe(
+                    embed_dim=embed_dim,
+                    base=base,
+                )
 
         # use in md lrpe
         self.input_shape = [
@@ -255,7 +296,7 @@ class TransformerDecoder(nn.Module):
         b = x.shape[0]
         n = x.shape[1]
 
-        if self.num_extra_token > 0:
+        if self.num_extra_token > 0 or self.mask_ratio > 0:
             n = self.num_token
             # if num extra token > 0, we use mask token to reconstruct
             # see the difference between repeat and expand: https://github.com/arogozhnikov/einops/issues/202
@@ -264,8 +305,9 @@ class TransformerDecoder(nn.Module):
             if self.use_ape:
                 mask_tokens = self.pe(mask_tokens, shape=mask_tokens.shape[1:-1])
 
-            extra_token_shape = (self.num_extra_token,)
-            x = self.extra_token_pe(x, extra_token_shape)
+            if self.num_extra_token > 0:
+                extra_token_shape = (self.num_extra_token,)
+                x = self.extra_token_pe(x, extra_token_shape)
             x = torch.cat([x, mask_tokens], dim=1)
         else:
             if self.use_ape:
@@ -277,6 +319,9 @@ class TransformerDecoder(nn.Module):
 
         if self.num_extra_token > 0:
             x = x[:, self.num_extra_token :]
+
+        if self.mask_ratio > 0:
+            x = x[:, -self.num_token :]
 
         x = self.reverse_patch_embed(self.final_norm(x))
 
