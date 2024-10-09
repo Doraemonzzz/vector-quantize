@@ -211,8 +211,8 @@ class VQTrainer(BaseTrainer):
 
         # save dir
         # update save here !!!!
-        cfg.train.save = cfg.train.save + f"-num_embed-{self.num_embed}"
-        cfg_train.save = cfg.train.save
+        # cfg.train.save = cfg.train.save + f"-num_embed-{self.num_embed}"
+        # cfg_train.save = cfg.train.save
         # update save here !!!!
         mkdir_ckpt_dirs(cfg_train)
 
@@ -254,9 +254,11 @@ class VQTrainer(BaseTrainer):
         return new_state_dict
 
     def resume(self, ckpt_path):
+        num_iter = 0
+        start_epoch = 0
         if ckpt_path == None:
             logging_info(f"Train from scratch")
-            return 1, 1
+            return num_iter, start_epoch
 
         logging_info(f"Only load model: {self.only_load_model}")
         pkg = torch.load(ckpt_path, map_location="cpu")
@@ -272,8 +274,6 @@ class VQTrainer(BaseTrainer):
         # load params
         new_state_dict = self.process_state_dict(self.model.state_dict(), state_dict)
         model_msg = self.model.load_state_dict(new_state_dict, strict=False)
-        num_iter = 1
-        start_epoch = 1
 
         if not self.only_load_model:
             self.optimizer.load_state_dict(pkg["optimizer_state_dict"])
@@ -314,7 +314,7 @@ class VQTrainer(BaseTrainer):
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
             # self.eval()
-            if epoch % self.eval_interval == 0:
+            if (epoch + 1) % self.eval_interval == 0:
                 self.eval()
 
             self.model.train()
