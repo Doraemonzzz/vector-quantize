@@ -291,7 +291,7 @@ class VQTrainer(BaseTrainer):
                 self.eval()
 
             self.model.train()
-            # self.loss_fn.train()
+            self.loss_fn.train()
 
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
@@ -328,7 +328,6 @@ class VQTrainer(BaseTrainer):
                 if num_iter % self.gradient_accumulation_steps == 0:
                     self.optimizer.zero_grad()
 
-                self.loss_fn.eval()
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     reconstructions, indices, loss_dict = self.model(input_img)
                     input_img = self.post_transform(input_img)
@@ -363,7 +362,6 @@ class VQTrainer(BaseTrainer):
                     # self.optimizer.zero_grad()
 
                 ##### update d
-                self.loss_fn.train()
                 grad_disc_norm = 0
                 if self.use_disc(num_iter):
                     if num_iter % self.gradient_accumulation_steps == 0:
