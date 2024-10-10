@@ -162,10 +162,6 @@ class VQTrainer(BaseTrainer):
                     ),
                 )
             )
-
-            self.loss_fn = torch.nn.parallel.DistributedDataParallel(
-                self.loss_fn, device_ids=[cfg_train.gpu], find_unused_parameters=True
-            )
         else:
             self.optimizer_disc = None
             self.lr_scheduler_disc = None
@@ -184,6 +180,10 @@ class VQTrainer(BaseTrainer):
         self.model = torch.nn.parallel.DistributedDataParallel(
             self.model, device_ids=[cfg_train.gpu]
         )
+        if self.disc_type != "none":
+            self.loss_fn = torch.nn.parallel.DistributedDataParallel(
+                self.loss_fn, device_ids=[cfg_train.gpu], find_unused_parameters=True
+            )
 
         # evaluation
         self.eval_metrics = Metrics(
@@ -314,8 +314,6 @@ class VQTrainer(BaseTrainer):
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
             # self.eval()
-            if (epoch + 1) % self.eval_interval == 0:
-                self.eval()
 
             self.model.train()
             self.loss_fn.train()
@@ -491,6 +489,9 @@ class VQTrainer(BaseTrainer):
                     )
 
                 num_iter += 1
+                
+            if (epoch + 1) % self.eval_interval == 0:
+                self.eval()
 
             # save checkpoints
             if (
