@@ -489,7 +489,7 @@ class VQTrainer(BaseTrainer):
                     )
 
                 num_iter += 1
-                
+
             if (epoch + 1) % self.eval_interval == 0:
                 self.eval()
 
