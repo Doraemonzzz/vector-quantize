@@ -230,6 +230,8 @@ class VQTrainer(BaseTrainer):
         self.clip_grad = cfg_train.clip_grad
         self.cfg = cfg
 
+        self.gnorm_threshold = 100
+
     @property
     def is_main_process(self):
         return is_main_process()
@@ -374,13 +376,18 @@ class VQTrainer(BaseTrainer):
                         self.model, scale=self.scaler.get_scale()
                     )
 
+                if grad_norm >= self.gnorm_threshold:
+                    logging_info(
+                        f"Gradient norm too large: {grad_norm}, threshold: {self.gnorm_threshold}."
+                    )
+                    continue
+
                 if num_iter % self.gradient_accumulation_steps == 0:
                     if self.clip_grad:
                         self.scaler.unscale_(self.optimizer)
                         torch.nn.utils.clip_grad_norm_(
                             self.model.parameters(), self.clip_grad
                         )
-
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.lr_scheduler.step()
