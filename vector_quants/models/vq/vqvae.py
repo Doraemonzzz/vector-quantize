@@ -32,7 +32,7 @@ from vector_quants.backbone import (
     WMTCDecoder,
     WMTCEncoder,
 )
-from vector_quants.quantizers import get_quantizer
+from vector_quants.quantizers import QUANTIZER_DICT, get_quantizer
 
 AUTO_ENCODER_MAPPING = {
     "baseline_conv": BaselineConvEncoder,
@@ -85,21 +85,9 @@ class VqVae(nn.Module):
         if self.model_name in ["wm_transformer"]:
             self.update_net = UpdateNet(cfg)
 
-        assert self.cfg.quantizer in [
-            "Vq",
-            "EmaVq",
-            "GumbelVq",
-            "Gvq",
-            "Hvq",
-            "Cvq",
-            "Rvq",
-            "Lfq",
-            "Fsq",
-            "Raq",
-            "Rfsq",
-            "Rcq",
-            "Ivq",
-        ], f"quantizer {self.cfg.quantizer} does not support!"
+        assert self.cfg.quantizer in list(
+            QUANTIZER_DICT.keys()
+        ), f"quantizer {self.cfg.quantizer} does not support!"
 
         if self.is_conv and self.quant_spatial:
             assert False, "quant_spatial does not support conv now!"

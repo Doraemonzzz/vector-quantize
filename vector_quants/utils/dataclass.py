@@ -24,6 +24,7 @@ class ModelConfig:
                 "EmaVq",
                 "GumbelVq",
                 "Gvq",
+                "Gsvq",
                 "Hvq",
                 "Cvq",
                 "Rvq",

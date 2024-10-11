@@ -12,18 +12,34 @@ def unpack_one(t, ps, pattern):
 
 
 def compute_dist(x, y):
-    # x: n, d
-    # y: m, d
-    y_t = y.t()
+    # x: *, n, d
+    # y: *, m, d
+    y_t = y.transpose(-1, -2)
 
     # |x - y| ^ 2 = x * x ^ t + y * y ^ t - 2 * x * y ^ t
     dist = (
         torch.sum(x**2, dim=-1, keepdim=True)
-        + torch.sum(y_t**2, dim=0, keepdim=True)
+        + torch.sum(y_t**2, dim=-2, keepdim=True)
         - 2 * torch.matmul(x, y_t)
     )
 
     return dist
+
+
+# def compute_dist_group(x, y):
+#     # x: g, n, d
+#     # y: g, m, d
+#     y_t = y.transpose(-1, -2)
+
+#     # |x - y| ^ 2 = x * x ^ t + y * y ^ t - 2 * x * y ^ t
+#     # dist: g, n, m
+#     dist = (
+#         torch.sum(x**2, dim=-1, keepdim=True) # g, n, 1
+#         + torch.sum(y_t**2, dim=-2, keepdim=True) # g, 1, m
+#         - 2 * torch.matmul(x, y_t)
+#     )
+
+#     return dist
 
 
 def round_ste(x):

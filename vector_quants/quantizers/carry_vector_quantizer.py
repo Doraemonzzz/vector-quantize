@@ -1,3 +1,4 @@
+# similar to the Hierarchical Vector Quantizer, the only difference is that it uses the same level and shares the codebook.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,10 +29,10 @@ class CarryVectorQuantizer(BaseVectorQuantizer):
 
         self.base = base
         levels = [base] * num_levels
-        _levels = torch.tensor(levels, dtype=torch.int32)
+        _levels = torch.tensor(levels, dtype=torch.int64)
         self.register_buffer("_levels", _levels, persistent=False)
         _basis = torch.cumprod(
-            torch.tensor([1] + levels[:-1]), dim=0, dtype=torch.int32
+            torch.tensor([1] + levels[:-1]), dim=0, dtype=torch.int64
         )
         self.register_buffer("_basis", _basis, persistent=False)
 

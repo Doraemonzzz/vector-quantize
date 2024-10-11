@@ -1,6 +1,7 @@
 from .carry_vector_quantizer import CarryVectorQuantizer
 from .ema_vector_quantizer import EMAVectorQuantizer
 from .finite_scalar_quantizer import FiniteScalarQuantizer
+from .group_sep_vector_quantizer import GroupSepVectorQuantizer
 from .group_vector_quantizer import GroupVectorQuantizer
 from .gumbel_vector_quantizer import GumbelVectorQuantizer
 from .hierachical_vector_quantizer import HierachicalVectorQuantizer
@@ -17,6 +18,7 @@ QUANTIZER_DICT = {
     "EmaVq": EMAVectorQuantizer,
     "GumbelVq": GumbelVectorQuantizer,
     "Gvq": GroupVectorQuantizer,
+    "Gsvq": GroupSepVectorQuantizer,
     "Hvq": HierachicalVectorQuantizer,
     "Cvq": CarryVectorQuantizer,
     "Rvq": ResidualVectorQuantizer,
