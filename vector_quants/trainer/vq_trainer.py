@@ -286,7 +286,9 @@ class VQTrainer(BaseTrainer):
             start_epoch = pkg["epoch"]
 
         ##### d load
-        if self.disc_type != "none":
+        if (
+            self.disc_type != "none" and pkg["model_disc_state_dict"] is not None
+        ):  # add this to support pretraining
             # create new OrderedDict that does not contain `module.`
             state_disc_dict = OrderedDict()
             for k, v in pkg["model_disc_state_dict"].items():
