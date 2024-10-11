@@ -501,6 +501,7 @@ class VQTrainer(BaseTrainer):
                 self.eval()
 
             # save checkpoints
+            # todo: change to epoch + 1
             if (
                 epoch % self.save_interval == 0 or (epoch == self.max_train_epochs - 1)
             ) and self.is_main_process:
@@ -527,7 +528,9 @@ class VQTrainer(BaseTrainer):
                         if self.disc_type != "none"
                         else None,
                     },
-                    os.path.join(self.save, f"ckpts/{epoch}.pt"),
+                    os.path.join(
+                        self.save, f"ckpts/{epoch}.pt"
+                    ),  # todo: change to epoch + 1
                 )
                 # save image for checking training
                 save_image(
@@ -535,7 +538,9 @@ class VQTrainer(BaseTrainer):
                         torch.cat([input_img, reconstructions]),
                         nrow=input_img.shape[0],
                     ),
-                    os.path.join(self.save, f"samples/epoch_{epoch}.jpg"),
+                    os.path.join(
+                        self.save, f"samples/epoch_{epoch}.jpg"
+                    ),  # todo: change to epoch + 1
                     normalize=True,
                 )
 
