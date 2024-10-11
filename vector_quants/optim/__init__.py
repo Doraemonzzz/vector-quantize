@@ -12,6 +12,7 @@ def add_weight_decay(model, weight_decay=1e-5, skip_list=()):
     no_decay = []
     for name, param in model.named_parameters():
         if not param.requires_grad:
+            logging_info(f"frozen: {name}")
             continue  # frozen weights
         if len(param.shape) == 1 or name.endswith(".bias") or name in skip_list:
             logging_info(f"no decay: {name}")

@@ -344,6 +344,10 @@ class ModelConfig:
         },
     )
     mask_ratio: float = field(default=0, metadata={"help": "Mask ratio for encoder"})
+    frozen_blocks: str = field(
+        default_factory=lambda: "",
+        metadata={"help": "frozen blocks, split by comma"},
+    )
 
 
 @dataclass

@@ -73,6 +73,13 @@ class VQTrainer(BaseTrainer):
         # 2, load model
         self.model = AutoVqVae.from_config(cfg_model)
 
+        frozen_blocks = cfg_model.frozen_blocks.split(",")
+        logging_info(f"frozen_blocks: {frozen_blocks}")
+        for name, child in self.model.named_children():
+            if name in frozen_blocks:
+                for param in child.parameters():
+                    param.requires_grad = False
+
         self.dtype = type_dict[cfg_train.dtype]
         logging_info(self.model)
 
