@@ -577,6 +577,14 @@ class DataConfig:
     num_sample: int = field(
         default=50000, metadata={"help": "Number of samples for evaluation"}
     )
+    # data augument
+    three_augment: bool = field(
+        default=False, metadata={"help": "Whether use three augment"}
+    )
+    src: bool = field(default=False, metadata={"help": "Simple random crop"})
+    color_jitter: float = field(
+        default=0.3, metadata={"help": "Color jitter factor (default: 0.3)"}
+    )
 
 
 @dataclass

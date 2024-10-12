@@ -3,23 +3,34 @@ import os
 import torch
 from torchvision import datasets, transforms
 
+from .augment import new_data_aug_generator
 from .constants import get_mean_std_from_dataset_name
 from .indice_dataset import IndiceDataset
 
 
-def get_transform(args):
-    # Train and Val share the same transform
-    imagenet_transform = [
-        transforms.Resize(args.image_size),
-        transforms.CenterCrop(args.image_size),
-        transforms.ToTensor(),
-        transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set)),
-    ]
-    return transforms.Compose(imagenet_transform)
+def get_transform(args, is_train=True):
+    if args.three_augment and is_train:
+        pre_transform = new_data_aug_generator(args)
+        post_transform = [
+            transforms.ToTensor(),
+            transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set)),
+        ]
+        transform = pre_transform + post_transform
+    else:
+
+        # Train and Val share the same transform
+        transform = [
+            transforms.Resize(args.image_size),
+            transforms.CenterCrop(args.image_size),
+            transforms.ToTensor(),
+            transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set)),
+        ]
+
+    return transforms.Compose(transform)
 
 
 def get_data_loaders_by_args(args, is_train=True):
-    transform = get_transform(args)
+    transform = get_transform(args, is_train)
     if args.data_set == "cifar100":
         dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
     elif args.data_set == "imagenet-1k":
