@@ -754,7 +754,9 @@ def get_cfg(args_list=sys.argv[1:]):
             cmd_args_dict[name] = cfg
             aux_parser.add_argument("--" + name, type=type(cfg))
         else:
-            aux_parser = argparse.ArgumentParser(argument_default=argparse.SUPPRESS)
+            aux_parser = argparse.ArgumentParser(
+                argument_default=argparse.SUPPRESS, allow_abbrev=False
+            )  # add this to avoid abbrev bug, such as treat 'lr' as 'lrpe_type'
             for key, val in asdict(cfg).items():
                 if isinstance(val, bool):
                     aux_parser.add_argument(
@@ -765,7 +767,6 @@ def get_cfg(args_list=sys.argv[1:]):
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
-
             cmd_args, _ = aux_parser.parse_known_args(args_list)
 
             cmd_args_dict[name] = vars(cmd_args)
