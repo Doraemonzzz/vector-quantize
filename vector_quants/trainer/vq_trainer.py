@@ -216,11 +216,6 @@ class VQTrainer(BaseTrainer):
             wandb_cache_dir=cfg_train.wandb_cache_dir,
         )
 
-        # save dir
-        # update save here !!!!
-        # cfg.train.save = cfg.train.save + f"-num_embed-{self.num_embed}"
-        # cfg_train.save = cfg.train.save
-        # update save here !!!!
         mkdir_ckpt_dirs(cfg_train)
 
         # other params
@@ -441,45 +436,6 @@ class VQTrainer(BaseTrainer):
                         # self.optimizer_disc.zero_grad()
                 else:
                     loss_disc_dict = {}
-
-                # # compute grad norm
-                # grad_norm = 0
-                # grad_disc_norm = 0
-                # if self.is_main_process and num_iter % self.log_interval == 0:
-                #     grad_norm = compute_grad_norm(
-                #         self.model, scale=self.scaler.get_scale()
-                #     )
-                #     # disc
-                #     if self.use_disc(num_iter):
-                #         grad_disc_norm = compute_grad_norm(
-                #             self.loss_fn.module.discriminator,
-                #             scale=self.scaler_disc.get_scale(),
-                #         )
-
-                # if num_iter % self.gradient_accumulation_steps == 0:
-                #     if self.clip_grad:
-                #         self.scaler.unscale_(self.optimizer)
-                #         torch.nn.utils.clip_grad_norm_(
-                #             self.model.parameters(), self.clip_grad
-                #         )
-                #         # disc
-                #         if self.use_disc(num_iter):
-                #             self.scaler_disc.unscale_(self.optimizer_disc)
-                #             torch.nn.utils.clip_grad_norm_(
-                #                 self.loss_fn.module.discriminator.parameters(),
-                #                 self.clip_grad,
-                #             )
-
-                #     self.scaler.step(self.optimizer)
-                #     self.scaler.update()
-                #     self.lr_scheduler.step()
-                #     self.optimizer.zero_grad()
-                #     # disc
-                #     if self.use_disc(num_iter):
-                #         self.scaler_disc.step(self.optimizer_disc)
-                #         self.scaler_disc.update()
-                #         self.lr_scheduler_disc.step()
-                #         self.optimizer_disc.zero_grad()
 
                 # print info
                 if num_iter % self.log_interval == 0:
