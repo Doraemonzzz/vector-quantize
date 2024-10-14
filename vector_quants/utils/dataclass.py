@@ -585,6 +585,11 @@ class DataConfig:
     color_jitter: float = field(
         default=0.3, metadata={"help": "Color jitter factor (default: 0.3)"}
     )
+    # pre tokenize params
+    code_path: str = field(
+        default="",
+        metadata={"help": "Path for pre-tokenization"},
+    )
 
 
 @dataclass
