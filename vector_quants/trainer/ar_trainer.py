@@ -60,7 +60,17 @@ class ARTrainer(BaseTrainer):
         mkdir_ckpt_dirs(cfg_train)
 
         # 1, load dataset
-        self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
+        if cfg_data.use_pre_tokenize:
+            self.train_data_loader = get_data_loaders(
+                cfg_train, cfg_data, is_train=True, use_pre_tokenize=True
+            )
+            self.train_image_data_loader = get_data_loaders(
+                cfg_train, cfg_data, is_train=True, use_pre_tokenize=False
+            )
+        else:
+            self.train_data_loader = get_data_loaders(
+                cfg_train, cfg_data, is_train=True
+            )
         self.val_data_loader = get_data_loaders(
             cfg_train, cfg_data, is_train=False, is_indice=True
         )
@@ -167,6 +177,7 @@ class ARTrainer(BaseTrainer):
         self.sample_step = cfg_sample.sample_step
         self.eval_first = True
         self.model_type = cfg_model_stage2.model_name
+        self.use_pre_tokenize = cfg_data.use_pre_tokenize
 
     @property
     def is_main_process(self):
@@ -213,11 +224,10 @@ class ARTrainer(BaseTrainer):
         self.vqvae.eval()
 
         # self.eval()
-
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
-            if epoch % self.eval_interval == 0:
+            if (epoch + 1) % self.eval_interval == 0:
                 self.eval(epoch)
 
             self.model.train()
@@ -244,38 +254,44 @@ class ARTrainer(BaseTrainer):
                 class_idx = input_label.cuda(torch.cuda.current_device())
 
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    with torch.no_grad():
-                        idx = self.vqvae.img_to_indice(input_img)
+                    if self.use_pre_tokenize:
+                        # b 1 n -> b n
+                        idx = input_img.long().squeeze(1)
+                        # b 1 -> b
+                        class_idx = class_idx.squeeze(1)
+                    else:
+                        with torch.no_grad():
+                            idx = self.vqvae.img_to_indice(input_img).long()
 
-                        # clear this later
-                        # feature = self.vqvae.encoder(input_img)
-                        # print(feature.shape)
-                        # h = int(feature.shape[1] ** 0.5)
-                        # from einops import rearrange
-                        # print(self.save)
-                        # feature = rearrange(feature, "b (h w) c -> b c h w", h=h)[:, :3]
-                        # print(input_img.shape, feature.shape)
-                        # # save image for checking training
-                        # save_image(
-                        #     make_grid(
-                        #         torch.cat([input_img]),
-                        #         nrow=input_img.shape[0],
-                        #     ),
-                        #     os.path.join(self.save, f"samples/feature_map_gt.jpg"),
-                        #     normalize=True,
-                        # )
-                        # save_image(
-                        #     make_grid(
-                        #         torch.cat([feature]),
-                        #         nrow=feature.shape[0],
-                        #     ),
-                        #     os.path.join(self.save, f"samples/feature_map.jpg"),
-                        #     normalize=True,
-                        # )
-                        # assert False
+                            # clear this later
+                            # feature = self.vqvae.encoder(input_img)
+                            # print(feature.shape)
+                            # h = int(feature.shape[1] ** 0.5)
+                            # from einops import rearrange
+                            # print(self.save)
+                            # feature = rearrange(feature, "b (h w) c -> b c h w", h=h)[:, :3]
+                            # print(input_img.shape, feature.shape)
+                            # # save image for checking training
+                            # save_image(
+                            #     make_grid(
+                            #         torch.cat([input_img]),
+                            #         nrow=input_img.shape[0],
+                            #     ),
+                            #     os.path.join(self.save, f"samples/feature_map_gt.jpg"),
+                            #     normalize=True,
+                            # )
+                            # save_image(
+                            #     make_grid(
+                            #         torch.cat([feature]),
+                            #         nrow=feature.shape[0],
+                            #     ),
+                            #     os.path.join(self.save, f"samples/feature_map.jpg"),
+                            #     normalize=True,
+                            # )
+                            # assert False
 
-                        if len(idx.shape) != 2:  # b h w g
-                            idx, ps = pack([idx], "b * g")
+                    if len(idx.shape) != 2:  # b h w g
+                        idx, ps = pack([idx], "b * g")
 
                     logits, past_key_values, loss = self.model(
                         idx, class_idx, target=idx
@@ -358,6 +374,11 @@ class ARTrainer(BaseTrainer):
         self.eval_metrics.reset()
 
         if self.eval_first:
+            dataloader = (
+                self.train_data_loader
+                if not self.use_pre_tokenize
+                else self.train_image_data_loader
+            )
             for input_img, _ in tqdm(
                 self.train_data_loader, disable=not self.is_main_process
             ):

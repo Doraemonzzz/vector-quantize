@@ -596,6 +596,17 @@ class DataConfig:
         default="",
         metadata={"help": "Path for pre-tokenization"},
     )
+    feature_dir: str = field(
+        default="",
+        metadata={"help": "Path for pre-tokenization feature"},
+    )
+    label_dir: str = field(
+        default="",
+        metadata={"help": "Path for pre-tokenization label"},
+    )
+    use_pre_tokenize: bool = field(
+        default=False, metadata={"help": "Whether use pre-tokenization"}
+    )
 
 
 @dataclass

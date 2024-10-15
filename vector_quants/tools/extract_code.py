@@ -69,8 +69,8 @@ def main():
                     input_img,
                     use_group_id=True,  # for quantizer has group concept(e.g, Fsq, Rvq, Gvq), we save the code as (n g)
                 )
-        x = idx.detach().cpu().numpy()  # (b, n, g) or (b, n)
-        y = class_idx.detach().cpu().numpy()  # (b, 1)
+        x = idx.detach().cpu().numpy()  # (b, n)
+        y = class_idx.detach().cpu().numpy()  # (b,)
 
         train_steps = rank + total
         np.save(f"{train_code_path}_codes/{train_steps}.npy", x)
