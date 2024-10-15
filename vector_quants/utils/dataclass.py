@@ -450,6 +450,10 @@ class ModelStage2Config:
             "help": "Vocab groups, for example, if we vocab size is 2^16, we can factorize it as [2^8, 2^8]. Use -1 to denote no group"
         },
     )
+    tie_word_embeddings: bool = field(
+        default=False,
+        metadata={"help": "Whether to tie word embeddings with lm head or not"},
+    )
 
 
 @dataclass

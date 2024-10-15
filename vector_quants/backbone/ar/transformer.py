@@ -102,6 +102,7 @@ class TransformerModel(nn.Module):
         base = cfg.theta_base
         use_ape = cfg.use_ape
         vocab_groups = cfg.vocab_groups
+        tie_word_embeddings = cfg.tie_word_embeddings
         # get params end
 
         # setup group
@@ -128,6 +129,7 @@ class TransformerModel(nn.Module):
         self.cfg = cfg
         self.codebook_size = vocab_size
         self.num_class = num_class
+        self.tie_word_embeddings = tie_word_embeddings
 
         num_embed = vocab_size + num_class + 1
         self.num_embed = num_embed
@@ -149,7 +151,8 @@ class TransformerModel(nn.Module):
             [TransformerLayer(cfg) for layer_idx in range(num_layers)]
         )
         self.final_norm = get_norm_fn(norm_type)(embed_dim)
-        self.lm_head = nn.Linear(embed_dim, self.vocab_size_proc, bias=bias)
+        if not self.tie_word_embeddings:
+            self.lm_head = nn.Linear(embed_dim, self.vocab_size_proc, bias=bias)
 
         self.use_ape = use_ape
         if self.use_ape:
@@ -190,6 +193,17 @@ class TransformerModel(nn.Module):
 
         return output
 
+    def forward_lmhead(self, x):
+        if self.tie_word_embeddings:
+            output_list = []
+            for i, embed in enumerate(self.token_embed):
+                output_list.append(F.linear(x, embed.weight))
+            output = torch.cat(output_list, dim=-1)
+        else:
+            output = self.lm_head(x)
+
+        return output
+
     def forward(
         self,
         idx=None,
@@ -209,7 +223,6 @@ class TransformerModel(nn.Module):
                 ],
                 dim=-2,
             )
-
         elif cond_idx is not None:  # prefill
             hidden_state = self.forward_embed(cond_idx, embed_type=1)
         else:  # decode
@@ -237,7 +250,7 @@ class TransformerModel(nn.Module):
 
         hidden_state = self.final_norm(hidden_state)
 
-        logits = self.lm_head(hidden_state)
+        logits = self.forward_lmhead(hidden_state)
         loss = 0
 
         if self.training:

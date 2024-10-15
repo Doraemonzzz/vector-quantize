@@ -14,7 +14,7 @@ class CodeDataset(Dataset):
 
         self.feature_dir = feature_dir
         self.label_dir = label_dir
-        num = DATASET_CONFIGS[cfg.data_set]["num_class"]
+        num = DATASET_CONFIGS[cfg.data_set]["samples"]
         self.feature_files = [f"{i}.npy" for i in range(num)]
         self.label_files = [f"{i}.npy" for i in range(num)]
 
