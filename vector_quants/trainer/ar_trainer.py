@@ -386,6 +386,7 @@ class ARTrainer(BaseTrainer):
                 self.eval_metrics.update(real=input_img.contiguous())
             self.eval_first = False
 
+        save_img = None
         for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
             class_idx = class_idx.cuda(torch.cuda.current_device())
             with torch.no_grad():
@@ -407,10 +408,13 @@ class ARTrainer(BaseTrainer):
 
                     self.eval_metrics.update(fake=generate_img_fid.contiguous())
 
+                    if save_img is None:
+                        save_img = generate_img
+
         # save image for checking training
         save_image(
             make_grid(
-                torch.cat([generate_img[:16]]),
+                torch.cat([save_img[:16]]),
                 nrow=8,
             ),
             os.path.join(self.save, f"samples/epoch_{epoch}.jpg"),
