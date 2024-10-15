@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from einops.layers.torch import Rearrange
+import torch.nn.functional as F
 from xmixers.modules import get_norm_fn
 
 from vector_quants.modules import (
@@ -101,8 +101,29 @@ class TransformerModel(nn.Module):
         bias = cfg.bias
         base = cfg.theta_base
         use_ape = cfg.use_ape
-        num_group = cfg.num_group
+        vocab_groups = cfg.vocab_groups
         # get params end
+
+        # setup group
+        if len(vocab_groups) == 1:
+            assert (
+                vocab_groups[0] == -1
+            ), "vocab_groups[0] must be -1 when len(vocab_groups) == 1"
+            vocab_groups[0] = vocab_size
+        else:
+            vocab_size_group = torch.prod(torch.tensor(vocab_groups)).item()
+            assert (
+                vocab_size_group == vocab_size
+            ), f"prod(vocab_groups): {vocab_size_group} must be vocab_size: {vocab_size}"
+
+        _levels = torch.tensor(vocab_groups, dtype=torch.int64)
+        self.register_buffer("_levels", _levels, persistent=False)
+        _basis = torch.cumprod(
+            torch.tensor([1] + vocab_groups[:-1]), dim=0, dtype=torch.int64
+        )
+        self.register_buffer("_basis", _basis, persistent=False)
+        self.vocab_groups = vocab_groups
+        self.vocab_size_proc = torch.sum(torch.tensor(vocab_groups)).item()
 
         self.cfg = cfg
         self.codebook_size = vocab_size
@@ -112,13 +133,10 @@ class TransformerModel(nn.Module):
         self.num_embed = num_embed
 
         # construct embedding start
-        self.token_embed = nn.Sequential(
-            nn.Embedding(
-                vocab_size,
-                embed_dim // num_group,
-            ),
-            Rearrange("... g d -> ... (g d)"),
-        )
+        token_embed = nn.ModuleList()
+        for vocab_size_ in vocab_groups:
+            token_embed.append(nn.Embedding(vocab_size_, embed_dim))
+        self.token_embed = nn.ModuleList(token_embed)
 
         self.class_embed = ClassEmbedder(
             num_class,
@@ -131,10 +149,7 @@ class TransformerModel(nn.Module):
             [TransformerLayer(cfg) for layer_idx in range(num_layers)]
         )
         self.final_norm = get_norm_fn(norm_type)(embed_dim)
-        self.lm_head = nn.Sequential(
-            Rearrange("... (g d) -> ... g d", g=num_group),
-            nn.Linear(embed_dim // num_group, vocab_size, bias=bias),
-        )
+        self.lm_head = nn.Linear(embed_dim, self.vocab_size_proc, bias=bias)
 
         self.use_ape = use_ape
         if self.use_ape:
@@ -166,7 +181,10 @@ class TransformerModel(nn.Module):
 
     def forward_embed(self, x, embed_type=0):
         if embed_type == 0:
-            output = self.token_embed(x)
+            code = (x.unsqueeze(-1) // self._basis) % self._levels
+            output = 0
+            for i, embed in enumerate(self.token_embed):
+                output = output + embed(code[..., i])
         elif embed_type == 1:
             output = self.class_embed(x)
 
@@ -178,6 +196,7 @@ class TransformerModel(nn.Module):
         cond_idx=None,
         past_key_values=None,
         shape=None,
+        target=None,
     ):
         # compute embed
         if idx is not None and cond_idx is not None:  # training
@@ -219,8 +238,20 @@ class TransformerModel(nn.Module):
         hidden_state = self.final_norm(hidden_state)
 
         logits = self.lm_head(hidden_state)
+        loss = 0
 
         if self.training:
             logits = logits[:, :-1]
+            logits = logits.split(self._levels.tolist(), dim=-1)
+            loss_list = []
+            target = (target.unsqueeze(-1) // self._basis) % self._levels
+            for i, logits_i in enumerate(logits):
+                loss_list.append(
+                    F.cross_entropy(
+                        logits_i.contiguous().view(-1, logits_i.shape[-1]),
+                        target[..., i].long().contiguous().view(-1),
+                    )
+                )
+            loss = torch.mean(torch.stack(loss_list, dim=0))
 
-        return logits, new_past_key_values
+        return logits, new_past_key_values, loss

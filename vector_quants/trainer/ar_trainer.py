@@ -6,7 +6,6 @@ from dataclasses import asdict
 from pprint import pformat
 
 import torch
-import torch.nn.functional as F
 from einops import pack
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
@@ -24,7 +23,6 @@ from vector_quants.utils import (
     compute_grad_norm,
     get_is_1d_token,
     get_metrics_list,
-    get_num_group,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
@@ -45,7 +43,7 @@ class ARTrainer(BaseTrainer):
         logging_info(pformat(asdict(cfg)))
 
         self.cfg = cfg
-        cfg_model = cfg.model
+        cfg.model
         cfg_model_stage2 = cfg.model_stage2
         cfg_train = cfg.train
         cfg_data = cfg.data
@@ -82,18 +80,7 @@ class ARTrainer(BaseTrainer):
 
         # update config
         cfg_model_stage2.num_class = DATASET_CONFIGS[cfg_data.data_set]["num_class"]
-
-        self.use_group_id = cfg_model_stage2.use_group_id
-        num_group = get_num_group(vqvae_config)
-        if self.use_group_id:
-            cfg_model_stage2.num_group = num_group
-            cfg_model_stage2.vocab_size = self.vqvae.num_embed
-            if cfg_model.num_group != 1:
-                cfg_model_stage2.num_group = cfg_model.num_group
-        else:
-            cfg_model_stage2.num_group = 1
-            cfg_model_stage2.vocab_size = self.vqvae.num_embed**num_group
-
+        cfg_model_stage2.vocab_size = self.vqvae.num_embed
         cfg_model_stage2.sample_step = cfg_sample.sample_step
         self.is_1d_token = get_is_1d_token(vqvae_config)
 
@@ -129,12 +116,9 @@ class ARTrainer(BaseTrainer):
             last_iter=-1,
             decay_ratio=cfg_train.lr_decay_ratio,
         )
-
-        # 4. get loss
-        self.loss_fn = F.cross_entropy
         torch.distributed.barrier()
 
-        # 5. resume
+        # 4. resume
         self.start_epoch, self.num_iter = self.resume(cfg_train.ckpt_path_stage2)
         logging_info(f"Start epoch: {self.start_epoch}")
 
@@ -259,9 +243,7 @@ class ARTrainer(BaseTrainer):
 
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                     with torch.no_grad():
-                        idx = self.vqvae.img_to_indice(
-                            input_img, use_group_id=self.use_group_id
-                        )
+                        idx = self.vqvae.img_to_indice(input_img)
 
                         # clear this later
                         # feature = self.vqvae.encoder(input_img)
@@ -290,35 +272,15 @@ class ARTrainer(BaseTrainer):
                         # )
                         # assert False
 
-                        # assume we always have an extra group dim
-                        if not self.is_1d_token:
-                            if len(idx.shape) == 4:  # b h w g
-                                idx, ps = pack([idx], "b * g")
-                            else:  # b h w -> b h w 1
-                                idx, ps = pack([idx], "b *")
-                                idx = idx.unsqueeze(-1)
-                        else:
-                            if len(idx.shape) == 2:  # b n -> b n 1
-                                idx = idx.unsqueeze(-1)
+                        if len(idx.shape) != 2:  # b h w g
+                            idx, ps = pack([idx], "b * g")
 
-                    logits, past_key_values = self.model(idx, class_idx)
-
-                    loss = self.loss_fn(
-                        logits.contiguous().view(-1, logits.shape[-1]),
-                        idx.contiguous().view(-1),
+                    logits, past_key_values, loss = self.model(
+                        idx, class_idx, target=idx
                     )
 
-                    with torch.no_grad():
-                        acc = torch.mean(
-                            logits.argmax(-1)
-                            .flatten()
-                            .eq(idx.flatten())
-                            .to(torch.float)
-                        )
-
                     loss_dict = {
-                        "cross_entropy": loss.cpu().item(),
-                        "acc": acc.cpu().item(),
+                        "cross_entropy_loss": loss.cpu().item(),
                     }
 
                 # backward
@@ -415,7 +377,7 @@ class ARTrainer(BaseTrainer):
                             self.model, cond=class_idx, max_new_tokens=self.sample_step
                         )
                     generate_img = self.vqvae.indice_to_img(
-                        idx, use_group_id=self.use_group_id
+                        idx  # , use_group_id=self.use_group_id
                     )
                     # rescale to [0, 1], for fid
                     generate_img_fid = self.post_transform(generate_img)

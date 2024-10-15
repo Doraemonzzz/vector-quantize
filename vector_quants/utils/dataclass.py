@@ -444,6 +444,12 @@ class ModelStage2Config:
     use_group_id: bool = field(
         default=False, metadata={"help": "Whether to use group id in stage2 model"}
     )
+    vocab_groups: List[int] = field(
+        default_factory=lambda: [-1],
+        metadata={
+            "help": "Vocab groups, for example, if we vocab size is 2^16, we can factorize it as [2^8, 2^8]. Use -1 to denote no group"
+        },
+    )
 
 
 @dataclass
@@ -768,7 +774,7 @@ def get_cfg(args_list=sys.argv[1:]):
                         "--" + key, action="store_true" if val else "store_false"
                     )
                 else:
-                    if key in ["levels", "channel_multipliers"]:
+                    if key in ["levels", "channel_multipliers", "vocab_groups"]:
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
