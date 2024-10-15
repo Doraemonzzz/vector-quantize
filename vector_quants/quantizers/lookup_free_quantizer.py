@@ -23,10 +23,10 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
         self.base = base
         num_levels = embed_dim
         levels = [base] * num_levels
-        _levels = torch.tensor(levels, dtype=torch.int32)
+        _levels = torch.tensor(levels, dtype=torch.int64)
         self.register_buffer("_levels", _levels, persistent=False)
         _basis = torch.cumprod(
-            torch.tensor([1] + levels[:-1]), dim=0, dtype=torch.int32
+            torch.tensor([1] + levels[:-1]), dim=0, dtype=torch.int64
         )
         self.register_buffer("_basis", _basis, persistent=False)
 
@@ -78,7 +78,7 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
     def latent_to_code_and_indice(self, latent):
         mask = latent > 0
 
-        indice = (mask.int() * self._basis).sum(dim=-1).to(torch.int32)
+        indice = (mask.int() * self._basis).sum(dim=-1).to(torch.int64)
         code = torch.where(mask, self.codebook_value, -self.codebook_value)
 
         return code, indice
@@ -86,7 +86,7 @@ class LookUpFreeQuantizer(BaseVectorQuantizer):
     def latent_to_indice(self, latent):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
-        indice = ((latent > 0).int() * self._basis).sum(dim=-1).to(torch.int32)
+        indice = ((latent > 0).int() * self._basis).sum(dim=-1).to(torch.int64)
 
         indice = unpack_one(indice, ps, "*")
 

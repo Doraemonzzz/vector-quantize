@@ -16,9 +16,9 @@ class SequentialScalarQuantizer(BaseVectorQuantizer):
         cfg.num_levels
         # get params end
 
-        _levels = torch.tensor(levels, dtype=torch.int32)
+        _levels = torch.tensor(levels, dtype=torch.int64)
         self.register_buffer("_levels", _levels, persistent=False)
-        _basis = torch.cumprod(torch.tensor(levels), dim=0, dtype=torch.int32)
+        _basis = torch.cumprod(torch.tensor(levels), dim=0, dtype=torch.int64)
         self.register_buffer("_basis", _basis, persistent=False)
 
         self._num_embed = self._levels.prod().item()
@@ -70,7 +70,7 @@ class SequentialScalarQuantizer(BaseVectorQuantizer):
         # (b, *, d) -> (n, d)
         latent, ps = pack_one(latent, "* d")
         number = round_ste(F.sigmoid(latent) * (self._levels - 1))
-        indice = (number * self._basis).sum(dim=-1).to(torch.int32)
+        indice = (number * self._basis).sum(dim=-1).to(torch.int64)
 
         indice = unpack_one(indice, ps, "*")
 

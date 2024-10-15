@@ -19,10 +19,10 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
         commitment_loss_weight = cfg.commitment_loss_weight
         # get params end
 
-        _levels = torch.tensor(levels, dtype=torch.int32)
+        _levels = torch.tensor(levels, dtype=torch.int64)
         self.register_buffer("_levels", _levels, persistent=False)
         _basis = torch.cumprod(
-            torch.tensor([1] + levels[:-1]), dim=0, dtype=torch.int32
+            torch.tensor([1] + levels[:-1]), dim=0, dtype=torch.int64
         )
         self.register_buffer("_basis", _basis, persistent=False)
 
@@ -83,7 +83,7 @@ class HierachicalVectorQuantizer(BaseVectorQuantizer):
             indice_list.append(indice.unsqueeze(-1))
 
         indice = (
-            (torch.cat(indice_list, dim=-1) * self._basis).sum(dim=-1).to(torch.int32)
+            (torch.cat(indice_list, dim=-1) * self._basis).sum(dim=-1).to(torch.int64)
         )
         indice = unpack_one(indice, ps, "*")
 
