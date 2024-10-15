@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import DATASET_CONFIGS, get_data_loaders
-from vector_quants.generate import generate_llamagen, sample
+from vector_quants.generate import generate_llamagen
 from vector_quants.logger import Logger
 from vector_quants.loss import get_post_transform
 from vector_quants.metrics import Metrics, metrics_names
@@ -379,9 +379,7 @@ class ARTrainer(BaseTrainer):
                 if not self.use_pre_tokenize
                 else self.train_image_data_loader
             )
-            for input_img, _ in tqdm(
-                self.train_data_loader, disable=not self.is_main_process
-            ):
+            for input_img, _ in tqdm(dataloader, disable=not self.is_main_process):
                 input_img = input_img.cuda(torch.cuda.current_device())
                 # rescale to [0, 1]
                 input_img = self.post_transform(input_img)
@@ -395,14 +393,15 @@ class ARTrainer(BaseTrainer):
                     # only for test
                     # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
                     if self.model_type == "transformer":
-                        idx = sample(self.model, self.sample_step, c=class_idx)
+                        # idx = sample(self.model, self.sample_step, c=class_idx)
+                        idx = self.model.module.generate(
+                            steps=self.sample_step, c=class_idx
+                        )
                     else:
                         idx = generate_llamagen(
                             self.model, cond=class_idx, max_new_tokens=self.sample_step
                         )
-                    generate_img = self.vqvae.indice_to_img(
-                        idx  # , use_group_id=self.use_group_id
-                    )
+                    generate_img = self.vqvae.indice_to_img(idx)
                     # rescale to [0, 1], for fid
                     generate_img_fid = self.post_transform(generate_img)
 

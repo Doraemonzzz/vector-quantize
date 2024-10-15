@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tqdm import tqdm
 from xmixers.modules import get_norm_fn
 
 from vector_quants.modules import (
@@ -268,3 +269,61 @@ class TransformerModel(nn.Module):
             loss = torch.mean(torch.stack(loss_list, dim=0))
 
         return logits, new_past_key_values, loss
+
+    def top_k_logits(self, logits_list, k):
+        output = []
+        for logits in logits_list:
+            k = min(k, logits.shape[-1])
+            # only sample topk
+            v, ix = torch.topk(logits, k, dim=-1)
+            out = logits.clone()
+            out[out < v[..., [-1]]] = -float("inf")
+            output.append(out)
+
+        return output
+
+    @torch.no_grad()
+    def generate(self, steps, c=None, cfg_scale=1.0, temperature=1.0, top_k=100):
+        self.eval()
+        shape = [steps]
+        # prefill
+        past_key_values = None
+        start = 0
+        x = None
+
+        for k in tqdm(range(start, steps)):
+            cond_idx = c if k == 0 else None
+            logits, past_key_values, _ = self.forward(
+                idx=x, cond_idx=cond_idx, past_key_values=past_key_values, shape=shape
+            )
+            # get the last token's logits
+            # b V
+            logits = (
+                logits[
+                    :,
+                    -1,
+                ]
+                / temperature
+            )
+
+            # split over group
+            logits_list = logits.split(self._levels.tolist(), dim=-1)
+
+            if top_k is not None:
+                logits_list = self.top_k_logits(logits_list, top_k)
+
+            idx_list = []
+            for logits in logits_list:
+                probs = F.softmax(logits, dim=-1)
+                # probs: b n v
+                x = torch.multinomial(probs, num_samples=1)
+                idx_list.append(x)
+            idx_new = (
+                (torch.cat(idx_list, dim=-1) * self._basis).sum(dim=-1).to(torch.int64)
+            )
+
+            idx = torch.cat([idx, idx_new.unsqueeze(-1)], dim=1) if k != 0 else x
+
+        del past_key_values
+
+        return idx
