@@ -173,9 +173,11 @@ class ARTrainer(BaseTrainer):
         return is_main_process()
 
     def resume(self, ckpt_path):
+        num_iter = 0
+        start_epoch = 0
         if ckpt_path == None:
             logging_info(f"Train from scratch")
-            return 1, 1
+            return num_iter, start_epoch
 
         pkg = torch.load(ckpt_path, map_location="cpu")
 
@@ -325,7 +327,8 @@ class ARTrainer(BaseTrainer):
 
             # save checkpoints
             if (
-                epoch % self.save_interval == 0 or (epoch == self.max_train_epochs - 1)
+                (epoch + 1) % self.save_interval == 0
+                or (epoch + 1 == self.max_train_epochs)
             ) and self.is_main_process:
                 torch.save(
                     {
@@ -337,7 +340,7 @@ class ARTrainer(BaseTrainer):
                         "scaler_state_dict": self.scaler.state_dict(),
                         "cfg": self.cfg,
                     },
-                    os.path.join(self.save, f"ckpts/{epoch}.pt"),
+                    os.path.join(self.save, f"ckpts/{epoch + 1}.pt"),
                 )
 
         total_time = time.time() - start_time
