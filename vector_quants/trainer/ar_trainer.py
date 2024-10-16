@@ -223,7 +223,7 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        # self.eval()
+        self.eval()
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
@@ -417,7 +417,7 @@ class ARTrainer(BaseTrainer):
                 torch.cat([save_img[:16]]),
                 nrow=8,
             ),
-            os.path.join(self.save, f"samples/epoch_{epoch}.jpg"),
+            os.path.join(self.save, f"samples/epoch_{epoch + 1}.jpg"),
             normalize=True,
         )
 

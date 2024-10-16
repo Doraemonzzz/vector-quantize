@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from tqdm import tqdm
 from xmixers.modules import get_norm_fn
 
 from vector_quants.modules import (
@@ -162,14 +161,15 @@ class TransformerModel(nn.Module):
                 base=base,
             )
 
-        # self.initialize_weights()
+        self.initialize_weights()
 
     def initialize_weights(self):
         # Initialize nn.Linear and nn.Embedding
         self.apply(self._init_weights)
 
-        # # Zero-out output layers:
-        # nn.init.constant_(self.lm_head[1].weight, 0)
+        # Zero-out output layers:
+        if not self.tie_word_embeddings:
+            nn.init.constant_(self.lm_head.weight, 0)
 
     def _init_weights(self, module):
         std = self.cfg.init_std
@@ -283,7 +283,7 @@ class TransformerModel(nn.Module):
         return output
 
     @torch.no_grad()
-    def generate(self, steps, c=None, cfg_scale=1.0, temperature=1.0, top_k=100):
+    def generate(self, steps, c=None, cfg_scale=1.0, temperature=1.0, top_k=None):
         self.eval()
         shape = [steps]
         # prefill
@@ -291,7 +291,7 @@ class TransformerModel(nn.Module):
         start = 0
         x = None
 
-        for k in tqdm(range(start, steps)):
+        for k in range(start, steps):
             cond_idx = c if k == 0 else None
             logits, past_key_values, _ = self.forward(
                 idx=x, cond_idx=cond_idx, past_key_values=past_key_values, shape=shape

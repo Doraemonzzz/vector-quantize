@@ -380,11 +380,11 @@ class VQTrainer(BaseTrainer):
                         self.model, scale=self.scaler.get_scale()
                     )
 
-                if grad_norm >= self.gnorm_threshold:
-                    logging_info(
-                        f"Gradient norm too large: {grad_norm}, threshold: {self.gnorm_threshold}."
-                    )
-                    continue
+                # if grad_norm >= self.gnorm_threshold:
+                #     logging_info(
+                #         f"Gradient norm too large: {grad_norm}, threshold: {self.gnorm_threshold}."
+                #     )
+                #     continue
 
                 if num_iter % self.gradient_accumulation_steps == 0:
                     if self.clip_grad:
