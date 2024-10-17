@@ -97,10 +97,6 @@ class MdLrpe(nn.Module):
         return f"num_heads={self.num_heads}, head_dim={self.head_dim}, lrpe_type={self.lrpe_type}"
 
     def get_theta_with_offset(self, n, offset=0):
-        # if offset == 0:
-        #     return self.theta_
-        # else:
-        #     return self.theta_[:, offset : offset + 1]
         return self.theta_[:, offset : offset + n]
 
     def forward(self, x, shape=None, offset=0):

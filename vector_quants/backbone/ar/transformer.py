@@ -261,6 +261,12 @@ class TransformerModel(nn.Module):
             loss_list = []
             target = (target.unsqueeze(-1) // self._basis) % self._levels
             for i, logits_i in enumerate(logits):
+                print(
+                    logits_i.shape,
+                    target[..., i].shape,
+                    torch.min(target[..., i]),
+                    torch.max(target[..., i]),
+                )
                 loss_list.append(
                     F.cross_entropy(
                         logits_i.contiguous().view(-1, logits_i.shape[-1]),
@@ -322,6 +328,7 @@ class TransformerModel(nn.Module):
             idx_new = (
                 (torch.cat(idx_list, dim=-1) * self._basis).sum(dim=-1).to(torch.int64)
             )
+            x = idx_new.unsqueeze(-1)
 
             idx = torch.cat([idx, idx_new.unsqueeze(-1)], dim=1) if k != 0 else x
 
