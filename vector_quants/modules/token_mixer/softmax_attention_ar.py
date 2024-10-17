@@ -69,7 +69,6 @@ class SoftmaxAttentionAr(nn.Module):
             q_offset = past_key_value[0].shape[-2]
 
         past_key_value = (k, v) if not self.training else None
-
         # lrpe
         if self.use_lrpe:
             q = self.lrpe(q, shape=shape, offset=q_offset)

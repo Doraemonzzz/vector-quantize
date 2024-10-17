@@ -245,6 +245,7 @@ class TransformerModel(nn.Module):
             layer_outputs = layer(
                 hidden_state,
                 past_key_value=past_key_values[i],
+                shape=shape,
             )
             hidden_state = layer_outputs[0]
             new_past_key_values[i] = layer_outputs[1]
