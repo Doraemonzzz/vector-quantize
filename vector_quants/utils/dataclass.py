@@ -797,9 +797,10 @@ def get_cfg(args_list=sys.argv[1:]):
                         "levels",
                         "channel_multipliers",
                         "vocab_groups",
-                        "cfg_scale_list",
                     ]:
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
+                    elif key in ["cfg_scale_list",]:
+                        aux_parser.add_argument("--" + key, type=float, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
             cmd_args, _ = aux_parser.parse_known_args(args_list)
