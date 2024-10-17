@@ -229,9 +229,6 @@ class ARTrainer(BaseTrainer):
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
-            if (epoch + 1) % self.eval_interval == 0:
-                self.eval(epoch)
-
             self.model.train()
 
             for _, (input_img, input_label) in enumerate(self.train_data_loader):
@@ -342,6 +339,9 @@ class ARTrainer(BaseTrainer):
                     )
 
                 num_iter += 1
+
+            if (epoch + 1) % self.eval_interval == 0:
+                self.eval(epoch)
 
             # save checkpoints
             if (
