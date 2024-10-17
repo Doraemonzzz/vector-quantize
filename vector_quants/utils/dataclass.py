@@ -799,7 +799,9 @@ def get_cfg(args_list=sys.argv[1:]):
                         "vocab_groups",
                     ]:
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
-                    elif key in ["cfg_scale_list",]:
+                    elif key in [
+                        "cfg_scale_list",
+                    ]:
                         aux_parser.add_argument("--" + key, type=float, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
