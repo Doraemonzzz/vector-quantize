@@ -261,12 +261,6 @@ class TransformerModel(nn.Module):
             loss_list = []
             target = (target.unsqueeze(-1) // self._basis) % self._levels
             for i, logits_i in enumerate(logits):
-                print(
-                    logits_i.shape,
-                    target[..., i].shape,
-                    torch.min(target[..., i]),
-                    torch.max(target[..., i]),
-                )
                 loss_list.append(
                     F.cross_entropy(
                         logits_i.contiguous().view(-1, logits_i.shape[-1]),
@@ -292,6 +286,11 @@ class TransformerModel(nn.Module):
     @torch.no_grad()
     def generate(self, steps, c=None, cfg_scale=1.0, temperature=1.0, top_k=None):
         self.eval()
+        if cfg_scale > 1.0:
+            assert c != None, "cfg_scale must > 1.0 when c is not None"
+        if cfg_scale > 0:
+            cond_null = torch.ones_like(c) * self.num_class
+            c = torch.cat([c, cond_null], dim=0)
         shape = [steps]
         # prefill
         past_key_values = None
@@ -312,6 +311,9 @@ class TransformerModel(nn.Module):
                 ]
                 / temperature
             )
+            if cfg_scale > 1.0:
+                logits, logits_uncond = logits.chunk(2, dim=0)
+                logits = logits_uncond + cfg_scale * (logits - logits_uncond)
 
             # split over group
             logits_list = logits.split(self._levels.tolist(), dim=-1)
@@ -331,6 +333,9 @@ class TransformerModel(nn.Module):
             x = idx_new.unsqueeze(-1)
 
             idx = torch.cat([idx, idx_new.unsqueeze(-1)], dim=1) if k != 0 else x
+            
+            if cfg_scale > 1.0:
+                x = torch.cat([x, x], dim=0)
 
         del past_key_values
 

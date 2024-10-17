@@ -28,6 +28,7 @@ from vector_quants.utils import (
     mkdir_ckpt_dirs,
     set_random_seed,
     type_dict,
+    update_dict
 )
 
 from .base_trainer import BaseTrainer
@@ -43,7 +44,6 @@ class ARTrainer(BaseTrainer):
         logging_info(pformat(asdict(cfg)))
 
         self.cfg = cfg
-        cfg.model
         cfg_model_stage2 = cfg.model_stage2
         cfg_train = cfg.train
         cfg_data = cfg.data
@@ -150,10 +150,11 @@ class ARTrainer(BaseTrainer):
         )
 
         # logger
+        self.cfg_scale_list = [0] + cfg_loss.cfg_scale_list
         self.logger = Logger(
             keys=["epoch", "iter", "lr"]
             + ["cross_entropy", "acc"]
-            + metrics_names
+            + metrics_names + [f"fid{cfg_scale}" for cfg_scale in self.cfg_scale_list]
             + ["gnorm"],
             use_wandb=cfg_train.use_wandb,
             cfg=cfg,
@@ -223,7 +224,7 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        self.eval()
+        # self.eval()
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
@@ -386,44 +387,51 @@ class ARTrainer(BaseTrainer):
                 self.eval_metrics.update(real=input_img.contiguous())
             self.eval_first = False
 
-        save_img = None
-        for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
-            class_idx = class_idx.cuda(torch.cuda.current_device())
-            with torch.no_grad():
-                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    # only for test
-                    # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
-                    if self.model_type == "transformer":
-                        # idx = sample(self.model, self.sample_step, c=class_idx)
-                        idx = self.model.module.generate(
-                            steps=self.sample_step, c=class_idx
-                        )
-                    else:
-                        idx = generate_llamagen(
-                            self.model, cond=class_idx, max_new_tokens=self.sample_step
-                        )
-                    generate_img = self.vqvae.indice_to_img(idx)
-                    # rescale to [0, 1], for fid
-                    generate_img_fid = self.post_transform(generate_img)
+        eval_results_total = {}
+        for cfg_scale in self.cfg_scale_list:
+            save_img = None
+            self.eval_metrics.reset()
+            for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
+                class_idx = class_idx.cuda(torch.cuda.current_device())
+                with torch.no_grad():
+                    with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                        # only for test
+                        # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
+                        if self.model_type == "transformer":
+                            # idx = sample(self.model, self.sample_step, c=class_idx)
+                            idx = self.model.module.generate(
+                                steps=self.sample_step, c=class_idx, cfg_scale=cfg_scale
+                            )
+                        else:
+                            idx = generate_llamagen(
+                                self.model, cond=class_idx, max_new_tokens=self.sample_step
+                            )
+                        generate_img = self.vqvae.indice_to_img(idx)
+                        # rescale to [0, 1], for fid
+                        generate_img_fid = self.post_transform(generate_img)
 
-                    self.eval_metrics.update(fake=generate_img_fid.contiguous())
+                        self.eval_metrics.update(fake=generate_img_fid.contiguous())
 
-                    if save_img is None:
-                        save_img = generate_img
+                        if save_img is None:
+                            save_img = generate_img
 
-        # save image for checking training
-        save_image(
-            make_grid(
-                torch.cat([save_img[:16]]),
-                nrow=8,
-            ),
-            os.path.join(self.save, f"samples/epoch_{epoch + 1}.jpg"),
-            normalize=True,
-        )
+            # save image for checking training
+            save_image(
+                make_grid(
+                    torch.cat([save_img[:16]]),
+                    nrow=8,
+                ),
+                os.path.join(self.save, f"samples/epoch_{epoch + 1}_fid{cfg_scale}.jpg"),
+                normalize=True,
+            )
 
-        eval_results = self.eval_metrics.compute_and_reduce()
+            eval_results = self.eval_metrics.compute_and_reduce()
+            if cfg_scale > 1:
+                eval_results = {f"fid{cfg_scale}": eval_results.get("fid", -1)}
+            
+            eval_results_total = update_dict(eval_results_total, eval_results)
 
-        self.logger.log(**(eval_results))
+        self.logger.log(**(eval_results_total))
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")

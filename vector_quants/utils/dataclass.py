@@ -706,6 +706,10 @@ class LossConfig:
     gp_loss_weight: float = field(
         default=0.0, metadata={"help": "Gradient penalty loss weight for discriminator"}
     )
+    cfg_scale_list: List[float] = field(
+        default_factory=lambda: [],
+        metadata={"help": "Config scale list"},
+    )
 
 
 @dataclass
@@ -789,7 +793,7 @@ def get_cfg(args_list=sys.argv[1:]):
                         "--" + key, action="store_true" if val else "store_false"
                     )
                 else:
-                    if key in ["levels", "channel_multipliers", "vocab_groups"]:
+                    if key in ["levels", "channel_multipliers", "vocab_groups", "cfg_scale_list"]:
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
