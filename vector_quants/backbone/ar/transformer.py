@@ -333,7 +333,7 @@ class TransformerModel(nn.Module):
             x = idx_new.unsqueeze(-1)
 
             idx = torch.cat([idx, idx_new.unsqueeze(-1)], dim=1) if k != 0 else x
-            
+
             if cfg_scale > 1.0:
                 x = torch.cat([x, x], dim=0)
 

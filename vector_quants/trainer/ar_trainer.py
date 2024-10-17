@@ -28,7 +28,7 @@ from vector_quants.utils import (
     mkdir_ckpt_dirs,
     set_random_seed,
     type_dict,
-    update_dict
+    update_dict,
 )
 
 from .base_trainer import BaseTrainer
@@ -154,7 +154,8 @@ class ARTrainer(BaseTrainer):
         self.logger = Logger(
             keys=["epoch", "iter", "lr"]
             + ["cross_entropy", "acc"]
-            + metrics_names + [f"fid{cfg_scale}" for cfg_scale in self.cfg_scale_list]
+            + metrics_names
+            + [f"fid{cfg_scale}" for cfg_scale in self.cfg_scale_list]
             + ["gnorm"],
             use_wandb=cfg_train.use_wandb,
             cfg=cfg,
@@ -391,7 +392,9 @@ class ARTrainer(BaseTrainer):
         for cfg_scale in self.cfg_scale_list:
             save_img = None
             self.eval_metrics.reset()
-            for class_idx in tqdm(self.val_data_loader, disable=not self.is_main_process):
+            for class_idx in tqdm(
+                self.val_data_loader, disable=not self.is_main_process
+            ):
                 class_idx = class_idx.cuda(torch.cuda.current_device())
                 with torch.no_grad():
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
@@ -404,7 +407,9 @@ class ARTrainer(BaseTrainer):
                             )
                         else:
                             idx = generate_llamagen(
-                                self.model, cond=class_idx, max_new_tokens=self.sample_step
+                                self.model,
+                                cond=class_idx,
+                                max_new_tokens=self.sample_step,
                             )
                         generate_img = self.vqvae.indice_to_img(idx)
                         # rescale to [0, 1], for fid
@@ -421,14 +426,16 @@ class ARTrainer(BaseTrainer):
                     torch.cat([save_img[:16]]),
                     nrow=8,
                 ),
-                os.path.join(self.save, f"samples/epoch_{epoch + 1}_fid{cfg_scale}.jpg"),
+                os.path.join(
+                    self.save, f"samples/epoch_{epoch + 1}_fid{cfg_scale}.jpg"
+                ),
                 normalize=True,
             )
 
             eval_results = self.eval_metrics.compute_and_reduce()
             if cfg_scale > 1:
                 eval_results = {f"fid{cfg_scale}": eval_results.get("fid", -1)}
-            
+
             eval_results_total = update_dict(eval_results_total, eval_results)
 
         self.logger.log(**(eval_results_total))

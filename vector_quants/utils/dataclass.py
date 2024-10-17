@@ -793,7 +793,12 @@ def get_cfg(args_list=sys.argv[1:]):
                         "--" + key, action="store_true" if val else "store_false"
                     )
                 else:
-                    if key in ["levels", "channel_multipliers", "vocab_groups", "cfg_scale_list"]:
+                    if key in [
+                        "levels",
+                        "channel_multipliers",
+                        "vocab_groups",
+                        "cfg_scale_list",
+                    ]:
                         aux_parser.add_argument("--" + key, type=int, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
