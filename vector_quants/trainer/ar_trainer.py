@@ -5,13 +5,16 @@ from collections import OrderedDict
 from dataclasses import asdict
 from pprint import pformat
 
+import numpy as np
 import torch
-from einops import pack
+import torch.distributed as dist
+from einops import pack, rearrange
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import DATASET_CONFIGS, get_data_loaders
+from vector_quants.evaluator import OpenaiEvaluator
 from vector_quants.generate import generate_llamagen
 from vector_quants.logger import Logger
 from vector_quants.loss import get_post_transform
@@ -180,6 +183,7 @@ class ARTrainer(BaseTrainer):
         self.eval_first = True
         self.model_type = cfg_model_stage2.model_name
         self.use_pre_tokenize = cfg_data.use_pre_tokenize
+        self.ref_batch = cfg_train.ref_batch
 
     @property
     def is_main_process(self):
@@ -226,6 +230,7 @@ class ARTrainer(BaseTrainer):
         self.vqvae.eval()
 
         # self.eval()
+        # self.eval_openai()
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
@@ -366,6 +371,7 @@ class ARTrainer(BaseTrainer):
         logging_info("Training time {}".format(total_time_str))
 
         self.eval(epoch)
+        self.eval_openai(epoch)
 
     # update this later
     def eval(self, epoch=1):
@@ -421,16 +427,17 @@ class ARTrainer(BaseTrainer):
                             save_img = generate_img
 
             # save image for checking training
-            save_image(
-                make_grid(
-                    torch.cat([save_img[:16]]),
-                    nrow=8,
-                ),
-                os.path.join(
-                    self.save, f"samples/epoch_{epoch + 1}_fid{cfg_scale}.jpg"
-                ),
-                normalize=True,
-            )
+            if self.is_main_process:
+                save_image(
+                    make_grid(
+                        torch.cat([save_img[:16]]),
+                        nrow=8,
+                    ),
+                    os.path.join(
+                        self.save, f"samples/epoch_{epoch + 1}_fid{cfg_scale}.jpg"
+                    ),
+                    normalize=True,
+                )
 
             eval_results = self.eval_metrics.compute_and_reduce()
             if cfg_scale > 1:
@@ -442,3 +449,81 @@ class ARTrainer(BaseTrainer):
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")
+
+    def eval_openai(self, epoch=1):
+        self.model.eval()
+        self.vqvae.eval()
+
+        for cfg_scale in self.cfg_scale_list:
+            image_list = []
+            for class_idx in tqdm(
+                self.val_data_loader, disable=not self.is_main_process
+            ):
+                class_idx = class_idx.cuda(torch.cuda.current_device())
+                with torch.no_grad():
+                    with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                        # only for test
+                        # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
+                        if self.model_type == "transformer":
+                            # idx = sample(self.model, self.sample_step, c=class_idx)
+                            idx = self.model.module.generate(
+                                steps=self.sample_step, c=class_idx, cfg_scale=cfg_scale
+                            )
+                        else:
+                            idx = generate_llamagen(
+                                self.model,
+                                cond=class_idx,
+                                max_new_tokens=self.sample_step,
+                            )
+                        generate_img = self.vqvae.indice_to_img(idx)
+                        # rescale to [0, 1], for fid
+                        generate_img_fid = self.post_transform(generate_img)
+
+                        image_list.append(generate_img_fid)
+                break
+            data = torch.cat(image_list, dim=0)
+
+            # credit to: https://github.com/pytorch/ignite/issues/1569#issuecomment-767247092
+            # make sure the data is evenly-divisible on multi-GPUs
+            length = torch.tensor(
+                [data.shape[0]], dtype=torch.int64, device=torch.cuda.current_device()
+            )
+            length_list = [
+                torch.zeros(1, dtype=torch.int64, device=torch.cuda.current_device())
+                for _ in range(dist.get_world_size())
+            ]
+            dist.all_gather(length_list, length)
+            length_list = torch.cat(length_list, dim=0)
+            max_len = torch.max(length_list).item()
+            if length < max_len:
+                size = [max_len - length] + list(data.shape[1:])
+                data = torch.cat([data, data.new_full(size, float("NaN"))], dim=0)
+            # all gather across all processes
+            data_list = [torch.zeros_like(data) for _ in range(dist.get_world_size())]
+            dist.all_gather(data_list, data)
+            data_list = torch.cat(data_list, dim=0)
+
+            if self.is_main_process:
+                # delete the padding NaN items
+                data = torch.cat(
+                    [
+                        data_list[i * max_len : i * max_len + l, ...]
+                        for i, l in enumerate(length_list.tolist())
+                    ],
+                    dim=0,
+                )
+                # convert to [0, 255]
+                data = torch.clamp(127.5 * data + 128.0, 0, 255)
+                data = (
+                    rearrange(data, "b c h w -> b h w c")
+                    .to("cpu", dtype=torch.uint8)
+                    .numpy()
+                )
+                name = f"epoch_{epoch + 1}_fid{cfg_scale}"
+                npz_path = os.path.join(self.save, f"{name}.npz")
+                np.savez(npz_path, arr_0=data)
+
+                result = OpenaiEvaluator(self.ref_batch, npz_path)
+                result["name"] = name
+
+                logging_info(result)

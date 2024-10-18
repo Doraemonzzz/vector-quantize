@@ -23,7 +23,7 @@ def main():
 
     trainer = ARTrainer(cfg)
     if cfg.train.eval_only:
-        trainer.eval()
+        trainer.eval_openai()
     else:
         trainer.train()
 

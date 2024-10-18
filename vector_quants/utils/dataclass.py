@@ -570,6 +570,10 @@ class TrainingConfig:
         default=False,
         metadata={"help": "Only load model without optimizer, scheduler, etc."},
     )
+    ref_batch: str = field(
+        default="",
+        metadata={"help": "Reference batch path for openai evaluation"},
+    )
 
 
 @dataclass
