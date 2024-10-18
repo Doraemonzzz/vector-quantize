@@ -454,12 +454,16 @@ class ARTrainer(BaseTrainer):
         self.model.eval()
         self.vqvae.eval()
 
+        npy_dir = os.path.join(self.save, "npy_proc")
         for cfg_scale in self.cfg_scale_list:
-            image_list = []
-            for class_idx in tqdm(
-                self.val_data_loader, disable=not self.is_main_process
+            npy_proc = os.path.join(npy_dir, f"fid{cfg_scale}")
+            os.makedirs(npy_proc, exist_ok=True)
+
+            for i, class_idx in tqdm(
+                enumerate(self.val_data_loader), disable=not self.is_main_process
             ):
                 class_idx = class_idx.cuda(torch.cuda.current_device())
+
                 with torch.no_grad():
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                         # only for test
@@ -478,47 +482,29 @@ class ARTrainer(BaseTrainer):
                         generate_img = self.vqvae.indice_to_img(idx)
                         # rescale to [0, 1], for fid
                         generate_img_fid = self.post_transform(generate_img)
+                        # convert [0, 1] to [0, 255]
+                        data = torch.clamp(255 * generate_img_fid, 0, 255)
+                        data = (
+                            rearrange(data, "b c h w -> b h w c")
+                            .to("cpu", dtype=torch.uint8)
+                            .numpy()
+                        )
+                        name = f"epoch_{epoch + 1}_fid{cfg_scale}_rank{dist.get_rank()}_iter{i}"
+                        npz_path = os.path.join(npy_proc, f"{name}.npy")
+                        np.save(npz_path, arr=data)
 
-                        image_list.append(generate_img_fid)
-                break
-            data = torch.cat(image_list, dim=0)
-
-            # credit to: https://github.com/pytorch/ignite/issues/1569#issuecomment-767247092
-            # make sure the data is evenly-divisible on multi-GPUs
-            length = torch.tensor(
-                [data.shape[0]], dtype=torch.int64, device=torch.cuda.current_device()
-            )
-            length_list = [
-                torch.zeros(1, dtype=torch.int64, device=torch.cuda.current_device())
-                for _ in range(dist.get_world_size())
-            ]
-            dist.all_gather(length_list, length)
-            length_list = torch.cat(length_list, dim=0)
-            max_len = torch.max(length_list).item()
-            if length < max_len:
-                size = [max_len - length] + list(data.shape[1:])
-                data = torch.cat([data, data.new_full(size, float("NaN"))], dim=0)
-            # all gather across all processes
-            data_list = [torch.zeros_like(data) for _ in range(dist.get_world_size())]
-            dist.all_gather(data_list, data)
-            data_list = torch.cat(data_list, dim=0)
+            dist.barrier()
 
             if self.is_main_process:
-                # delete the padding NaN items
-                data = torch.cat(
-                    [
-                        data_list[i * max_len : i * max_len + l, ...]
-                        for i, l in enumerate(length_list.tolist())
-                    ],
-                    dim=0,
-                )
-                # convert to [0, 255]
-                data = torch.clamp(127.5 * data + 128.0, 0, 255)
-                data = (
-                    rearrange(data, "b c h w -> b h w c")
-                    .to("cpu", dtype=torch.uint8)
-                    .numpy()
-                )
+                data_list = []
+                num = 0
+                for file in os.listdir(npy_proc):
+                    data = np.load(os.path.join(npy_proc, file))
+                    data_list.append(data)
+                    num += data.shape[0]
+
+                data = np.concatenate(data_list, axis=0)
+                assert data.shape == (num, data.shape[1], data.shape[2], 3)
                 name = f"epoch_{epoch + 1}_fid{cfg_scale}"
                 npz_path = os.path.join(self.save, f"{name}.npz")
                 np.savez(npz_path, arr_0=data)

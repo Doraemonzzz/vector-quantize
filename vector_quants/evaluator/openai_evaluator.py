@@ -26,6 +26,18 @@ FID_POOL_NAME = "pool_3:0"
 FID_SPATIAL_NAME = "mixed_6/conv:0"
 
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("ref_batch", help="path to reference batch npz file")
+    parser.add_argument("sample_batch", help="path to sample batch npz file")
+    args = parser.parse_args()
+
+    res = OpenaiEvaluator(args.ref_batch, args.sample_batch)
+
+    for k, v in res.items():
+        print(f"{k}: {v}")
+
+
 def OpenaiEvaluator(ref_batch, sample_batch):
     config = tf.ConfigProto(
         allow_soft_placement=True  # allows DecodeJpeg to run on CPU in Inception graph
