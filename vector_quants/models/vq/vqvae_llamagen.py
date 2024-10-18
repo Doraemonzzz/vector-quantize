@@ -96,10 +96,6 @@ class VqVaeLlamaGen(nn.Module):
         return indice
 
     def indice_to_img(self, x, **kwargs):
-        # b n g -> b n
-        # assume llama gen vqvae only support group size=1
-        assert x.shape[-1] == 1
-        x = x.squeeze(-1)
         return self.decode_code(x)
 
 
