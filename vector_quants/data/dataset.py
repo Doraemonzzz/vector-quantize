@@ -29,45 +29,13 @@ def get_transform(args, is_train=True):
     return transforms.Compose(transform)
 
 
-# def get_data_loaders_by_args(args, is_train=True):
-#     transform = get_transform(args, is_train)
-#     if args.data_set == "cifar100":
-#         dataset = datasets.CIFAR100(args.data_path, train=is_train, transform=transform)
-#     elif args.data_set == "imagenet-1k":
-#         if is_train:
-#             name = "train"
-#         else:
-#             name = "val"
-#         dataset = datasets.ImageFolder(
-#             os.path.join(args.data_path, name), transform=transform
-#         )
-
-#     sampler = torch.utils.data.DistributedSampler(
-#         dataset,
-#         num_replicas=torch.distributed.get_world_size(),
-#         rank=torch.distributed.get_rank(),
-#         shuffle=is_train,
-#         seed=args.seed,
-#     )
-
-#     data_loader = torch.utils.data.DataLoader(
-#         dataset,
-#         sampler=sampler,
-#         batch_size=args.batch_size,
-#         num_workers=args.num_workers,
-#         drop_last=is_train,
-#     )
-
-#     return data_loader
-
-
 def get_data_loaders(
     cfg_train, cfg_data, is_train=True, is_indice=False, use_pre_tokenize=False
 ):
     transform = get_transform(cfg_data)
     if is_indice:
         # for generation only
-        assert not is_train, "indice dataset should be used for training"
+        assert not is_train, "indice dataset should not be used for training"
         dataset = IndiceDataset(
             cfg_data,
         )

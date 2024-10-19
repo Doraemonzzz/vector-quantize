@@ -175,6 +175,9 @@ class ARTrainer(BaseTrainer):
         self.gradient_accumulation_steps = cfg_train.gradient_accumulation_steps
         self.save_interval = cfg_train.save_interval
         self.save = cfg_train.save
+        if "llamagen" in cfg_train.ckpt_path_stage1:
+            cfg_loss.post_transform_type = -1
+            logging_info("Use llamagen post_transform")
         self.post_transform = get_post_transform(
             cfg_loss.post_transform_type, data_set=cfg_data.data_set
         )
@@ -424,7 +427,7 @@ class ARTrainer(BaseTrainer):
                         self.eval_metrics.update(fake=generate_img_fid.contiguous())
 
                         if save_img is None:
-                            save_img = generate_img
+                            save_img = generate_img_fid
 
             # save image for checking training
             if self.is_main_process:
@@ -480,7 +483,7 @@ class ARTrainer(BaseTrainer):
                                 max_new_tokens=self.sample_step,
                             )
                         generate_img = self.vqvae.indice_to_img(idx)
-                        # rescale to [0, 1], for fid
+                        # rescale to [0, 1]
                         generate_img_fid = self.post_transform(generate_img)
                         # convert [0, 1] to [0, 255]
                         data = torch.clamp(255 * generate_img_fid, 0, 255)
