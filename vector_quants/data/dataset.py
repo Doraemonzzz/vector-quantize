@@ -9,22 +9,36 @@ from .constants import get_mean_std_from_dataset_name
 from .indice_dataset import IndiceDataset
 
 
-def get_transform(args, is_train=True):
-    if args.three_augment and is_train:
-        pre_transform = new_data_aug_generator(args)
+def get_transform(cfg_data, cfg_train, is_train=True):
+    if cfg_data.three_augment and is_train:
+        pre_transform = new_data_aug_generator(cfg_data)
         post_transform = [
             transforms.ToTensor(),
-            transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set)),
+            transforms.Normalize(*get_mean_std_from_dataset_name(cfg_data.data_set)),
         ]
         transform = pre_transform + post_transform
     else:
-        # Train and Val share the same transform
-        transform = [
-            transforms.Resize(args.image_size),
-            transforms.CenterCrop(args.image_size),
-            transforms.ToTensor(),
-            transforms.Normalize(*get_mean_std_from_dataset_name(args.data_set)),
-        ]
+        if "llamagen" in cfg_train.ckpt_path_stage1:
+            mean = [0.5, 0.5, 0.5]
+            std = [0.5, 0.5, 0.5]
+        else:
+            mean, std = get_mean_std_from_dataset_name(cfg_data.data_set)
+
+        if is_train:
+            transform = [
+                transforms.Resize(cfg_data.image_size),
+                transforms.RandomCrop(cfg_data.image_size),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std),
+            ]
+        else:
+            transform = [
+                transforms.Resize(cfg_data.image_size),
+                transforms.CenterCrop(cfg_data.image_size),
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std),
+            ]
 
     return transforms.Compose(transform)
 
@@ -32,7 +46,7 @@ def get_transform(args, is_train=True):
 def get_data_loaders(
     cfg_train, cfg_data, is_train=True, is_indice=False, use_pre_tokenize=False
 ):
-    transform = get_transform(cfg_data)
+    transform = get_transform(cfg_data, cfg_train, is_train=is_train)
     if is_indice:
         # for generation only
         assert not is_train, "indice dataset should not be used for training"
