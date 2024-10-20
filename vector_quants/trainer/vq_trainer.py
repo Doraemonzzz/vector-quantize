@@ -326,7 +326,7 @@ class VQTrainer(BaseTrainer):
 
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
-                if num_iter == 1 and self.is_main_process:
+                if num_iter == 0 and self.is_main_process:
                     torch.save(
                         {
                             "epoch": epoch,

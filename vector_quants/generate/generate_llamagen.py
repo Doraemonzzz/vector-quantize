@@ -91,14 +91,14 @@ def prefill(
     **sampling_kwargs
 ):
     if cfg_scale > 1.0:
-        logits, _ = model(None, cond_idx, input_pos)
+        logits, _, _ = model(None, cond_idx, input_pos)
         logits_combined = logits
         cond_logits, uncond_logits = torch.split(
             logits_combined, len(logits_combined) // 2, dim=0
         )
         logits = uncond_logits + (cond_logits - uncond_logits) * cfg_scale
     else:
-        logits, _ = model(None, cond_idx, input_pos)
+        logits, _, _ = model(None, cond_idx, input_pos)
 
     return sample(logits, **sampling_kwargs)[0]
 
@@ -114,7 +114,7 @@ def decode_one_token(
     assert input_pos.shape[-1] == 1
     if cfg_scale > 1.0:
         x_combined = torch.cat([x, x])
-        logits, _ = model(x_combined, cond_idx=None, input_pos=input_pos)
+        logits, _, _ = model(x_combined, cond_idx=None, input_pos=input_pos)
         logits_combined = logits
         cond_logits, uncond_logits = torch.split(
             logits_combined, len(logits_combined) // 2, dim=0
@@ -124,7 +124,7 @@ def decode_one_token(
         else:
             logits = cond_logits
     else:
-        logits, _ = model(x, cond_idx=None, input_pos=input_pos)
+        logits, _, _ = model(x, cond_idx=None, input_pos=input_pos)
     return sample(logits, **sampling_kwargs)
 
 

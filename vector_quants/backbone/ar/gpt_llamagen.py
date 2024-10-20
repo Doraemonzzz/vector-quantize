@@ -253,6 +253,10 @@ class Attention(nn.Module):
         self.attn_dropout_p = config.attn_dropout_p
         self.resid_dropout = nn.Dropout(config.resid_dropout_p)
 
+    def train(self, mode=True):
+        del self.kv_cache
+        self.kv_cache = None
+
     def forward(
         self,
         x: torch.Tensor,
@@ -434,14 +438,12 @@ class TransformerLlamaGen(nn.Module):
         idx: torch.Tensor,
         cond_idx: torch.Tensor,  # cond_idx_or_embed
         input_pos: Optional[torch.Tensor] = None,
+        target: Optional[torch.Tensor] = None,
         mask: Optional[torch.Tensor] = None,
         valid: Optional[torch.Tensor] = None,
     ):
 
         if idx is not None and cond_idx is not None:  # training or naive inference
-            # b n 1 -> b n
-            assert idx.shape[-1] == 1
-            idx = idx.squeeze(-1)
             cond_embeddings = self.cls_embedding(cond_idx, train=self.training)[
                 :, : self.cls_token_num
             ]
@@ -455,8 +457,6 @@ class TransformerLlamaGen(nn.Module):
                     :, : self.cls_token_num
                 ]
             else:  # decode_n_tokens(kv cache) in inference
-                assert idx.shape[-1] == 1
-                idx = idx.squeeze(-1)
                 token_embeddings = self.tok_embeddings(idx)
 
             bs = token_embeddings.shape[0]
@@ -491,7 +491,7 @@ class TransformerLlamaGen(nn.Module):
         elif targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
-        return logits, loss
+        return logits, None, loss
 
     def get_fsdp_wrap_module_list(self) -> List[nn.Module]:
         return list(self.layers)

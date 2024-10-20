@@ -8,7 +8,7 @@ from pprint import pformat
 import numpy as np
 import torch
 import torch.distributed as dist
-from einops import pack, rearrange
+from einops import rearrange
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
@@ -24,7 +24,6 @@ from vector_quants.optim import get_optimizer
 from vector_quants.scheduler import AnnealingLR
 from vector_quants.utils import (
     compute_grad_norm,
-    get_is_1d_token,
     get_metrics_list,
     is_main_process,
     logging_info,
@@ -63,18 +62,16 @@ class ARTrainer(BaseTrainer):
         mkdir_ckpt_dirs(cfg_train)
 
         # 1, load dataset
-        if cfg_data.use_pre_tokenize:
-            self.train_data_loader = get_data_loaders(
-                cfg_train, cfg_data, is_train=True, use_pre_tokenize=True
-            )
-            self.train_image_data_loader = get_data_loaders(
-                cfg_train, cfg_data, is_train=True, use_pre_tokenize=False
-            )
-        else:
-            self.train_data_loader = get_data_loaders(
-                cfg_train, cfg_data, is_train=True
-            )
+        self.train_data_loader = get_data_loaders(
+            cfg_train,
+            cfg_data,
+            is_train=True,
+            use_pre_tokenize=cfg_data.use_pre_tokenize,
+        )
         self.val_data_loader = get_data_loaders(
+            cfg_train, cfg_data, is_train=False, use_pre_tokenize=False
+        )
+        self.indice_loader = get_data_loaders(
             cfg_train, cfg_data, is_train=False, is_indice=True
         )
 
@@ -95,7 +92,6 @@ class ARTrainer(BaseTrainer):
         cfg_model_stage2.num_class = DATASET_CONFIGS[cfg_data.data_set]["num_class"]
         cfg_model_stage2.vocab_size = self.vqvae.num_embed
         cfg_model_stage2.sample_step = cfg_sample.sample_step
-        self.is_1d_token = get_is_1d_token(vqvae_config)
 
         self.model = AutoArModel.from_config(cfg_model_stage2)
         logging_info(cfg_model_stage2)
@@ -156,7 +152,7 @@ class ARTrainer(BaseTrainer):
         self.cfg_scale_list = [0] + cfg_loss.cfg_scale_list
         self.logger = Logger(
             keys=["epoch", "iter", "lr"]
-            + ["cross_entropy", "acc"]
+            + ["cross_entropy_loss", "acc"]
             + metrics_names
             + [f"fid{cfg_scale}" for cfg_scale in self.cfg_scale_list]
             + ["gnorm"],
@@ -241,7 +237,7 @@ class ARTrainer(BaseTrainer):
 
             for _, (input_img, input_label) in enumerate(self.train_data_loader):
                 # test saving
-                if num_iter == 1 and self.is_main_process:
+                if num_iter == 0 and self.is_main_process:
                     torch.save(
                         {
                             "epoch": epoch,
@@ -297,15 +293,15 @@ class ARTrainer(BaseTrainer):
                             # )
                             # assert False
 
-                    if len(idx.shape) != 2:  # b h w g
-                        idx, ps = pack([idx], "b * g")
+                    # if len(idx.shape) != 2:  # b h w g
+                    #     idx, ps = pack([idx], "b * g")
 
                     logits, past_key_values, loss = self.model(
                         idx, class_idx, target=idx
                     )
 
                     loss_dict = {
-                        "cross_entropy_loss": loss.cpu().item(),
+                        "cross_entropy_loss": loss.item(),
                     }
 
                 # backward
@@ -349,7 +345,7 @@ class ARTrainer(BaseTrainer):
                 num_iter += 1
 
             if (epoch + 1) % self.eval_interval == 0:
-                self.eval(epoch)
+                self.eval(epoch + 1)
 
             # save checkpoints
             if (
@@ -378,19 +374,14 @@ class ARTrainer(BaseTrainer):
 
     # update this later
     def eval(self, epoch=1):
-        if self.model_type != "transformer":
-            return
         logging_info("Start Evaluation")
         self.model.eval()
         self.eval_metrics.reset()
 
         if self.eval_first:
-            dataloader = (
-                self.train_data_loader
-                if not self.use_pre_tokenize
-                else self.train_image_data_loader
-            )
-            for input_img, _ in tqdm(dataloader, disable=not self.is_main_process):
+            for input_img, _ in tqdm(
+                self.val_data_loader, disable=not self.is_main_process
+            ):
                 input_img = input_img.cuda(torch.cuda.current_device())
                 # rescale to [0, 1]
                 input_img = self.post_transform(input_img)
@@ -401,9 +392,7 @@ class ARTrainer(BaseTrainer):
         for cfg_scale in self.cfg_scale_list:
             save_img = None
             self.eval_metrics.reset()
-            for class_idx in tqdm(
-                self.val_data_loader, disable=not self.is_main_process
-            ):
+            for class_idx in tqdm(self.indice_loader, disable=not self.is_main_process):
                 class_idx = class_idx.cuda(torch.cuda.current_device())
                 with torch.no_grad():
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
@@ -437,7 +426,7 @@ class ARTrainer(BaseTrainer):
                         nrow=8,
                     ),
                     os.path.join(
-                        self.save, f"samples/epoch_{epoch + 1}_fid{cfg_scale}.jpg"
+                        self.save, f"samples/epoch_{epoch}_fid{cfg_scale}.jpg"
                     ),
                     normalize=True,
                 )
@@ -463,7 +452,7 @@ class ARTrainer(BaseTrainer):
             os.makedirs(npy_proc, exist_ok=True)
 
             for i, class_idx in tqdm(
-                enumerate(self.val_data_loader), disable=not self.is_main_process
+                enumerate(self.indice_loader), disable=not self.is_main_process
             ):
                 class_idx = class_idx.cuda(torch.cuda.current_device())
 

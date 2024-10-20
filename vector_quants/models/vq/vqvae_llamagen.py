@@ -68,7 +68,7 @@ class VqVaeLlamaGen(nn.Module):
         return dec
 
     def decode_code(self, code_b, shape=None, channel_first=True):
-        # code_b: b n (h w)
+        # code_b: b c (h w)
         # b c h w
         h = int(code_b.shape[-1] ** 0.5)
         shape = (
