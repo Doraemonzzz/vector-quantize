@@ -18,7 +18,10 @@ def get_transform(cfg_data, cfg_train, is_train=True):
         ]
         transform = pre_transform + post_transform
     else:
-        if "llamagen" in cfg_train.ckpt_path_stage1:
+        if (
+            cfg_train.ckpt_path_stage1 is not None
+            and "llamagen" in cfg_train.ckpt_path_stage1
+        ):
             mean = [0.5, 0.5, 0.5]
             std = [0.5, 0.5, 0.5]
         else:
