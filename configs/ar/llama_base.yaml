@@ -4,6 +4,7 @@ model_stage2:
   num_layers: 12
   num_heads: 12
   use_lrpe: True
+  use_ape: False
 train:
   weight_decay: 0.05
   adam_beta1: 0.9
