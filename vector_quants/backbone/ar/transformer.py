@@ -10,6 +10,11 @@ from vector_quants.modules import (
     SinCosPe,
 )
 
+try:
+    from liger_kernel.transformers import LigerFusedLinearCrossEntropyLoss
+except ImportError:
+    LigerFusedLinearCrossEntropyLoss = None
+
 
 class ClassEmbedder(nn.Module):
     """
@@ -205,6 +210,16 @@ class TransformerModel(nn.Module):
 
         return output
 
+    def get_lm_head_weights(self):
+        if self.tie_word_embeddings:
+            output = []
+            for i, embed in enumerate(self.token_embed):
+                output.append(embed.weight)
+        else:
+            output = self.lm_head.weight.split(self._levels.tolist(), dim=0)
+
+        return output
+
     def forward(
         self,
         idx=None,
@@ -252,22 +267,48 @@ class TransformerModel(nn.Module):
 
         hidden_state = self.final_norm(hidden_state)
 
-        logits = self.forward_lmhead(hidden_state)
-        loss = 0
-
-        if self.training:
-            logits = logits[:, :-1]
-            logits = logits.split(self._levels.tolist(), dim=-1)
-            loss_list = []
-            target = (target.unsqueeze(-1) // self._basis) % self._levels
-            for i, logits_i in enumerate(logits):
-                loss_list.append(
-                    F.cross_entropy(
-                        logits_i.contiguous().view(-1, logits_i.shape[-1]),
-                        target[..., i].long().contiguous().view(-1),
+        if LigerFusedLinearCrossEntropyLoss is not None:
+            loss_fn = LigerFusedLinearCrossEntropyLoss()
+            dtype = (
+                torch.get_autocast_gpu_dtype()
+                if torch.is_autocast_enabled()
+                else hidden_state.dtype
+            )
+            logits = None
+            if self.training:
+                loss_list = []
+                hidden_state = hidden_state[:, :-1]
+                lm_head_weights = self.get_lm_head_weights()
+                target = (target.unsqueeze(-1) // self._basis) % self._levels
+                for i, lm_head_weight in enumerate(lm_head_weights):
+                    loss_list.append(
+                        loss_fn(
+                            lm_head_weight.contiguous().to(dtype),
+                            hidden_state.contiguous()
+                            .view(-1, hidden_state.shape[-1])
+                            .to(dtype),
+                            target[..., i].long().contiguous().view(-1),
+                        ),
                     )
-                )
-            loss = torch.mean(torch.stack(loss_list, dim=0))
+
+                loss = torch.mean(torch.stack(loss_list, dim=0))
+        else:
+            logits = self.forward_lmhead(hidden_state)
+            loss = 0
+
+            if self.training:
+                logits = logits[:, :-1]
+                logits = logits.split(self._levels.tolist(), dim=-1)
+                loss_list = []
+                target = (target.unsqueeze(-1) // self._basis) % self._levels
+                for i, logits_i in enumerate(logits):
+                    loss_list.append(
+                        F.cross_entropy(
+                            logits_i.contiguous().view(-1, logits_i.shape[-1]),
+                            target[..., i].long().contiguous().view(-1),
+                        )
+                    )
+                loss = torch.mean(torch.stack(loss_list, dim=0))
 
         return logits, new_past_key_values, loss
 
