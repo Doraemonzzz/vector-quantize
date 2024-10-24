@@ -74,6 +74,13 @@ class ARTrainer(BaseTrainer):
         self.indice_loader = get_data_loaders(
             cfg_train, cfg_data, is_train=False, is_indice=True
         )
+        cfg_train.train_iters = int(
+            DATASET_CONFIGS[cfg_data.data_set]["samples"]
+            / cfg_train.batch_size
+            / cfg_train.world_size
+            * cfg_train.max_train_epochs
+        )
+        logging_info(f"train_iters: {cfg_train.train_iters}")
 
         # 2, load model
         self.dtype = type_dict[cfg_train.dtype]
