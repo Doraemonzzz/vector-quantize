@@ -267,7 +267,7 @@ class TransformerModel(nn.Module):
 
         hidden_state = self.final_norm(hidden_state)
 
-        if LigerFusedLinearCrossEntropyLoss is not None:
+        if LigerFusedLinearCrossEntropyLoss is not None and self.training:
             loss_fn = LigerFusedLinearCrossEntropyLoss()
             dtype = (
                 torch.get_autocast_gpu_dtype()
@@ -275,23 +275,22 @@ class TransformerModel(nn.Module):
                 else hidden_state.dtype
             )
             logits = None
-            if self.training:
-                loss_list = []
-                hidden_state = hidden_state[:, :-1]
-                lm_head_weights = self.get_lm_head_weights()
-                target = (target.unsqueeze(-1) // self._basis) % self._levels
-                for i, lm_head_weight in enumerate(lm_head_weights):
-                    loss_list.append(
-                        loss_fn(
-                            lm_head_weight.contiguous().to(dtype),
-                            hidden_state.contiguous()
-                            .view(-1, hidden_state.shape[-1])
-                            .to(dtype),
-                            target[..., i].long().contiguous().view(-1),
-                        ),
-                    )
+            loss_list = []
+            hidden_state = hidden_state[:, :-1]
+            lm_head_weights = self.get_lm_head_weights()
+            target = (target.unsqueeze(-1) // self._basis) % self._levels
+            for i, lm_head_weight in enumerate(lm_head_weights):
+                loss_list.append(
+                    loss_fn(
+                        lm_head_weight.contiguous().to(dtype),
+                        hidden_state.contiguous()
+                        .view(-1, hidden_state.shape[-1])
+                        .to(dtype),
+                        target[..., i].long().contiguous().view(-1),
+                    ),
+                )
 
-                loss = torch.mean(torch.stack(loss_list, dim=0))
+            loss = torch.mean(torch.stack(loss_list, dim=0))
         else:
             logits = self.forward_lmhead(hidden_state)
             loss = 0
