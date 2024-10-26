@@ -23,7 +23,7 @@ class ClassEmbedder(nn.Module):
 
     def __init__(self, num_class, embed_dim, dropout_prob):
         super().__init__()
-        use_cfg_embedding = dropout_prob > 0
+        use_cfg_embedding = dropout_prob >= 0
         self.embedding_table = nn.Embedding(num_class + use_cfg_embedding, embed_dim)
         self.num_class = num_class
         self.dropout_prob = dropout_prob

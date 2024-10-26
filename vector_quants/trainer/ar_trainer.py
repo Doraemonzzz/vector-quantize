@@ -235,7 +235,7 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        # self.eval()
+        self.eval()
         # self.eval_openai()
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -435,7 +435,7 @@ class ARTrainer(BaseTrainer):
                     os.path.join(
                         self.save, f"samples/epoch_{epoch}_fid{cfg_scale}.jpg"
                     ),
-                    normalize=True,
+                    # normalize=True,
                 )
 
             eval_results = self.eval_metrics.compute_and_reduce()
