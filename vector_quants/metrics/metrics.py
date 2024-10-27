@@ -112,16 +112,15 @@ def monkey_patch_update(update_foo, metric_name):
                     torch.clamp(2 * real - 1, -1, 1), torch.clamp(2 * fake - 1, -1, 1)
                 )
             elif "is" in metric_name:
-                update_foo((fake * 255).type(torch.uint8))
+                fake = torch.clamp((fake * 255), 0, 255).type(torch.uint8)
+                update_foo(fake)
             elif metric_name in _image_based_metrics:
                 update_foo(fake, real)
             elif metric_name in _features_based_metrics:
                 if real is not None:
-                    # real = (real * 255).type(torch.uint8)
                     real = torch.clamp((real * 255), 0, 255).type(torch.uint8)
                     update_foo(real, real=True)
                 if fake is not None:
-                    # fake = (fake * 255).type(torch.uint8)
                     fake = torch.clamp((fake * 255), 0, 255).type(torch.uint8)
                     update_foo(fake, real=False)
             else:
