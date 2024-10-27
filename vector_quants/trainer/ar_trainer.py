@@ -153,6 +153,7 @@ class ARTrainer(BaseTrainer):
             dataset_name=cfg_data.data_set,
             device=torch.cuda.current_device(),
             reset_real_features=False,
+            fid_statistics_file=cfg_train.ref_batch,
         )
 
         # logger
@@ -235,7 +236,7 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        self.eval()
+        # self.eval()
         # self.eval_openai()
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
