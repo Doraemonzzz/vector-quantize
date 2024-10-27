@@ -371,13 +371,14 @@ class ARTrainer(BaseTrainer):
             torch.cuda.empty_cache()
             save_img = None
             self.eval_metrics.reset()
+            logging_info(f"Eval cfg_scale: {cfg_scale}")
             for class_idx in tqdm(self.indice_loader, disable=not self.is_main_process):
                 class_idx = class_idx.cuda(torch.cuda.current_device())
                 with torch.no_grad():
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                         # only for test
                         # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
-                        if self.model_type == "transformer":
+                        if self.model_type in ["transformer", "sg_transformer"]:
                             # idx = sample(self.model, self.sample_step, c=class_idx)
                             idx = self.model.module.generate(
                                 steps=self.sample_step, c=class_idx, cfg_scale=cfg_scale
@@ -398,6 +399,7 @@ class ARTrainer(BaseTrainer):
                             save_img = generate_img_fid
 
             # save image for checking training
+            dist.barrier()
             if self.is_main_process:
                 save_image(
                     make_grid(
@@ -409,6 +411,7 @@ class ARTrainer(BaseTrainer):
                     ),
                     # normalize=True,
                 )
+            dist.barrier()
 
             eval_results = self.eval_metrics.compute_and_reduce()
             if cfg_scale > 1:
@@ -439,7 +442,7 @@ class ARTrainer(BaseTrainer):
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
                         # only for test
                         # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
-                        if self.model_type == "transformer":
+                        if self.model_type in ["transformer", "sg_transformer"]:
                             # idx = sample(self.model, self.sample_step, c=class_idx)
                             idx = self.model.module.generate(
                                 steps=self.sample_step, c=class_idx, cfg_scale=cfg_scale

@@ -1,11 +1,16 @@
 import torch
 from torch import nn
 
-from vector_quants.backbone import TransformerLlamaGen, TransformerModel
+from vector_quants.backbone import (
+    SGTransformerModel,
+    TransformerLlamaGen,
+    TransformerModel,
+)
 
 AUTO_AR_MAPPING = {
     "transformer": TransformerModel,
     "transformer_llamagen": TransformerLlamaGen,
+    "sg_transformer": SGTransformerModel,
 }
 
 

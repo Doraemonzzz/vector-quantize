@@ -51,7 +51,6 @@ class SoftmaxAttentionAr(nn.Module):
         **kwargs,
     ):
         # x: b n d
-
         # linear map
         q, k, v = self.qkv_proj(x).chunk(3, dim=-1)
 

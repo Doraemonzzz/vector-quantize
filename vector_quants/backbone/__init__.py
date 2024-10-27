@@ -29,4 +29,4 @@ from .ae import (
     WMTCDecoder,
     WMTCEncoder,
 )
-from .ar import TransformerLlamaGen, TransformerModel
+from .ar import SGTransformerModel, TransformerLlamaGen, TransformerModel
