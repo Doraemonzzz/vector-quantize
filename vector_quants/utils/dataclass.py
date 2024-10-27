@@ -454,6 +454,10 @@ class ModelStage2Config:
         default=False,
         metadata={"help": "Whether to tie word embeddings with lm head or not"},
     )
+    num_group_mixing_layer: int = field(
+        default=0,
+        metadata={"help": "Number of group mixing layers in group mixing block"},
+    )
 
 
 @dataclass

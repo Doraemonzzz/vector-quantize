@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 from xmixers.modules import get_norm_fn
 
 from vector_quants.modules import (
@@ -57,7 +58,7 @@ class TransformerLayer(nn.Module):
         use_lrpe = cfg.use_lrpe
         lrpe_type = cfg.lrpe_type
         base = cfg.theta_base
-        causal = True
+        causal = cfg.causal
         mid_dim = cfg.mid_dim
         token_mixer = "softmax_ar"
         channel_mixer = cfg.channel_mixer
@@ -108,6 +109,7 @@ class TransformerModel(nn.Module):
         use_ape = cfg.use_ape
         vocab_groups = cfg.vocab_groups
         tie_word_embeddings = cfg.tie_word_embeddings
+        num_group_mixing_layer = cfg.num_group_mixing_layer
         # get params end
 
         # setup group
@@ -152,12 +154,27 @@ class TransformerModel(nn.Module):
         )
         # construct embedding end
 
+        cfg.causal = True
         self.layers = nn.ModuleList(
             [TransformerLayer(cfg) for layer_idx in range(num_layers)]
         )
         self.final_norm = get_norm_fn(norm_type)(embed_dim)
         if not self.tie_word_embeddings:
             self.lm_head = nn.Linear(embed_dim, self.vocab_size_proc, bias=bias)
+
+        self.num_group_mixing_layer = num_group_mixing_layer
+        if self.num_group_mixing_layer > 0:
+            cfg.causal = False
+            # b n (g d) -> (b n) g d
+            self.group_proj_in = nn.Linear(
+                embed_dim, embed_dim * len(vocab_groups), bias=bias
+            )
+            self.group_mixing_layers = nn.ModuleList(
+                [
+                    TransformerLayer(cfg)
+                    for layer_idx in range(self.num_group_mixing_layer)
+                ]
+            )
 
         self.use_ape = use_ape
         if self.use_ape:
@@ -264,6 +281,21 @@ class TransformerModel(nn.Module):
             )
             hidden_state = layer_outputs[0]
             new_past_key_values[i] = layer_outputs[1]
+
+        if self.num_group_mixing_layer > 0:
+            b, n, d = hidden_state.shape
+            hidden_state = self.group_proj_in(hidden_state)
+            hidden_state = rearrange(
+                hidden_state, "b n (g d) -> (b n) g d", g=len(self.vocab_groups)
+            )
+            for layer in self.group_mixing_layers:
+                layer_outputs = layer(
+                    hidden_state,
+                    past_key_value=None,
+                )
+                hidden_state = layer_outputs[0]
+            hidden_state = torch.mean(hidden_state, dim=-2)
+            hidden_state = rearrange(hidden_state, "(b n) d -> b n d", b=b)
 
         hidden_state = self.final_norm(hidden_state)
 

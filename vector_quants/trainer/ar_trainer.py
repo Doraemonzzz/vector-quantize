@@ -235,7 +235,7 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        # self.eval()
+        self.eval()
         # self.eval_openai()
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
@@ -272,36 +272,6 @@ class ARTrainer(BaseTrainer):
                     else:
                         with torch.no_grad():
                             idx = self.vqvae.img_to_indice(input_img).long()
-
-                            # clear this later
-                            # feature = self.vqvae.encoder(input_img)
-                            # print(feature.shape)
-                            # h = int(feature.shape[1] ** 0.5)
-                            # from einops import rearrange
-                            # print(self.save)
-                            # feature = rearrange(feature, "b (h w) c -> b c h w", h=h)[:, :3]
-                            # print(input_img.shape, feature.shape)
-                            # # save image for checking training
-                            # save_image(
-                            #     make_grid(
-                            #         torch.cat([input_img]),
-                            #         nrow=input_img.shape[0],
-                            #     ),
-                            #     os.path.join(self.save, f"samples/feature_map_gt.jpg"),
-                            #     normalize=True,
-                            # )
-                            # save_image(
-                            #     make_grid(
-                            #         torch.cat([feature]),
-                            #         nrow=feature.shape[0],
-                            #     ),
-                            #     os.path.join(self.save, f"samples/feature_map.jpg"),
-                            #     normalize=True,
-                            # )
-                            # assert False
-
-                    # if len(idx.shape) != 2:  # b h w g
-                    #     idx, ps = pack([idx], "b * g")
 
                     logits, past_key_values, loss = self.model(
                         idx, class_idx, target=idx
@@ -397,6 +367,7 @@ class ARTrainer(BaseTrainer):
 
         eval_results_total = {}
         for cfg_scale in self.cfg_scale_list:
+            torch.cuda.empty_cache()
             save_img = None
             self.eval_metrics.reset()
             for class_idx in tqdm(self.indice_loader, disable=not self.is_main_process):
