@@ -7,6 +7,8 @@ import numpy as np
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+from PIL import Image
+from tqdm import tqdm
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -286,3 +288,23 @@ def get_activation_fn(activation):
         return F.silu
     else:
         return lambda x: x
+
+
+def create_npz_from_sample_folder(sample_dir, num=50_000):
+    """
+    Builds a single .npz file from a folder of .png samples.
+    """
+    samples = []
+    for i in tqdm(range(num), desc="Building .npz file from samples"):
+        sample_pil = Image.open(f"{sample_dir}/{i:06d}.png")
+        sample_np = np.asarray(sample_pil).astype(np.uint8)
+        samples.append(sample_np)
+
+    random.shuffle(samples)  # This is very important for IS(Inception Score) !!!
+    samples = np.stack(samples)
+    assert samples.shape == (num, samples.shape[1], samples.shape[2], 3)
+    npz_path = f"{sample_dir}/data.npz"
+    np.savez(npz_path, arr_0=samples)
+    print(f"Saved .npz file to {npz_path} [shape={samples.shape}].")
+
+    return npz_path

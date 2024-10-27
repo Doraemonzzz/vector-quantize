@@ -230,7 +230,7 @@ class VQTrainer(BaseTrainer):
             cfg_loss.post_transform_type, data_set=cfg_data.data_set
         )
         self.clip_grad = cfg_train.clip_grad
-        self.cfg = cfg
+        self.num_sample = cfg_data.num_sample
 
         self.gnorm_threshold = 100
 

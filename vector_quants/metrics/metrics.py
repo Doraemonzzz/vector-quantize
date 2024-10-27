@@ -28,7 +28,8 @@ from functools import partial
 import torch
 import torch.distributed as dist
 from torchmetrics import MeanSquaredError
-from torchmetrics.image.fid import FrechetInceptionDistance as FID
+
+# from torchmetrics.image.fid import FrechetInceptionDistance as FID
 from torchmetrics.image.inception import InceptionScore
 from torchmetrics.image.kid import KernelInceptionDistance as KID
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
@@ -39,6 +40,7 @@ from vector_quants.data import get_mean_std_from_dataset_name
 from vector_quants.utils import rescale_image_tensor
 
 from .torchmetric_fdd import FrechetDinovDistance as FDD
+from .torchmetric_fid import FrechetInceptionDistance as FID
 from .torchmetric_sfid import sFrechetInceptionDistance as SFID
 
 ALL_METRICS_DICT = {
@@ -115,10 +117,12 @@ def monkey_patch_update(update_foo, metric_name):
                 update_foo(fake, real)
             elif metric_name in _features_based_metrics:
                 if real is not None:
-                    real = (real * 255).type(torch.uint8)
+                    # real = (real * 255).type(torch.uint8)
+                    real = torch.clamp((real * 255), 0, 255).type(torch.uint8)
                     update_foo(real, real=True)
                 if fake is not None:
-                    fake = (fake * 255).type(torch.uint8)
+                    # fake = (fake * 255).type(torch.uint8)
+                    fake = torch.clamp((fake * 255), 0, 255).type(torch.uint8)
                     update_foo(fake, real=False)
             else:
                 raise ValueError(f"Unknown metric {metric_name}")
@@ -145,10 +149,14 @@ class Metrics:
     ):
         self.device = device
 
-        self.metrics = {
-            metric_name: get_metrics_cls_by_name(metric_name, **kwargs)
-            for metric_name in metrics_list
-        }
+        metrics = {}
+        fid_statistics_file = kwargs.get("fid_statistics_file", None)
+        for metric_name in metrics_list:
+            kwargs.pop("fid_statistics_file", None)
+            if metric_name in ["fid"]:
+                kwargs["fid_statistics_file"] = fid_statistics_file
+            metrics["metric_name"] = get_metrics_cls_by_name(metric_name, **kwargs)
+        self.metrics = metrics
 
         self.norm_mean, self.norm_std = get_mean_std_from_dataset_name(dataset_name)
 

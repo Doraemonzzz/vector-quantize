@@ -615,6 +615,14 @@ class DataConfig:
     use_pre_tokenize: bool = field(
         default=False, metadata={"help": "Whether use pre-tokenization"}
     )
+    sample_folder_dir: str = field(
+        default="",
+        metadata={"help": "Path for sample folder"},
+    )
+    val_folder_dir: str = field(
+        default="",
+        metadata={"help": "Path for val folder"},
+    )
 
 
 @dataclass
@@ -713,6 +721,9 @@ class LossConfig:
     cfg_scale_list: List[float] = field(
         default_factory=lambda: [],
         metadata={"help": "Config scale list"},
+    )
+    fid_statistics_file: Optional[str] = field(
+        default=None, metadata={"help": "FID statistics file"}
     )
 
 
