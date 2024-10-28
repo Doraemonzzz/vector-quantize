@@ -37,7 +37,6 @@ from torchmetrics.image.psnr import PeakSignalNoiseRatio as PSNR
 from torchmetrics.image.ssim import StructuralSimilarityIndexMeasure as SSIM
 
 from vector_quants.data import get_mean_std_from_dataset_name
-from vector_quants.utils import rescale_image_tensor
 
 from .torchmetric_fdd import FrechetDinovDistance as FDD
 from .torchmetric_fid import FrechetInceptionDistance as FID
@@ -105,7 +104,7 @@ def monkey_patch_update(update_foo, metric_name):
     def wrapper(real, fake, *args, **kwargs):
         # the orignal image should be in the range of [0, 1]
         device = real.device if real is not None else fake.device
-        autocast_dtype = torch.bfloat16 if metric_name != "ssim" else torch.float32
+        autocast_dtype = torch.float32
         with torch.autocast(device.type, dtype=autocast_dtype):
             if "lpip" in metric_name:
                 update_foo(
@@ -180,10 +179,6 @@ class Metrics:
 
     def update(self, real=None, fake=None):
         self.prepare_model()
-        if real is not None:
-            real = rescale_image_tensor(real, self.norm_mean, self.norm_std)
-        if fake is not None:
-            fake = rescale_image_tensor(fake, self.norm_mean, self.norm_std)
         # after scaling, the image should be in the range of [0, 1]
         for metric_name in self.metrics:
             self.metrics[metric_name].update(real=real, fake=fake)

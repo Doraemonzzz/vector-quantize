@@ -132,7 +132,7 @@ class ARTrainer(BaseTrainer):
             last_iter=-1,
             decay_ratio=cfg_train.lr_decay_ratio,
         )
-        torch.distributed.barrier()
+        dist.barrier()
 
         # 4. resume
         self.start_epoch, self.num_iter = self.resume(cfg_train.ckpt_path_stage2)
@@ -236,8 +236,9 @@ class ARTrainer(BaseTrainer):
         num_iter = self.num_iter
         self.vqvae.eval()
 
-        self.eval()
-        # self.eval_openai()
+        # self.eval()
+        self.eval_openai()
+        assert False
         for epoch in range(start_epoch, self.max_train_epochs):
             self.train_data_loader.sampler.set_epoch(epoch)
 
@@ -424,22 +425,92 @@ class ARTrainer(BaseTrainer):
         torch.cuda.empty_cache()
         logging_info("End Evaluation")
 
+    # def eval_openai(self, epoch=1):
+    #     self.model.eval()
+    #     self.vqvae.eval()
+
+    #     npy_dir = os.path.join(self.save, "npy_proc")
+    #     for cfg_scale in self.cfg_scale_list:
+    #         npy_proc = os.path.join(npy_dir, f"fid{cfg_scale}")
+    #         os.makedirs(npy_proc, exist_ok=True)
+
+    #         for i, class_idx in tqdm(
+    #             enumerate(self.indice_loader), disable=not self.is_main_process
+    #         ):
+    #             class_idx = class_idx.cuda(torch.cuda.current_device())
+
+    #             with torch.no_grad():
+    #                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+    #                     # only for test
+    #                     # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
+    #                     if self.model_type in ["transformer", "sg_transformer"]:
+    #                         # idx = sample(self.model, self.sample_step, c=class_idx)
+    #                         idx = self.model.module.generate(
+    #                             steps=self.sample_step, c=class_idx, cfg_scale=cfg_scale
+    #                         )
+    #                     else:
+    #                         idx = generate_llamagen(
+    #                             self.model,
+    #                             cond=class_idx,
+    #                             max_new_tokens=self.sample_step,
+    #                         )
+    #                     generate_img = self.vqvae.indice_to_img(idx)
+    #                     # rescale to [0, 1]
+    #                     generate_img_fid = self.post_transform(generate_img)
+    #                     # convert [0, 1] to [0, 255]
+    #                     data = torch.clamp(255 * generate_img_fid, 0, 255)
+    #                     data = (
+    #                         rearrange(data, "b c h w -> b h w c")
+    #                         .to("cpu", dtype=torch.uint8)
+    #                         .numpy()
+    #                     )
+    #                     name = f"epoch_{epoch + 1}_fid{cfg_scale}_rank{dist.get_rank()}_iter{i}"
+    #                     npz_path = os.path.join(npy_proc, f"{name}.npy")
+    #                     np.save(npz_path, arr=data)
+
+    #         dist.barrier()
+
+    #         if self.is_main_process:
+    #             data_list = []
+    #             num = 0
+    #             for file in os.listdir(npy_proc):
+    #                 data = np.load(os.path.join(npy_proc, file))
+    #                 data_list.append(data)
+    #                 num += data.shape[0]
+
+    #             data = np.concatenate(data_list, axis=0)
+    #             assert data.shape == (num, data.shape[1], data.shape[2], 3)
+    #             name = f"epoch_{epoch + 1}_fid{cfg_scale}"
+    #             npz_path = os.path.join(self.save, f"{name}.npz")
+    #             np.savez(npz_path, arr_0=data)
+
+    #             result = OpenaiEvaluator(self.ref_batch, npz_path)
+    #             result["name"] = name
+
+    #             logging_info(result)
+
     def eval_openai(self, epoch=1):
         self.model.eval()
         self.vqvae.eval()
+        self.eval_metrics.reset()
 
         npy_dir = os.path.join(self.save, "npy_proc")
+        eval_results_total = {}
+        self.cfg_scale_list = [2]
         for cfg_scale in self.cfg_scale_list:
             npy_proc = os.path.join(npy_dir, f"fid{cfg_scale}")
             os.makedirs(npy_proc, exist_ok=True)
-
+            self.eval_metrics.reset()
+            logging_info(f"Eval cfg_scale: {cfg_scale}")
             for i, class_idx in tqdm(
                 enumerate(self.indice_loader), disable=not self.is_main_process
             ):
                 class_idx = class_idx.cuda(torch.cuda.current_device())
 
                 with torch.no_grad():
-                    with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                    with torch.amp.autocast(
+                        device_type="cuda", dtype=self.dtype, enabled=False
+                    ):
                         # only for test
                         # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
                         if self.model_type in ["transformer", "sg_transformer"]:
@@ -456,6 +527,7 @@ class ARTrainer(BaseTrainer):
                         generate_img = self.vqvae.indice_to_img(idx)
                         # rescale to [0, 1]
                         generate_img_fid = self.post_transform(generate_img)
+                        self.eval_metrics.update(fake=generate_img_fid.contiguous())
                         # convert [0, 1] to [0, 255]
                         data = torch.clamp(255 * generate_img_fid, 0, 255)
                         data = (
@@ -466,8 +538,15 @@ class ARTrainer(BaseTrainer):
                         name = f"epoch_{epoch + 1}_fid{cfg_scale}_rank{dist.get_rank()}_iter{i}"
                         npz_path = os.path.join(npy_proc, f"{name}.npy")
                         np.save(npz_path, arr=data)
+                break
 
             dist.barrier()
+
+            eval_results = self.eval_metrics.compute_and_reduce()
+            if cfg_scale > 1:
+                eval_results = {f"fid{cfg_scale}": eval_results.get("fid", -1)}
+
+            eval_results_total = update_dict(eval_results_total, eval_results)
 
             if self.is_main_process:
                 data_list = []
@@ -487,3 +566,6 @@ class ARTrainer(BaseTrainer):
                 result["name"] = name
 
                 logging_info(result)
+        print("eval_results")
+        print(eval_results)
+        self.logger.log(**(eval_results_total))
