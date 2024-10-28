@@ -366,11 +366,10 @@ class TransformerModel(nn.Module):
         top_k=None,
     ):
         self.eval()
-        if cfg_scale > 1.0:
-            assert c != None, "cfg_scale must > 1.0 when c is not None"
-        if cfg_scale > 0 or cfg_scheduler is not None:
-            cond_null = torch.ones_like(c) * self.num_class
-            c = torch.cat([c, cond_null], dim=0)
+        # always use cfg, when cfg_scale = 1, we get condition generation
+        cond_null = torch.ones_like(c) * self.num_class
+        c = torch.cat([c, cond_null], dim=0)
+
         shape = [steps]
         # prefill
         past_key_values = None
@@ -386,6 +385,7 @@ class TransformerModel(nn.Module):
             logits, past_key_values, _ = self.forward(
                 idx=x, cond_idx=cond_idx, past_key_values=past_key_values, shape=shape
             )
+
             # get the last token's logits
             # b V
             logits = (
@@ -395,9 +395,8 @@ class TransformerModel(nn.Module):
                 ]
                 / temperature
             )
-            if cfg_scale > 1.0:
-                logits, logits_uncond = logits.chunk(2, dim=0)
-                logits = logits_uncond + cfg_scale * (logits - logits_uncond)
+            logits, logits_uncond = logits.chunk(2, dim=0)
+            logits = logits_uncond + cfg_scale * (logits - logits_uncond)
 
             # split over group
             logits_list = logits.split(self._levels.tolist(), dim=-1)
@@ -417,8 +416,7 @@ class TransformerModel(nn.Module):
             x = idx_new.unsqueeze(-1)
             idx = torch.cat([idx, x], dim=1) if k != 0 else x
 
-            if cfg_scale > 1.0:
-                x = torch.cat([x, x], dim=0)
+            x = torch.cat([x, x], dim=0)
 
         del past_key_values
 
