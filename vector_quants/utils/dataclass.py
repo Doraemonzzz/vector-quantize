@@ -738,6 +738,7 @@ class SampleConfig:
         default_factory=lambda: [],
         metadata={"help": "Config schedule list"},
     )
+    save_npz: bool = field(default=False, metadata={"help": "Whether save npz file"})
 
 
 @dataclass

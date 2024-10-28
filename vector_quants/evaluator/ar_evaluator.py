@@ -137,6 +137,7 @@ class AREvaluator(BaseEvaluator):
         self.cfg_scale_list = cfg_sample.cfg_scale_list
         self.cfg_schedule_list = cfg_sample.cfg_schedule_list
         self.sample_step = cfg_sample.sample_step
+        self.save_npz = cfg_sample.save_npz
         self.ref_batch = cfg_train.ref_batch
 
     @property
@@ -194,16 +195,17 @@ class AREvaluator(BaseEvaluator):
                             if save_img is None:
                                 save_img = generate_img_fid
 
-                            # convert [0, 1] to [0, 255]
-                            data = torch.clamp(255 * generate_img_fid, 0, 255)
-                            data = (
-                                rearrange(data, "b c h w -> b h w c")
-                                .to("cpu", dtype=torch.uint8)
-                                .numpy()
-                            )
-                            name = f"{name}_rank{dist.get_rank()}_iter{i}"
-                            npz_path = os.path.join(npy_proc, f"{name}.npy")
-                            np.save(npz_path, arr=data)
+                            if self.save_npz:
+                                # convert [0, 1] to [0, 255]
+                                data = torch.clamp(255 * generate_img_fid, 0, 255)
+                                data = (
+                                    rearrange(data, "b c h w -> b h w c")
+                                    .to("cpu", dtype=torch.uint8)
+                                    .numpy()
+                                )
+                                name = f"{name}_rank{dist.get_rank()}_iter{i}"
+                                npz_path = os.path.join(npy_proc, f"{name}.npy")
+                                np.save(npz_path, arr=data)
                     # break
 
                 # save image for checking training
@@ -225,7 +227,7 @@ class AREvaluator(BaseEvaluator):
 
                 eval_results_total = update_dict(eval_results_total, eval_results)
 
-                if self.is_main_process:
+                if self.is_main_process and self.save_npz:
                     data_list = []
                     num = 0
                     for file in os.listdir(npy_proc):
@@ -237,10 +239,5 @@ class AREvaluator(BaseEvaluator):
                     assert data.shape == (num, data.shape[1], data.shape[2], 3)
                     npz_path = os.path.join(self.save, f"{name}.npz")
                     np.savez(npz_path, arr_0=data)
-
-                # result = OpenaiEvaluator(self.ref_batch, npz_path)
-                # result["name"] = name
-
-                # logging_info(result)
 
             self.logger.log(**(eval_results_total))
