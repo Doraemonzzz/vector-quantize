@@ -376,9 +376,8 @@ class SGTransformerModel(nn.Module):
             # get the last token's logits
             # b V
             logits = logits[:, -1] / temperature
-
             if cfg_scale > 1.0:
-                logits, logits_uncond = logits.chunk(2, dim=1)
+                logits, logits_uncond = logits.chunk(2, dim=0)
                 logits = logits_uncond + cfg_scale * (logits - logits_uncond)
 
             # split over group
