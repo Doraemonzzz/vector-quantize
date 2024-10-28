@@ -722,10 +722,6 @@ class LossConfig:
     gp_loss_weight: float = field(
         default=0.0, metadata={"help": "Gradient penalty loss weight for discriminator"}
     )
-    cfg_scale_list: List[float] = field(
-        default_factory=lambda: [],
-        metadata={"help": "Config scale list"},
-    )
     fid_statistics_file: Optional[str] = field(
         default=None, metadata={"help": "FID statistics file"}
     )
@@ -734,6 +730,14 @@ class LossConfig:
 @dataclass
 class SampleConfig:
     sample_step: int = field(default=128, metadata={"help": "Number of sample step"})
+    cfg_scale_list: List[float] = field(
+        default_factory=lambda: [],
+        metadata={"help": "Config scale list"},
+    )
+    cfg_schedule_list: List[str] = field(
+        default_factory=lambda: [],
+        metadata={"help": "Config schedule list"},
+    )
 
 
 @dataclass
@@ -822,6 +826,8 @@ def get_cfg(args_list=sys.argv[1:]):
                         "cfg_scale_list",
                     ]:
                         aux_parser.add_argument("--" + key, type=float, nargs="+")
+                    elif key in ["cfg_schedule_list"]:
+                        aux_parser.add_argument("--" + key, type=str, nargs="+")
                     else:
                         aux_parser.add_argument("--" + key, type=type(val))
             cmd_args, _ = aux_parser.parse_known_args(args_list)

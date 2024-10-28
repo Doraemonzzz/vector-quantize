@@ -157,7 +157,7 @@ class ARTrainer(BaseTrainer):
         )
 
         # logger
-        self.cfg_scale_list = [0] + cfg_loss.cfg_scale_list
+        self.cfg_scale_list = [0] + cfg_sample.cfg_scale_list
         self.logger = Logger(
             keys=["epoch", "iter", "lr"]
             + ["cross_entropy_loss", "acc"]
@@ -430,7 +430,7 @@ class ARTrainer(BaseTrainer):
 
         npy_dir = os.path.join(self.save, "npy_proc")
         eval_results_total = {}
-        self.cfg_scale_list = [2]
+
         for cfg_scale in self.cfg_scale_list:
             npy_proc = os.path.join(npy_dir, f"fid{cfg_scale}")
             os.makedirs(npy_proc, exist_ok=True)

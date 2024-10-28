@@ -2,26 +2,26 @@ import os
 from dataclasses import asdict
 from pprint import pformat
 
+import numpy as np
 import torch
 import torch.distributed as dist
 from einops import rearrange
-from PIL import Image
+from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
 from vector_quants.data import get_data_loaders
 from vector_quants.logger import Logger
 from vector_quants.loss import get_post_transform
-from vector_quants.metrics import CodeBookMetric, Metrics, metrics_names
-from vector_quants.models import AutoVqVae
+from vector_quants.metrics import Metrics, metrics_names
+from vector_quants.models import AutoArModel, AutoVqVae
+from vector_quants.scheduler import CfgScheduler
 from vector_quants.utils import (
     compute_num_patch,
-    create_npz_from_sample_folder,
     get_metrics_list,
     is_main_process,
     logging_info,
     mkdir_ckpt_dirs,
-    reduce_dict,
     set_random_seed,
     type_dict,
     update_dict,
@@ -59,9 +59,9 @@ class AREvaluator(BaseEvaluator):
         mkdir_ckpt_dirs(cfg_train)
 
         # 1, load dataset
-        self.train_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=True)
-        self.val_data_loader = get_data_loaders(cfg_train, cfg_data, is_train=False)
-
+        self.indice_loader = get_data_loaders(
+            cfg_train, cfg_data, is_train=False, is_indice=True
+        )
         # 2, load model
         # vqvae
         self.dtype = type_dict[cfg_train.dtype]
@@ -73,30 +73,36 @@ class AREvaluator(BaseEvaluator):
         self.vqvae.cuda(torch.cuda.current_device())
         self.vqvae.eval()
         logging_info(res)
-        logging_info(self.model)
+        logging_info(self.vqvae)
         # ar
         self.model = AutoArModel.from_pretrained(
             cfg_train.ckpt_path_stage2,
         )
+        self.model.cuda(torch.cuda.current_device())
         logging_info(self.model)
 
-        # 4. ddp setup
-        num_embed = self.model.num_embed
+        # 3. ddp setup
+        self.model = torch.nn.parallel.DistributedDataParallel(
+            self.model,
+            device_ids=[cfg_train.gpu],
+        )
 
         # evaluation
+        metrics_list = get_metrics_list(cfg_loss.metrics_list)
+        assert (
+            len(metrics_list) == 1 and metrics_list[0] == "fid"
+        ), "Only fid-50k is supported for now"
         self.eval_metrics = Metrics(
             metrics_list=get_metrics_list(cfg_loss.metrics_list),
             dataset_name=cfg_data.data_set,
             device=torch.cuda.current_device(),
+            reset_real_features=False,
+            fid_statistics_file=cfg_train.ref_batch,
         )
-
-        self.num_embed = num_embed
-        self.codebook_metric = CodeBookMetric(self.num_embed)
 
         # logger
         self.logger = Logger(
             keys=["epoch", "iter", "lr", "d_lr"]
-            + loss_fn_keys
             + metrics_names
             + ["gnorm", "grad_disc_norm"],
             use_wandb=cfg_train.use_wandb,
@@ -105,6 +111,10 @@ class AREvaluator(BaseEvaluator):
             wandb_project=cfg_train.wandb_project,
             wandb_exp_name=cfg_train.wandb_exp_name,
             wandb_cache_dir=cfg_train.wandb_cache_dir,
+        )
+        # cfg scheduler
+        self.cfg_scheduler = CfgScheduler(
+            num_steps=cfg_sample.sample_step,
         )
 
         # other params
@@ -121,135 +131,116 @@ class AREvaluator(BaseEvaluator):
         self.post_transform = get_post_transform(
             cfg_loss.post_transform_type, data_set=cfg_data.data_set
         )
-        self.clip_grad = cfg_train.clip_grad
         self.num_sample = cfg_data.num_sample
         self.sample_folder_dir = cfg_data.sample_folder_dir
-        self.val_folder_dir = cfg_data.val_folder_dir
+        self.model_type = cfg_model_stage2.model_name
+        self.cfg_scale_list = cfg_sample.cfg_scale_list
+        self.cfg_schedule_list = cfg_sample.cfg_schedule_list
+        self.sample_step = cfg_sample.sample_step
+        self.ref_batch = cfg_train.ref_batch
 
     @property
     def is_main_process(self):
         return is_main_process()
 
     def eval(self):
-        logging_info("Start Evaluation")
         self.model.eval()
-        self.loss_fn.eval()
+        self.vqvae.eval()
         self.eval_metrics.reset()
 
-        loss_dict_total = {}
-        cnt = 0
-        world_size = dist.get_world_size()
-        for input_img, _ in tqdm(
-            self.val_data_loader, disable=not self.is_main_process
-        ):
-            cnt += input_img.shape[0] * world_size
-            with torch.no_grad():
-                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    input_img = input_img.cuda(torch.cuda.current_device())
-                    if self.is_llamagen:
-                        reconstructions, _ = self.model(input_img)
-                        loss_dict = {}
-                    else:
-                        reconstructions, indices, loss_dict = self.model(input_img)
-                    # rescale to [0, 1]
-                    input_img = self.post_transform(input_img)
-                    reconstructions = self.post_transform(reconstructions)
-                    loss, loss_dict = self.loss_fn(
-                        input_img,
-                        reconstructions,
-                        **loss_dict,
+        npy_dir = os.path.join(self.save, "npy_proc")
+        eval_results_total = {}
+        for cfg_schedule in self.cfg_schedule_list:
+            for cfg_scale in self.cfg_scale_list:
+                name = f"fid_{cfg_schedule}_{cfg_scale}"
+                npy_proc = os.path.join(npy_dir, name)
+                os.makedirs(npy_proc, exist_ok=True)
+                save_img = None
+                self.eval_metrics.reset()
+                # set cfg_scale and cfg_schedule
+                self.cfg_scheduler.reset(cfg_scale=cfg_scale, cfg_schedule=cfg_schedule)
+                logging_info(
+                    f"Eval cfg_scale: {cfg_scale}, cfg_schedule: {cfg_schedule}"
+                )
+
+                for i, class_idx in tqdm(
+                    enumerate(self.indice_loader), disable=not self.is_main_process
+                ):
+                    class_idx = class_idx.cuda(torch.cuda.current_device())
+
+                    with torch.no_grad():
+                        with torch.amp.autocast(
+                            device_type="cuda", dtype=self.dtype, enabled=False
+                        ):
+                            # only for test
+                            # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
+                            if self.model_type in ["transformer", "sg_transformer"]:
+                                idx = self.model.module.generate(
+                                    steps=self.sample_step,
+                                    c=class_idx,
+                                    cfg_scheduler=self.cfg_scheduler,
+                                )
+                            else:
+                                idx = generate_llamagen(
+                                    self.model,
+                                    cond=class_idx,
+                                    max_new_tokens=self.sample_step,
+                                )
+                            generate_img = self.vqvae.indice_to_img(idx)
+                            # rescale to [0, 1]
+                            generate_img_fid = self.post_transform(generate_img)
+                            self.eval_metrics.update(fake=generate_img_fid.contiguous())
+
+                            if save_img is None:
+                                save_img = generate_img_fid
+
+                            # convert [0, 1] to [0, 255]
+                            data = torch.clamp(255 * generate_img_fid, 0, 255)
+                            data = (
+                                rearrange(data, "b c h w -> b h w c")
+                                .to("cpu", dtype=torch.uint8)
+                                .numpy()
+                            )
+                            name = f"{name}_rank{dist.get_rank()}_iter{i}"
+                            npz_path = os.path.join(npy_proc, f"{name}.npy")
+                            np.save(npz_path, arr=data)
+                    # break
+
+                # save image for checking training
+                dist.barrier()
+                if self.is_main_process:
+                    save_image(
+                        make_grid(
+                            torch.cat([save_img[:16]]),
+                            nrow=8,
+                        ),
+                        os.path.join(self.save, f"samples/{name}.jpg"),
+                        # normalize=True,
                     )
+                dist.barrier()
 
-                loss_dict_total = update_dict(loss_dict_total, loss_dict)
+                eval_results = self.eval_metrics.compute_and_reduce()
+                eval_results = {f"{name}": eval_results.get("fid", -1)}
+                logging_info(eval_results)
 
-            self.eval_metrics.update(
-                real=input_img.contiguous(), fake=reconstructions.contiguous()
-            )
+                eval_results_total = update_dict(eval_results_total, eval_results)
 
-            if not self.is_llamagen:
-                self.codebook_metric.update(indices)
+                if self.is_main_process:
+                    data_list = []
+                    num = 0
+                    for file in os.listdir(npy_proc):
+                        data = np.load(os.path.join(npy_proc, file))
+                        data_list.append(data)
+                        num += data.shape[0]
 
-            if cnt >= self.num_sample:
-                logging_info(f"End Evaluation, sample {cnt} images")
-                break
+                    data = np.concatenate(data_list, axis=0)
+                    assert data.shape == (num, data.shape[1], data.shape[2], 3)
+                    npz_path = os.path.join(self.save, f"{name}.npz")
+                    np.savez(npz_path, arr_0=data)
 
-        torch.cuda.synchronize()
+                # result = OpenaiEvaluator(self.ref_batch, npz_path)
+                # result["name"] = name
 
-        eval_loss_dict = reduce_dict(
-            loss_dict_total, n=self.num_sample, prefix="valid_"
-        )
-        eval_results = self.eval_metrics.compute_and_reduce()
-        if self.is_llamagen:
-            codebook_results = {}
-        else:
-            codebook_results = self.codebook_metric.get_result()
+                # logging_info(result)
 
-        self.logger.log(**(eval_loss_dict | eval_results | codebook_results))
-
-        torch.cuda.empty_cache()
-        logging_info(f"End Evaluation, sample {cnt} images")
-
-    def sample(self):
-        logging_info("Start Sampling")
-        self.model.eval()
-        os.makedirs(self.sample_folder_dir, exist_ok=True)
-        os.makedirs(self.val_folder_dir, exist_ok=True)
-
-        cnt = 0
-        world_size = dist.get_world_size()
-        rank = dist.get_rank()
-
-        for input_img, _ in tqdm(
-            self.val_data_loader, disable=not self.is_main_process
-        ):
-            global_batch_size = input_img.shape[0] * world_size
-            with torch.no_grad():
-                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    input_img = input_img.cuda(torch.cuda.current_device())
-                    if self.is_llamagen:
-                        reconstructions, _ = self.model(input_img)
-                        loss_dict = {}
-                    else:
-                        reconstructions, indices, loss_dict = self.model(input_img)
-                    reconstructions = self.post_transform(reconstructions)
-                    input_img = self.post_transform(input_img)
-
-                for i in range(input_img.shape[0]):
-                    reconstruction = reconstructions[i]
-                    reconstruction = rearrange(reconstruction, "c h w -> h w c")
-                    index = i * world_size + rank + cnt
-                    data = (
-                        torch.clamp(255 * reconstruction, 0, 255)
-                        .to("cpu", dtype=torch.uint8)
-                        .numpy()
-                    )
-                    Image.fromarray(data).save(
-                        f"{self.sample_folder_dir}/{index:06d}.png"
-                    )
-                    if not os.path.exists(f"{self.val_folder_dir}/data.npz"):
-                        input_img_ = input_img[i]
-                        input_img_ = rearrange(input_img_, "c h w -> h w c")
-                        input_img_ = (
-                            torch.clamp(255 * input_img_, 0, 255)
-                            .to("cpu", dtype=torch.uint8)
-                            .numpy()
-                        )
-                        Image.fromarray(input_img_).save(
-                            f"{self.val_folder_dir}/{index:06d}.png"
-                        )
-
-            cnt += global_batch_size
-            if cnt >= self.num_sample:
-                logging_info(f"End Sampling, sample {cnt} images")
-                break
-
-        # Make sure all processes have finished saving their samples before attempting to convert to .npz
-        dist.barrier()
-        if rank == 0:
-            # create_npz_from_sample_folder(self.sample_folder_dir, self.num_sample)
-            if not os.path.exists(f"{self.val_folder_dir}/data.npz"):
-                create_npz_from_sample_folder(self.val_folder_dir, self.num_sample)
-            logging_info("Done.")
-
-        dist.barrier()
-        dist.destroy_process_group()
+            self.logger.log(**(eval_results_total))
