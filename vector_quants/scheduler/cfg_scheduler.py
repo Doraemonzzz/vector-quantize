@@ -43,7 +43,6 @@ class CfgScheduler:
         elif self.cfg_schedule == "square":
             cfg = 1.0 + (self.cfg_scale - 1) * ratio**2
         elif self.cfg_schedule == "square_root":
-            ratio = 1.0 * (step) / num_iter
             cfg = 1.0 + (self.cfg_scale - 1.0) * (ratio**0.5)
         elif self.cfg_schedule == "constant":
             cfg = self.cfg_scale

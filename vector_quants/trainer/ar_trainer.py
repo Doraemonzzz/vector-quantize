@@ -157,7 +157,7 @@ class ARTrainer(BaseTrainer):
         )
 
         # logger
-        self.cfg_scale_list = [0] + cfg_sample.cfg_scale_list
+        self.cfg_scale_list = [1] + cfg_sample.cfg_scale_list
         self.logger = Logger(
             keys=["epoch", "iter", "lr"]
             + ["cross_entropy_loss", "acc"]
