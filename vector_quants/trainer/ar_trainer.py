@@ -281,18 +281,19 @@ class ARTrainer(BaseTrainer):
                     loss_dict = {
                         "cross_entropy_loss": loss.item(),
                     }
+                    loss = loss / self.gradient_accumulation_steps
 
                 # backward
                 self.scaler.scale(loss).backward()
 
                 # compute grad norm
                 grad_norm = 0
-                if self.is_main_process and num_iter % self.log_interval == 0:
+                if self.is_main_process and (num_iter + 1) % self.log_interval == 0:
                     grad_norm = compute_grad_norm(
                         self.model, scale=self.scaler.get_scale()
                     )
 
-                if num_iter % self.gradient_accumulation_steps == 0:
+                if (num_iter + 1) % self.gradient_accumulation_steps == 0:
                     if self.clip_grad:
                         self.scaler.unscale_(self.optimizer)
                         torch.nn.utils.clip_grad_norm_(
@@ -305,13 +306,13 @@ class ARTrainer(BaseTrainer):
                     self.optimizer.zero_grad()
 
                 # print info
-                if num_iter % self.log_interval == 0:
+                if (num_iter + 1) % self.log_interval == 0:
                     self.logger.log(
                         **(
                             loss_dict
                             | {
-                                "epoch": epoch,
-                                "iter": num_iter,
+                                "epoch": epoch + 1,
+                                "iter": num_iter + 1,
                                 "lr": self.optimizer.state_dict()["param_groups"][0][
                                     "lr"
                                 ],
