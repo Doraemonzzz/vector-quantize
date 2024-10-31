@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from einops import rearrange
+from PIL import Image
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
@@ -18,6 +19,7 @@ from vector_quants.models import AutoArModel, AutoVqVae
 from vector_quants.scheduler import CfgScheduler
 from vector_quants.utils import (
     compute_num_patch,
+    create_npz_from_sample_folder,
     get_metrics_list,
     is_main_process,
     logging_info,
@@ -240,5 +242,87 @@ class AREvaluator(BaseEvaluator):
                     assert data.shape == (num, data.shape[1], data.shape[2], 3)
                     npz_path = os.path.join(self.save, f"{name}.npz")
                     np.savez(npz_path, arr_0=data)
+
+            self.logger.log(**(eval_results_total))
+
+    def eval_openai(self):
+        self.model.eval()
+        self.vqvae.eval()
+        self.eval_metrics.reset()
+
+        figure_dir = os.path.join(self.save, "figure")
+        eval_results_total = {}
+
+        for cfg_schedule in self.cfg_schedule_list:
+            for cfg_scale in self.cfg_scale_list:
+                name = f"fid_{cfg_schedule}_{cfg_scale}"
+                figure_proc = os.path.join(figure_dir, name)
+                os.makedirs(figure_proc, exist_ok=True)
+                total = 0
+                save_img = None
+                self.eval_metrics.reset()
+                # set cfg_scale and cfg_schedule
+                self.cfg_scheduler.reset(cfg_scale=cfg_scale, cfg_schedule=cfg_schedule)
+                logging_info(
+                    f"Eval cfg_scale: {cfg_scale}, cfg_schedule: {cfg_schedule}"
+                )
+
+                for i, class_idx in tqdm(
+                    enumerate(self.indice_loader), disable=not self.is_main_process
+                ):
+                    class_idx = class_idx.cuda(torch.cuda.current_device())
+                    global_batch_size = class_idx.shape[0] * dist.get_world_size()
+                    with torch.no_grad():
+                        with torch.amp.autocast(
+                            device_type="cuda", dtype=self.dtype, enabled=False
+                        ):
+                            # only for test
+                            # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
+                            if self.model_type in ["transformer", "sg_transformer"]:
+                                idx = self.model.module.generate(
+                                    steps=self.sample_step,
+                                    c=class_idx,
+                                    cfg_scheduler=self.cfg_scheduler,
+                                )
+                            else:
+                                idx = generate_llamagen(
+                                    self.model,
+                                    cond=class_idx,
+                                    max_new_tokens=self.sample_step,
+                                )
+                            generate_img = self.vqvae.indice_to_img(idx)
+                            # rescale to [0, 1]
+                            generate_img_fid = self.post_transform(generate_img)
+
+                    self.eval_metrics.update(fake=generate_img_fid.contiguous())
+
+                    if save_img is None:
+                        save_img = generate_img_fid
+
+                    # convert [0, 1] to [0, 255]
+                    data = torch.clamp(255 * generate_img_fid, 0, 255)
+                    # b h w c
+                    samples = (
+                        data.permute(0, 2, 3, 1).to("cpu", dtype=torch.uint8).numpy()
+                    )
+                    for i, sample in enumerate(samples):
+                        index = i * dist.get_world_size() + dist.get_rank() + total
+                        Image.fromarray(sample).save(
+                            os.path.join(figure_proc, f"{index:06d}.png")
+                        )
+
+                    total += global_batch_size
+
+                # save image for checking training
+                dist.barrier()
+                if self.is_main_process:
+                    create_npz_from_sample_folder(figure_proc, self.num_sample)
+                dist.barrier()
+
+                eval_results = self.eval_metrics.compute_and_reduce()
+                eval_results = {f"{name}": eval_results.get("fid", -1)}
+                logging_info(eval_results)
+
+                eval_results_total = update_dict(eval_results_total, eval_results)
 
             self.logger.log(**(eval_results_total))

@@ -13,7 +13,11 @@ def main():
     cfg = get_cfg()
 
     evaluator = AREvaluator(cfg)
-    evaluator.eval()
+
+    if cfg.sample.sample_file:
+        evaluator.eval_openai()
+    else:
+        evaluator.eval()
 
 
 if __name__ == "__main__":

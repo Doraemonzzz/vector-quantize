@@ -739,6 +739,7 @@ class SampleConfig:
         metadata={"help": "Config schedule list"},
     )
     save_npz: bool = field(default=False, metadata={"help": "Whether save npz file"})
+    sample_file: bool = field(default=False, metadata={"help": "Whether sample file"})
 
 
 @dataclass
