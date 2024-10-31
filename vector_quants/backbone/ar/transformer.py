@@ -115,8 +115,8 @@ class TransformerModel(nn.Module):
         # setup group
         if len(vocab_groups) == 1:
             assert (
-                vocab_groups[0] == -1
-            ), "vocab_groups[0] must be -1 when len(vocab_groups) == 1"
+                vocab_groups[0] == -1 or vocab_groups[0] == vocab_size
+            ), "vocab_groups[0] must be -1 or vocab_size when len(vocab_groups) == 1"
             vocab_groups[0] = vocab_size
         else:
             vocab_size_group = torch.prod(torch.tensor(vocab_groups)).item()

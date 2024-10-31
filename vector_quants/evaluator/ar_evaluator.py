@@ -190,22 +190,23 @@ class AREvaluator(BaseEvaluator):
                             generate_img = self.vqvae.indice_to_img(idx)
                             # rescale to [0, 1]
                             generate_img_fid = self.post_transform(generate_img)
-                            self.eval_metrics.update(fake=generate_img_fid.contiguous())
 
-                            if save_img is None:
-                                save_img = generate_img_fid
+                    self.eval_metrics.update(fake=generate_img_fid.contiguous())
 
-                            if self.save_npz:
-                                # convert [0, 1] to [0, 255]
-                                data = torch.clamp(255 * generate_img_fid, 0, 255)
-                                data = (
-                                    rearrange(data, "b c h w -> b h w c")
-                                    .to("cpu", dtype=torch.uint8)
-                                    .numpy()
-                                )
-                                name = f"{name}_rank{dist.get_rank()}_iter{i}"
-                                npz_path = os.path.join(npy_proc, f"{name}.npy")
-                                np.save(npz_path, arr=data)
+                    if save_img is None:
+                        save_img = generate_img_fid
+
+                    if self.save_npz:
+                        # convert [0, 1] to [0, 255]
+                        data = torch.clamp(255 * generate_img_fid, 0, 255)
+                        data = (
+                            rearrange(data, "b c h w -> b h w c")
+                            .to("cpu", dtype=torch.uint8)
+                            .numpy()
+                        )
+                        name = f"{name}_rank{dist.get_rank()}_iter{i}"
+                        npz_path = os.path.join(npy_proc, f"{name}.npy")
+                        np.save(npz_path, arr=data)
                     # break
 
                 # save image for checking training

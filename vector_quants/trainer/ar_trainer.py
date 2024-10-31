@@ -375,7 +375,9 @@ class ARTrainer(BaseTrainer):
             for class_idx in tqdm(self.indice_loader, disable=not self.is_main_process):
                 class_idx = class_idx.cuda(torch.cuda.current_device())
                 with torch.no_grad():
-                    with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                    with torch.amp.autocast(
+                        device_type="cuda", dtype=self.dtype, enabled=False
+                    ):
                         # only for test
                         # test_sample_with_kv_cache(self.model, class_idx, self.sample_step)
                         if self.model_type in ["transformer", "sg_transformer"]:
@@ -393,10 +395,10 @@ class ARTrainer(BaseTrainer):
                         # rescale to [0, 1], for fid
                         generate_img_fid = self.post_transform(generate_img)
 
-                        self.eval_metrics.update(fake=generate_img_fid.contiguous())
+                self.eval_metrics.update(fake=generate_img_fid.contiguous())
 
-                        if save_img is None:
-                            save_img = generate_img_fid
+                if save_img is None:
+                    save_img = generate_img_fid
 
             # save image for checking training
             dist.barrier()
