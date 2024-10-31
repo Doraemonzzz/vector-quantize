@@ -109,9 +109,9 @@ class VqVae(nn.Module):
         else:
             return -1
 
-    def forward(self, x):
+    def forward(self, x, step=-1):
         x_quant, indice, loss_dict = self.encode(x)
-        x_recon = self.decode(x_quant)
+        x_recon = self.decode(x_quant, step=step)
 
         return x_recon, indice, loss_dict
 
@@ -142,12 +142,12 @@ class VqVae(nn.Module):
 
         return quant_logits, indice, loss_dict
 
-    def decode(self, x_quant):
-        output = self.decoder(x_quant)
+    def decode(self, x_quant, step=-1):
+        output = self.decoder(x_quant, step=step)
 
         return output
 
-    def img_to_indice(self, x, use_group_id=True):
+    def img_to_indice(self, x):
         logits = self.encoder(x)
         if self.is_conv:
             logits = rearrange(logits, "b c h w -> b h w c")
@@ -155,12 +155,12 @@ class VqVae(nn.Module):
         if self.quant_spatial:
             logits = rearrange(logits, "b n c -> b c n")
 
-        indice = self.quantizer.latent_to_indice(logits, use_group_id=use_group_id)
+        indice = self.quantizer.latent_to_indice(logits)
 
         return indice
 
-    def indice_to_img(self, x, use_group_id=True):
-        quant_logits = self.quantizer.indice_to_code(x, use_group_id=use_group_id)
+    def indice_to_img(self, x):
+        quant_logits = self.quantizer.indice_to_code(x)
         if self.quant_spatial:
             quant_logits = rearrange(quant_logits, "b c n -> b n c")
         if self.is_conv:

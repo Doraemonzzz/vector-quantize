@@ -29,6 +29,7 @@ For the complete development logs, please refer to [here](./docs/develop_logs.md
 - [ ] Update evaluation bug.
 - [ ] Gumbel bin count bug.
 - [x] Update residual in rvq.
+- [ ] Fix group id.
 
 Metric check list.
 - [ ] fid.

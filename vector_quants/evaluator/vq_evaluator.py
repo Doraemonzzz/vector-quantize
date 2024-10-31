@@ -6,6 +6,7 @@ import torch
 import torch.distributed as dist
 from einops import rearrange
 from PIL import Image
+from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
 import vector_quants.utils.distributed as distributed
@@ -47,7 +48,6 @@ class VQEvaluator(BaseEvaluator):
         # for transformer
         cfg_model.image_size = cfg_data.image_size
         cfg_model.num_patch = compute_num_patch(cfg_model)
-        cfg_model.sample_step = cfg_sample.sample_step
 
         set_random_seed(cfg_train.seed)
 
@@ -149,6 +149,7 @@ class VQEvaluator(BaseEvaluator):
         self.num_sample = cfg_data.num_sample
         self.sample_folder_dir = cfg_data.sample_folder_dir
         self.val_folder_dir = cfg_data.val_folder_dir
+        self.sample_step = cfg_sample.sample_step
 
     @property
     def is_main_process(self):
@@ -277,3 +278,46 @@ class VQEvaluator(BaseEvaluator):
 
         dist.barrier()
         dist.destroy_process_group()
+
+    def sample_partial(self):
+        logging_info("Start Sampling")
+        self.model.eval()
+        os.makedirs(self.sample_folder_dir, exist_ok=True)
+
+        world_size = dist.get_world_size()
+        dist.get_rank()
+
+        for i, (input_img, _) in tqdm(
+            enumerate(self.val_data_loader), disable=not self.is_main_process
+        ):
+            input_img.shape[0] * world_size
+            with torch.no_grad():
+                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                    input_img = input_img.cuda(torch.cuda.current_device())
+                    input_img_transform = self.post_transform(input_img)
+                    step = self.sample_step
+                    while step > 0:
+                        if self.is_llamagen:
+                            reconstructions, _ = self.model(input_img)
+                            loss_dict = {}
+                        else:
+                            reconstructions, indices, loss_dict = self.model(
+                                input_img, step=step
+                            )
+                        reconstructions = self.post_transform(reconstructions)
+
+                        # save image for checking training
+                        dist.barrier()
+                        if self.is_main_process:
+                            save_image(
+                                make_grid(
+                                    torch.cat([input_img_transform, reconstructions]),
+                                    nrow=input_img.shape[0],
+                                ),
+                                os.path.join(self.sample_folder_dir, f"{i}_{step}.jpg"),
+                            )
+                        step //= 2
+
+                        dist.barrier()
+
+            break

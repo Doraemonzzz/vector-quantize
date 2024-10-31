@@ -179,7 +179,7 @@ class UpdateNetV2(nn.Module):
             elif self.update_net_type == "delta":
                 self.beta_proj = nn.Linear(in_dim, in_dim, bias=bias)
 
-    def forward(self, token):
+    def forward(self, token, step=-1):
         kv = self.kv_proj(token)
         # b n h
         kv_h = self.kv_h_proj(token)
@@ -630,7 +630,10 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
     def forward(
         self,
         x,
+        step=-1,
     ):
+        if step != -1:
+            x = x[:, :step]
         # b n d -> b n d
         x = self.in_proj(x)
         shape = x.shape[1:-1]
