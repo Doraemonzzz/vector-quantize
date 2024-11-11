@@ -2,6 +2,7 @@ import torch
 
 from .baseline import VQVAE  # baseline version, only for test
 from .vqvae import VqVae
+from .vqvae_any_diffusion import VqVaeAnyDiffusion
 from .vqvae_llamagen import VqVaeLlamaGen
 
 AUTO_VQVAE_MAPPING = {
@@ -21,6 +22,7 @@ AUTO_VQVAE_MAPPING = {
     "wm_transformer_v2": VqVae,
     "wmtc": VqVae,
     "transformer_resnet": VqVae,
+    "any_diffusion": VqVaeAnyDiffusion,
 }
 
 
@@ -60,15 +62,22 @@ class AutoVqVae:
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
-        # get state dict
-        vqvae_config, model_state_dict = get_state_dict(pretrained_model_name_or_path)
-        if kwargs["embed_dim_stage1"] != -1:  # add this to avoid early bug
-            if not isinstance(
-                vqvae_config, dict
-            ):  # add this to compatible with llamagen
-                vqvae_config.embed_dim = kwargs["embed_dim_stage1"]
-        model = cls.from_config(vqvae_config)
+        if "any_diffusion" in pretrained_model_name_or_path:
+            model = VqVaeAnyDiffusion(pretrained_model_name_or_path)
+            vqvae_config = None
+            res = None
+        else:
+            # get state dict
+            vqvae_config, model_state_dict = get_state_dict(
+                pretrained_model_name_or_path
+            )
+            if kwargs["embed_dim_stage1"] != -1:  # add this to avoid early bug
+                if not isinstance(
+                    vqvae_config, dict
+                ):  # add this to compatible with llamagen
+                    vqvae_config.embed_dim = kwargs["embed_dim_stage1"]
+            model = cls.from_config(vqvae_config)
 
-        res = model.load_state_dict(model_state_dict)
+            res = model.load_state_dict(model_state_dict)
 
         return model, vqvae_config, res

@@ -88,6 +88,10 @@ class ARTrainer(BaseTrainer):
             cfg_train.ckpt_path_stage1,
             embed_dim_stage1=cfg_model_stage2.embed_dim_stage1,
         )
+        # hard code here, update this later
+        if "any_diffusion" in cfg_train.ckpt_path_stage1:
+            cfg_model_stage2.vocab_groups = [vqvae.codebook_size] * vqvae.num_group
+
         self.vqvae = vqvae
         self.vqvae.cuda(torch.cuda.current_device())
 
@@ -273,6 +277,9 @@ class ARTrainer(BaseTrainer):
                     else:
                         with torch.no_grad():
                             idx = self.vqvae.img_to_indice(input_img).long()
+
+                    if len(idx.shape) == 4:  # for gvq
+                        idx = rearrange(idx, "b h w * -> b (h w) *")
 
                     logits, past_key_values, loss = self.model(
                         idx, class_idx, target=idx

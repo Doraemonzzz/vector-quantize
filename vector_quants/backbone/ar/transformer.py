@@ -1,3 +1,5 @@
+from functools import reduce
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -119,7 +121,8 @@ class TransformerModel(nn.Module):
             ), "vocab_groups[0] must be -1 or vocab_size when len(vocab_groups) == 1"
             vocab_groups[0] = vocab_size
         else:
-            vocab_size_group = torch.prod(torch.tensor(vocab_groups)).item()
+            # vocab_size_group = torch.prod(torch.tensor(vocab_groups)).item()
+            vocab_size_group = reduce(lambda x, y: x * y, vocab_groups)
             assert (
                 vocab_size_group == vocab_size
             ), f"prod(vocab_groups): {vocab_size_group} must be vocab_size: {vocab_size}"
@@ -207,7 +210,10 @@ class TransformerModel(nn.Module):
 
     def forward_embed(self, x, embed_type=0):
         if embed_type == 0:
-            code = (x.unsqueeze(-1) // self._basis) % self._levels
+            if len(x.shape) == 2:
+                code = (x.unsqueeze(-1) // self._basis) % self._levels
+            else:
+                code = x
             output = 0
             for i, embed in enumerate(self.token_embed):
                 output = output + embed(code[..., i])
