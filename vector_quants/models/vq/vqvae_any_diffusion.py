@@ -29,6 +29,12 @@ class VqVaeAnyDiffusion(FlexTokenizer):
         self.codebook_size = config["quantizer_config"]["num_embed"]
         self.num_group = config["quantizer_config"]["num_group"]
 
+    def forward(self, x):
+        loss, output_dict = self.model(x)
+        output = output_dict["recon"]
+
+        return output, {}, {}
+
     def img_to_indice(self, x, **kwargs):
         indice = self.model.tokenize(x)
 

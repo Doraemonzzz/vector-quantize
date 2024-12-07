@@ -43,9 +43,9 @@ def get_transform(cfg_data, cfg_train, is_train=True, use_data_aug=True):
         ]
         transform = pre_transform + post_transform
     else:
-        if (
-            cfg_train.ckpt_path_stage1 is not None
-            and "llamagen" in cfg_train.ckpt_path_stage1
+        if cfg_train.ckpt_path_stage1 is not None and (
+            "llamagen" in cfg_train.ckpt_path_stage1
+            or "any_diffusion" in cfg_train.ckpt_path_stage1
         ):
             mean = [0.5, 0.5, 0.5]
             std = [0.5, 0.5, 0.5]
@@ -70,6 +70,13 @@ def get_transform(cfg_data, cfg_train, is_train=True, use_data_aug=True):
                             pil_image, cfg_data.image_size
                         )
                     ),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean, std),
+                ]
+            elif "any_diffusion" in cfg_train.ckpt_path_stage1:
+                transform = [
+                    transforms.Resize(cfg_data.image_size),
+                    transforms.CenterCrop(cfg_data.image_size),
                     transforms.ToTensor(),
                     transforms.Normalize(mean, std),
                 ]

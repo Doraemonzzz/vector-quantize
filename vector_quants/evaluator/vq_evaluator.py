@@ -139,7 +139,8 @@ class VQEvaluator(BaseEvaluator):
         self.save_interval = cfg_train.save_interval
         self.save = cfg_train.save
         self.is_llamagen = "llamagen" in cfg_train.ckpt_path_stage1
-        if self.is_llamagen:
+        self.is_any_diffusion = "any_diffusion" in cfg_train.ckpt_path_stage1
+        if self.is_llamagen or self.is_any_diffusion:
             cfg_loss.post_transform_type = -1
             logging_info("Use llamagen post_transform")
         self.post_transform = get_post_transform(
@@ -192,7 +193,10 @@ class VQEvaluator(BaseEvaluator):
             )
 
             if not self.is_llamagen:
-                self.codebook_metric.update(indices)
+                try:
+                    self.codebook_metric.update(indices)
+                except:
+                    pass
 
             if cnt >= self.num_sample:
                 logging_info(f"End Evaluation, sample {cnt} images")
@@ -207,7 +211,10 @@ class VQEvaluator(BaseEvaluator):
         if self.is_llamagen:
             codebook_results = {}
         else:
-            codebook_results = self.codebook_metric.get_result()
+            try:
+                codebook_results = self.codebook_metric.get_result()
+            except:
+                codebook_results = {}
 
         self.logger.log(**(eval_loss_dict | eval_results | codebook_results))
 
