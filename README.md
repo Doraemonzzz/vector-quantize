@@ -1,5 +1,14 @@
 
 
+# Note
+```
+[Feature Add]
+[Bug Fix]
+[Benchmark Add]
+[Document Add]
+[Script Add]
+```
+
 # Todo
 For the complete development logs, please refer to [here](./docs/develop_logs.md).
 
