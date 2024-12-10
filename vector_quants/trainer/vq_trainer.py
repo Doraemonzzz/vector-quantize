@@ -32,6 +32,8 @@ from vector_quants.utils import (
 
 from .base_trainer import BaseTrainer
 
+from einops._torch_specific import allow_ops_in_compiled_graph  # https://github.com/arogozhnikov/einops/wiki/Using-torch.compile-with-einops
+allow_ops_in_compiled_graph()
 
 class VQTrainer(BaseTrainer):
     def __init__(
@@ -373,6 +375,7 @@ class VQTrainer(BaseTrainer):
                         num_iter=num_iter,
                         **loss_dict,
                     )
+                    loss = loss / self.gradient_accumulation_steps # scale the loss to account for gradient accumulation
 
                 # backward
                 self.scaler.scale(loss).backward()
@@ -434,7 +437,7 @@ class VQTrainer(BaseTrainer):
                     loss_disc_dict = {}
 
                 # print info
-                if (num_iter + 1) % self.log_interval == 0:
+                if (num_iter + 1) % (self.log_interval * self.gradient_accumulation_steps) == 0:
                     self.logger.log(
                         **(
                             loss_dict
