@@ -97,6 +97,10 @@ class VQTrainer(BaseTrainer):
         )
         logging_info(f"Dtype {self.dtype}")
         self.model.cuda(torch.cuda.current_device())
+        self.compile = cfg_train.compile
+        if self.compile:
+            logging_info("compiling the model... (may take several minutes)")
+            self.model = torch.compile(self.model)
         self.scaler = torch.cuda.amp.GradScaler()
 
         # 3, load optimizer and scheduler
@@ -232,8 +236,6 @@ class VQTrainer(BaseTrainer):
         self.clip_grad = cfg_train.clip_grad
         self.num_sample = cfg_data.num_sample
 
-        self.gnorm_threshold = 100
-
     @property
     def is_main_process(self):
         return is_main_process()
@@ -331,7 +333,9 @@ class VQTrainer(BaseTrainer):
                         {
                             "epoch": epoch,
                             "iter": num_iter,
-                            "model_state_dict": self.model.module.state_dict(),  # remove ddp
+                            "model_state_dict": self.model.module._orig_mod.state_dict()
+                            if self.compile
+                            else self.model.module.state_dict(),  # remove ddp
                             "optimizer_state_dict": self.optimizer.state_dict(),
                             "scheduler_state_dict": self.lr_scheduler.state_dict(),
                             "scaler_state_dict": self.scaler.state_dict(),
@@ -354,9 +358,9 @@ class VQTrainer(BaseTrainer):
                     )
                     logging_info("Finish test saving.")
 
-                # forward
+                ##### update g
                 input_img = input_img.cuda(torch.cuda.current_device())
-                if num_iter % self.gradient_accumulation_steps == 0:
+                if (num_iter + 1) % self.gradient_accumulation_steps == 0:
                     self.optimizer.zero_grad()
 
                 with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
@@ -375,18 +379,12 @@ class VQTrainer(BaseTrainer):
 
                 # compute grad norm
                 grad_norm = 0
-                if self.is_main_process and num_iter % self.log_interval == 0:
+                if self.is_main_process and (num_iter + 1) % self.log_interval == 0:
                     grad_norm = compute_grad_norm(
                         self.model, scale=self.scaler.get_scale()
                     )
 
-                # if grad_norm >= self.gnorm_threshold:
-                #     logging_info(
-                #         f"Gradient norm too large: {grad_norm}, threshold: {self.gnorm_threshold}."
-                #     )
-                #     continue
-
-                if num_iter % self.gradient_accumulation_steps == 0:
+                if (num_iter + 1) % self.gradient_accumulation_steps == 0:
                     if self.clip_grad:
                         self.scaler.unscale_(self.optimizer)
                         torch.nn.utils.clip_grad_norm_(
@@ -395,12 +393,11 @@ class VQTrainer(BaseTrainer):
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.lr_scheduler.step()
-                    # self.optimizer.zero_grad()
 
                 ##### update d
                 grad_disc_norm = 0
                 if self.use_disc(num_iter):
-                    if num_iter % self.gradient_accumulation_steps == 0:
+                    if (num_iter + 1) % self.gradient_accumulation_steps == 0:
                         self.optimizer_disc.zero_grad()  # !!!!!! important
 
                     with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
@@ -415,13 +412,13 @@ class VQTrainer(BaseTrainer):
                     self.scaler_disc.scale(loss_disc).backward()
 
                     # disc
-                    if self.is_main_process and num_iter % self.log_interval == 0:
+                    if self.is_main_process and (num_iter + 1) % self.log_interval == 0:
                         grad_disc_norm = compute_grad_norm(
                             self.loss_fn.module.discriminator,
                             scale=self.scaler_disc.get_scale(),
                         )
 
-                    if num_iter % self.gradient_accumulation_steps == 0:
+                    if (num_iter + 1) % self.gradient_accumulation_steps == 0:
                         if self.clip_grad:
                             # disc
                             self.scaler_disc.unscale_(self.optimizer_disc)
@@ -433,19 +430,18 @@ class VQTrainer(BaseTrainer):
                         self.scaler_disc.step(self.optimizer_disc)
                         self.scaler_disc.update()
                         self.lr_scheduler_disc.step()
-                        # self.optimizer_disc.zero_grad()
                 else:
                     loss_disc_dict = {}
 
                 # print info
-                if num_iter % self.log_interval == 0:
+                if (num_iter + 1) % self.log_interval == 0:
                     self.logger.log(
                         **(
                             loss_dict
                             | loss_disc_dict
                             | {
-                                "epoch": epoch,
-                                "iter": num_iter,
+                                "epoch": epoch + 1,
+                                "iter": num_iter + 1,
                                 "lr": self.optimizer.state_dict()["param_groups"][0][
                                     "lr"
                                 ],
@@ -466,15 +462,17 @@ class VQTrainer(BaseTrainer):
                 self.eval()
 
             # save checkpoints
-            # todo: change to epoch + 1
             if (
-                epoch % self.save_interval == 0 or (epoch == self.max_train_epochs - 1)
+                (epoch + 1) % self.save_interval == 0
+                or (epoch == self.max_train_epochs - 1)
             ) and self.is_main_process:
                 torch.save(
                     {
                         "epoch": epoch + 1,  # next epoch
                         "iter": num_iter,
-                        "model_state_dict": self.model.module.state_dict(),  # remove ddp
+                        "model_state_dict": self.model.module._orig_mod.state_dict()
+                        if self.compile
+                        else self.model.module.state_dict(),
                         "optimizer_state_dict": self.optimizer.state_dict(),
                         "scheduler_state_dict": self.lr_scheduler.state_dict(),
                         "scaler_state_dict": self.scaler.state_dict(),
@@ -493,9 +491,7 @@ class VQTrainer(BaseTrainer):
                         if self.disc_type != "none"
                         else None,
                     },
-                    os.path.join(
-                        self.save, f"ckpts/{epoch}.pt"
-                    ),  # todo: change to epoch + 1
+                    os.path.join(self.save, f"ckpts/{epoch + 1}.pt"),
                 )
                 # save image for checking training
                 save_image(
@@ -503,9 +499,7 @@ class VQTrainer(BaseTrainer):
                         torch.cat([input_img, reconstructions]),
                         nrow=input_img.shape[0],
                     ),
-                    os.path.join(
-                        self.save, f"samples/epoch_{epoch}.jpg"
-                    ),  # todo: change to epoch + 1
+                    os.path.join(self.save, f"samples/epoch_{epoch + 1}.jpg"),
                     normalize=True,
                 )
 

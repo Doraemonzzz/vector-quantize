@@ -61,7 +61,7 @@ def get_transform(cfg_data, cfg_train, is_train=True, use_data_aug=True):
                 transforms.Normalize(mean, std),
             ]
         else:
-            if (
+            if (cfg_train.ckpt_path_stage1 is not None) and (
                 "llamagen" in cfg_train.ckpt_path_stage1
             ):  # use this setting can repreduct llamagen's result
                 transform = [
@@ -73,7 +73,9 @@ def get_transform(cfg_data, cfg_train, is_train=True, use_data_aug=True):
                     transforms.ToTensor(),
                     transforms.Normalize(mean, std),
                 ]
-            elif "any_diffusion" in cfg_train.ckpt_path_stage1:
+            elif (cfg_train.ckpt_path_stage1 is not None) and (
+                "any_diffusion" in cfg_train.ckpt_path_stage1
+            ):
                 transform = [
                     transforms.Resize(cfg_data.image_size),
                     transforms.CenterCrop(cfg_data.image_size),

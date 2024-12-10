@@ -578,6 +578,10 @@ class TrainingConfig:
         default="",
         metadata={"help": "Reference batch path for openai evaluation"},
     )
+    compile: bool = field(
+        default=False,
+        metadata={"help": "Whether to use torch.compile"},
+    )
 
 
 @dataclass
