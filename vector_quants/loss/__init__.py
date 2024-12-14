@@ -154,14 +154,7 @@ class Loss(nn.Module):
         return num_iter >= self.disc_loss_start_iter and self.discriminator != None
 
     def forward(
-        self,
-        images,
-        reconstructions,
-        num_iter=0,
-        is_disc=False,
-        scale=1,
-        gradient_accumulation_steps=1,
-        **kwargs,
+        self, images, reconstructions, num_iter=0, is_disc=False, scale=1, **kwargs
     ):
         if is_disc:
             disc_loss = torch.tensor(0.0).cuda().float()
@@ -174,20 +167,14 @@ class Loss(nn.Module):
 
                 logits_real = self.discriminator(images)
                 logits_fake = self.discriminator(reconstructions.detach())
-                disc_loss = (
-                    self.disc_loss(logits_real, logits_fake)
-                    / gradient_accumulation_steps
-                )
+                disc_loss = self.disc_loss(logits_real, logits_fake)
 
                 if (
                     self.gp_loss is not None
                     and self.gp_loss_weight > 0
                     and self.training
                 ):
-                    gp_loss = (
-                        self.gp_loss(images, logits_real, scale)
-                        / gradient_accumulation_steps
-                    )
+                    gp_loss = self.gp_loss(images, logits_real, scale)
 
             loss_dict = {
                 "disc_loss": disc_loss.cpu().item(),
@@ -200,52 +187,30 @@ class Loss(nn.Module):
 
             return loss, loss_dict
         else:
-            l1_loss = (
-                self.compute_l1_loss(images, reconstructions)
-                / gradient_accumulation_steps
+            l1_loss = self.compute_l1_loss(images, reconstructions)
+            l2_loss = self.compute_l2_loss(images, reconstructions)
+            perceptual_loss = self.compute_perceptual_loss(images, reconstructions)
+            codebook_loss = kwargs.get(
+                "codebook_loss", torch.tensor(0.0).cuda().float()
             )
-            l2_loss = (
-                self.compute_l2_loss(images, reconstructions)
-                / gradient_accumulation_steps
+            commitment_loss = kwargs.get(
+                "commitment_loss", torch.tensor(0.0).cuda().float()
             )
-            perceptual_loss = (
-                self.compute_perceptual_loss(images, reconstructions)
-                / gradient_accumulation_steps
+            entropy_loss = kwargs.get("entropy_loss", torch.tensor(0.0).cuda().float())
+            kl_loss = kwargs.get("kl_loss", torch.tensor(0.0).cuda().float())
+            sample_entropy_loss = kwargs.get(
+                "sample_entropy_loss", torch.tensor(0.0).cuda().float()
             )
-            codebook_loss = (
-                kwargs.get("codebook_loss", torch.tensor(0.0).cuda().float())
-                / gradient_accumulation_steps
-            )
-            commitment_loss = (
-                kwargs.get("commitment_loss", torch.tensor(0.0).cuda().float())
-                / gradient_accumulation_steps
-            )
-            entropy_loss = (
-                kwargs.get("entropy_loss", torch.tensor(0.0).cuda().float())
-                / gradient_accumulation_steps
-            )
-            kl_loss = (
-                kwargs.get("kl_loss", torch.tensor(0.0).cuda().float())
-                / gradient_accumulation_steps
-            )
-            sample_entropy_loss = (
-                kwargs.get("sample_entropy_loss", torch.tensor(0.0).cuda().float())
-                / gradient_accumulation_steps
-            )
-            codebook_entropy_loss = (
-                kwargs.get("codebook_entropy_loss", torch.tensor(0.0).cuda().float())
-                / gradient_accumulation_steps
+            codebook_entropy_loss = kwargs.get(
+                "codebook_entropy_loss", torch.tensor(0.0).cuda().float()
             )
 
-            wm_l1_loss = (
-                kwargs.get("wm_l1_loss", torch.tensor(0.0).cuda().float())
-                / gradient_accumulation_steps
-            )
+            wm_l1_loss = kwargs.get("wm_l1_loss", torch.tensor(0.0).cuda().float())
 
             gen_loss = torch.tensor(0.0).cuda().float()
             if self.use_disc(num_iter):
                 logits_fake = self.discriminator(reconstructions)
-                gen_loss = self.gen_loss(logits_fake) / gradient_accumulation_steps
+                gen_loss = self.gen_loss(logits_fake)
 
             loss = (
                 self.l1_loss_weight * l1_loss

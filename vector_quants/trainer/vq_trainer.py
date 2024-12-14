@@ -389,9 +389,11 @@ class VQTrainer(BaseTrainer):
                         input_img,
                         reconstructions,
                         num_iter=num_iter,
-                        gradient_accumulation_steps=self.gradient_accumulation_steps,  # scale the loss to account for gradient accumulation
                         **loss_dict,
                     )
+                    loss = (
+                        loss / self.gradient_accumulation_steps
+                    )  # scale the loss to account for gradient accumulation
 
                 # backward
                 self.scaler.scale(loss).backward()
@@ -426,8 +428,10 @@ class VQTrainer(BaseTrainer):
                             num_iter=num_iter,
                             is_disc=True,
                             scale=self.scaler_disc.get_scale(),
-                            gradient_accumulation_steps=self.gradient_accumulation_steps,  # scale the loss to account for gradient accumulation
                         )
+                        loss_disc = (
+                            loss_disc / self.gradient_accumulation_steps
+                        )  # scale the loss to account for gradient accumulation
                     # backward
                     self.scaler_disc.scale(loss_disc).backward()
 
