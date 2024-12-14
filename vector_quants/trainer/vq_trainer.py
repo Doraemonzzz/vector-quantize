@@ -6,6 +6,10 @@ from dataclasses import asdict
 from pprint import pformat
 
 import torch
+import torch._dynamo
+from einops._torch_specific import (  # https://github.com/arogozhnikov/einops/wiki/Using-torch.compile-with-einops
+    allow_ops_in_compiled_graph,
+)
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
@@ -32,8 +36,9 @@ from vector_quants.utils import (
 
 from .base_trainer import BaseTrainer
 
-from einops._torch_specific import allow_ops_in_compiled_graph  # https://github.com/arogozhnikov/einops/wiki/Using-torch.compile-with-einops
 allow_ops_in_compiled_graph()
+torch._dynamo.config.suppress_errors = True
+
 
 class VQTrainer(BaseTrainer):
     def __init__(
@@ -67,6 +72,7 @@ class VQTrainer(BaseTrainer):
         cfg_train.train_iters = int(
             DATASET_CONFIGS[cfg_data.data_set]["samples"]
             / cfg_train.batch_size
+            / cfg_train.gradient_accumulation_steps
             / cfg_train.world_size
             * cfg_train.max_train_epochs
         )
@@ -144,6 +150,9 @@ class VQTrainer(BaseTrainer):
             in_channels=cfg_model.in_channels,
             image_size=cfg_data.image_size,
         ).to(torch.cuda.current_device())
+        if self.compile:
+            logging_info("compiling the loss... (may take several minutes)")
+            self.loss_fn = torch.compile(self.loss_fn)
         logging_info(self.loss_fn)
         loss_fn_keys = self.loss_fn.keys
 
@@ -331,6 +340,15 @@ class VQTrainer(BaseTrainer):
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
                 if num_iter == 0 and self.is_main_process:
+                    if self.disc_type != "none":
+                        model_disc_state_dict = (
+                            self.loss_fn.module._orig_mod.discriminator.state_dict()
+                            if self.compile
+                            else self.model.module.state_dict()
+                        )
+                    else:
+                        model_disc_state_dict = None
+
                     torch.save(
                         {
                             "epoch": epoch,
@@ -343,9 +361,7 @@ class VQTrainer(BaseTrainer):
                             "scaler_state_dict": self.scaler.state_dict(),
                             "cfg": self.cfg,
                             # disc
-                            "model_disc_state_dict": self.loss_fn.module.discriminator.state_dict()
-                            if self.disc_type != "none"
-                            else None,  # remove ddp
+                            "model_disc_state_dict": model_disc_state_dict,
                             "optimizer_disc_state_dict": self.optimizer_disc.state_dict()
                             if self.disc_type != "none"
                             else None,
@@ -373,9 +389,9 @@ class VQTrainer(BaseTrainer):
                         input_img,
                         reconstructions,
                         num_iter=num_iter,
+                        gradient_accumulation_steps=self.gradient_accumulation_steps,  # scale the loss to account for gradient accumulation
                         **loss_dict,
                     )
-                    loss = loss / self.gradient_accumulation_steps # scale the loss to account for gradient accumulation
 
                 # backward
                 self.scaler.scale(loss).backward()
@@ -410,6 +426,7 @@ class VQTrainer(BaseTrainer):
                             num_iter=num_iter,
                             is_disc=True,
                             scale=self.scaler_disc.get_scale(),
+                            gradient_accumulation_steps=self.gradient_accumulation_steps,  # scale the loss to account for gradient accumulation
                         )
                     # backward
                     self.scaler_disc.scale(loss_disc).backward()
@@ -437,7 +454,10 @@ class VQTrainer(BaseTrainer):
                     loss_disc_dict = {}
 
                 # print info
-                if (num_iter + 1) % (self.log_interval * self.gradient_accumulation_steps) == 0:
+                if (num_iter + 1) % (
+                    self.log_interval * self.gradient_accumulation_steps
+                ) == 0:
+                    self.optimizer.state_dict()["param_groups"][0]["lr"]
                     self.logger.log(
                         **(
                             loss_dict
@@ -469,6 +489,15 @@ class VQTrainer(BaseTrainer):
                 (epoch + 1) % self.save_interval == 0
                 or (epoch == self.max_train_epochs - 1)
             ) and self.is_main_process:
+                if self.disc_type != "none":
+                    model_disc_state_dict = (
+                        self.loss_fn.module._orig_mod.discriminator.state_dict()
+                        if self.compile
+                        else self.loss_fn.module.discriminator.state_dict()
+                    )
+                else:
+                    model_disc_state_dict = None
+
                 torch.save(
                     {
                         "epoch": epoch + 1,  # next epoch
@@ -481,9 +510,7 @@ class VQTrainer(BaseTrainer):
                         "scaler_state_dict": self.scaler.state_dict(),
                         "cfg": self.cfg,
                         # disc
-                        "model_disc_state_dict": self.loss_fn.module.discriminator.state_dict()
-                        if self.disc_type != "none"
-                        else None,  # remove ddp
+                        "model_disc_state_dict": model_disc_state_dict,
                         "optimizer_disc_state_dict": self.optimizer_disc.state_dict()
                         if self.disc_type != "none"
                         else None,
