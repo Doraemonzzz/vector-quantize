@@ -161,7 +161,7 @@ class Loss(nn.Module):
             gp_loss = torch.tensor(0.0).cuda().float()
             logits_real = torch.tensor(0.0).cuda().float()
             logits_fake = torch.tensor(0.0).cuda().float()
-            if self.use_disc(num_iter):
+            if self.use_disc(num_iter) and self.training:  # avoid eval bug
                 if self.gp_loss_weight > 0:
                     images.requires_grad_()
 
@@ -208,7 +208,7 @@ class Loss(nn.Module):
             wm_l1_loss = kwargs.get("wm_l1_loss", torch.tensor(0.0).cuda().float())
 
             gen_loss = torch.tensor(0.0).cuda().float()
-            if self.use_disc(num_iter):
+            if self.use_disc(num_iter) and self.training:  # avoid eval bug
                 logits_fake = self.discriminator(reconstructions)
                 gen_loss = self.gen_loss(logits_fake)
 
