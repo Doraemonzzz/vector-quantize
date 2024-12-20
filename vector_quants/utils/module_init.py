@@ -64,6 +64,26 @@ def no_init(module):
     return
 
 
+def init_weights_fla(module):
+    if isinstance(module, nn.Linear):
+        nn.init.xavier_uniform_(module.weight, gain=2**-2.5)
+        if module.bias is not None:
+            module.bias.data.zero_()
+    elif isinstance(module, nn.LayerNorm):
+        module.bias.data.zero_()
+        module.weight.data.fill_(1.0)
+
+
+def init_weights_fairseq(module):
+    if isinstance(module, nn.Linear):
+        nn.init.xavier_uniform_(module.weight, gain=2**-0.5)
+        if module.bias is not None:
+            module.bias.data.zero_()
+    elif isinstance(module, nn.LayerNorm):
+        module.bias.data.zero_()
+        module.weight.data.fill_(1.0)
+
+
 ##### token init
 def init_token_titok(token, std):
     torch.nn.init.normal_(token, std=std)
@@ -89,6 +109,8 @@ AUTO_INIT_MAPPING = {
     "timm": init_weights_timm,
     "vit_jax": init_weights_vit_jax,
     "llama_gen": init_weights_llama_gen,
+    "fla": init_weights_fla,
+    "fairseq": init_weights_fairseq,
     "no_init": no_init,
 }
 

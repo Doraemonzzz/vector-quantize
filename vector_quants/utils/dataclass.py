@@ -266,7 +266,7 @@ class ModelConfig:
         default="no_init",
         metadata={
             "help": "Initialization method",
-            "choices": ["timm", "vit_jax", "llama_gen", "no_init"],
+            "choices": ["timm", "vit_jax", "llama_gen", "fla", "fairseq", "no_init"],
         },
     )
     token_init_method: str = field(
@@ -274,6 +274,12 @@ class ModelConfig:
         metadata={
             "help": "Token initialization method",
             "choices": ["titok", "vit_vqgan_jax", "mae", "timm", "no_init"],
+        },
+    )
+    use_rescale: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to use rescale on out projection",
         },
     )
     patch_merge_size: int = field(

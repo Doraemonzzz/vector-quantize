@@ -2,6 +2,8 @@
 Use update net after encoder -> quant -> decoder -> updatenet
 """
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -374,6 +376,7 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         init_std = cfg.init_std
         init_method = cfg.init_method
         token_init_method = cfg.token_init_method
+        use_rescale = cfg.use_rescale
         cfg.patch_merge_size
         cfg.use_channel_pe
         sample_step = cfg.sample_step
@@ -431,13 +434,24 @@ class WeightMatrixTransformerEncoderV2(nn.Module):
         cfg.num_h_patch = self.patch_embed.num_h_patch
         cfg.num_w_patch = self.patch_embed.num_w_patch
 
-        self.initialize_weights(init_method, token_init_method)
+        self.initialize_weights(init_method, token_init_method, use_rescale)
 
-    def initialize_weights(self, init_method, token_init_method):
+    def initialize_weights(self, init_method, token_init_method, use_rescale):
         self.apply(AUTO_INIT_MAPPING[init_method])
         AUTO_TOKEN_INIT_MAPPING[token_init_method](
             self.extra_token, std=self.embed_dim**-0.5
         )  # std only use when init_method="titok"
+        if use_rescale:
+            for name, p in self.named_parameters():
+                if name.endswith("out_proj.weight") or name.endswith("w3.weight"):
+                    num_residuals_per_layer = 2
+                    # module.weight.data.normal_(mean=0.0, std=std/math.sqrt(2 * self.config.num_layers))
+                    # Special Scaled Initialization --> There are 2 Layer Norms per Transformer Block
+                    # Following Pytorch init, except scale by 1/sqrt(2 * n_layer)
+                    # We need to reinit p since this code could be called multiple times
+                    # Having just p *= scale would repeatedly scale it down
+                    with torch.no_grad():
+                        p /= math.sqrt(num_residuals_per_layer * len(self.layers))
 
     @property
     def num_patch(self):
@@ -578,6 +592,7 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
         use_freq_patch = cfg.use_freq_patch
         init_std = cfg.init_std
         init_method = cfg.init_method
+        use_rescale = cfg.use_rescale
         cfg.causal = cfg.decoder_causal
         update_net_version = cfg.update_net_version
         # get params end
@@ -615,10 +630,21 @@ class WeightMatrixTransformerDecoderV2(nn.Module):
         self.embed_dim = embed_dim
         self.init_std = init_std
 
-        self.initialize_weights(init_method)
+        self.initialize_weights(init_method, use_rescale)
 
-    def initialize_weights(self, init_method):
+    def initialize_weights(self, init_method, use_rescale):
         self.apply(AUTO_INIT_MAPPING[init_method])
+        if use_rescale:
+            for name, p in self.named_parameters():
+                if name.endswith("out_proj.weight") or name.endswith("w3.weight"):
+                    num_residuals_per_layer = 2
+                    # module.weight.data.normal_(mean=0.0, std=std/math.sqrt(2 * self.config.num_layers))
+                    # Special Scaled Initialization --> There are 2 Layer Norms per Transformer Block
+                    # Following Pytorch init, except scale by 1/sqrt(2 * n_layer)
+                    # We need to reinit p since this code could be called multiple times
+                    # Having just p *= scale would repeatedly scale it down
+                    with torch.no_grad():
+                        p /= math.sqrt(num_residuals_per_layer * len(self.layers))
 
     @property
     def num_patch(self):
