@@ -348,6 +348,7 @@ class ModelConfig:
         default_factory=lambda: "",
         metadata={"help": "frozen blocks, split by comma"},
     )
+    ema: bool = field(default=False, metadata={"help": "Whether use EMA model"})
 
 
 @dataclass
@@ -458,6 +459,7 @@ class ModelStage2Config:
         default=0,
         metadata={"help": "Number of group mixing layers in group mixing block"},
     )
+    ema: bool = field(default=False, metadata={"help": "Whether use EMA model"})
 
 
 @dataclass

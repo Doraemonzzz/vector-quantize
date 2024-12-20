@@ -2,6 +2,7 @@ import datetime
 import os
 import time
 from collections import OrderedDict
+from copy import deepcopy
 from dataclasses import asdict
 from pprint import pformat
 
@@ -29,9 +30,11 @@ from vector_quants.utils import (
     logging_info,
     mkdir_ckpt_dirs,
     reduce_dict,
+    requires_grad,
     set_random_seed,
     type_dict,
     update_dict,
+    update_ema,
 )
 
 from .base_trainer import BaseTrainer
@@ -105,6 +108,20 @@ class VQTrainer(BaseTrainer):
         )
         logging_info(f"Dtype {self.dtype}")
         self.model.cuda(torch.cuda.current_device())
+        # ema model
+        self.ema = cfg_model.ema
+        if self.ema:
+            self.ema_model = deepcopy(self.model).to(
+                torch.cuda.current_device()
+            )  # Create an EMA of the model for use after training
+            requires_grad(self.ema_model, False)
+            logging_info(
+                f"VQ Model EMA Parameters: {sum(p.numel() for p in self.ema_model.parameters()):,}"
+            )
+            update_ema(
+                self.ema_model, self.model, decay=0
+            )  # Ensure EMA is initialized with synced weights
+
         self.compile = cfg_train.compile
         if self.compile:
             logging_info("compiling the model... (may take several minutes)")
@@ -300,6 +317,19 @@ class VQTrainer(BaseTrainer):
             num_iter = pkg["iter"]
             start_epoch = pkg["epoch"]
 
+        ##### ema load
+        if self.ema:
+            ema_state_dict = pkg["ema_model_state_dict"]
+            # process state dict
+            # load params
+            ema_new_state_dict = self.process_state_dict(
+                self.ema_model.state_dict(), ema_state_dict
+            )
+            ema_model_msg = self.ema_model.load_state_dict(
+                ema_new_state_dict, strict=False
+            )
+            logging_info(f"EMA: {ema_model_msg}")
+
         ##### d load
         if (
             self.disc_type != "none" and pkg["model_disc_state_dict"] is not None
@@ -336,6 +366,8 @@ class VQTrainer(BaseTrainer):
 
             self.model.train()
             self.loss_fn.train()
+            if self.ema:
+                self.ema_model.eval()
 
             for _, (input_img, _) in enumerate(self.train_data_loader):
                 # test saving
@@ -356,6 +388,9 @@ class VQTrainer(BaseTrainer):
                             "model_state_dict": self.model.module._orig_mod.state_dict()
                             if self.compile
                             else self.model.module.state_dict(),  # remove ddp
+                            "ema_model_state_dict": self.ema_model.state_dict()
+                            if self.ema
+                            else None,
                             "optimizer_state_dict": self.optimizer.state_dict(),
                             "scheduler_state_dict": self.lr_scheduler.state_dict(),
                             "scaler_state_dict": self.scaler.state_dict(),
@@ -414,6 +449,13 @@ class VQTrainer(BaseTrainer):
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.lr_scheduler.step()
+                    if self.ema:
+                        update_ema(
+                            self.ema_model,
+                            self.model.module._orig_mod
+                            if self.compile
+                            else self.model.module,
+                        )
 
                 ##### update d
                 grad_disc_norm = 0
@@ -509,6 +551,9 @@ class VQTrainer(BaseTrainer):
                         "model_state_dict": self.model.module._orig_mod.state_dict()
                         if self.compile
                         else self.model.module.state_dict(),
+                        "ema_model_state_dict": self.ema_model.state_dict()
+                        if self.ema
+                        else None,
                         "optimizer_state_dict": self.optimizer.state_dict(),
                         "scheduler_state_dict": self.lr_scheduler.state_dict(),
                         "scaler_state_dict": self.scaler.state_dict(),
@@ -550,49 +595,65 @@ class VQTrainer(BaseTrainer):
         logging_info("Start Evaluation")
         self.model.eval()
         self.loss_fn.eval()
-        self.eval_metrics.reset()
 
-        loss_dict_total = {}
-        for input_img, _ in tqdm(
-            self.val_data_loader, disable=not self.is_main_process
-        ):
-            with torch.no_grad():
-                with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                    input_img = input_img.cuda(torch.cuda.current_device())
-                    reconstructions, indices, loss_dict = self.model(input_img)
-                    # rescale to [0, 1]
-                    input_img = self.post_transform(input_img)
-                    reconstructions = self.post_transform(reconstructions)
-                    loss, loss_dict = self.loss_fn(
-                        input_img,
-                        reconstructions,
-                        **loss_dict,
-                    )
+        model_list = [self.model]
+        prefix_list = [""]
+        if self.ema:
+            model_list += [self.ema_model]
+            prefix_list += ["ema_"]
 
-                    if self.use_disc(num_iter=1e5):
-                        with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
-                            loss_disc, loss_disc_dict = self.loss_fn(
-                                input_img,
-                                reconstructions,
-                                num_iter=1e5,
-                                is_disc=True,
-                            )
-                        loss_dict = update_dict(loss_dict, loss_disc_dict)
+        for i in range(len(model_list)):
+            model = model_list[i]
+            prefix = prefix_list[i]
+            self.eval_metrics.reset()
 
-                loss_dict_total = update_dict(loss_dict_total, loss_dict)
+            loss_dict_total = {}
+            for input_img, _ in tqdm(
+                self.val_data_loader, disable=not self.is_main_process
+            ):
+                with torch.no_grad():
+                    with torch.amp.autocast(device_type="cuda", dtype=self.dtype):
+                        input_img = input_img.cuda(torch.cuda.current_device())
+                        reconstructions, indices, loss_dict = model(input_img)
+                        # rescale to [0, 1]
+                        input_img = self.post_transform(input_img)
+                        reconstructions = self.post_transform(reconstructions)
+                        loss, loss_dict = self.loss_fn(
+                            input_img,
+                            reconstructions,
+                            **loss_dict,
+                        )
 
-            self.eval_metrics.update(
-                real=input_img.contiguous(), fake=reconstructions.contiguous()
+                        if self.use_disc(num_iter=1e5):
+                            with torch.amp.autocast(
+                                device_type="cuda", dtype=self.dtype
+                            ):
+                                loss_disc, loss_disc_dict = self.loss_fn(
+                                    input_img,
+                                    reconstructions,
+                                    num_iter=1e5,
+                                    is_disc=True,
+                                )
+                            loss_dict = update_dict(loss_dict, loss_disc_dict)
+
+                    loss_dict_total = update_dict(loss_dict_total, loss_dict)
+
+                self.eval_metrics.update(
+                    real=input_img.contiguous(), fake=reconstructions.contiguous()
+                )
+                self.codebook_metric.update(indices)
+
+            eval_loss_dict = reduce_dict(
+                loss_dict_total, n=len(self.val_data_loader), prefix="valid_"
             )
-            self.codebook_metric.update(indices)
+            eval_results = self.eval_metrics.compute_and_reduce()
+            codebook_results = self.codebook_metric.get_result()
 
-        eval_loss_dict = reduce_dict(
-            loss_dict_total, n=len(self.val_data_loader), prefix="valid_"
-        )
-        eval_results = self.eval_metrics.compute_and_reduce()
-        codebook_results = self.codebook_metric.get_result()
-
-        self.logger.log(**(eval_loss_dict | eval_results | codebook_results))
+            loss_dict = eval_loss_dict | eval_results | codebook_results
+            keys = list(loss_dict.keys())
+            for key in keys:
+                loss_dict[prefix + key] = loss_dict.pop(key)
+            self.logger.log(**loss_dict)
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")

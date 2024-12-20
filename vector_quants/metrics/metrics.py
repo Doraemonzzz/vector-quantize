@@ -72,9 +72,12 @@ _features_based_metrics = [
     # 'fvd'
 ]
 
+
 metrics_names = (
     _image_based_metrics + _features_based_metrics + ["perplexity", "used_codebook"]
 )
+ema_metrics_names = ["ema_" + name for name in metrics_names]
+metrics_names = metrics_names + ema_metrics_names
 
 
 def monkey_patch_compute(compute_foo, metric_name):

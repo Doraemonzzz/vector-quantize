@@ -134,7 +134,8 @@ class Loss(nn.Module):
             "logits_fake",
         ]
         valid_keys = ["valid_" + key for key in train_keys]
-        keys = train_keys + valid_keys
+        ema_keys = ["ema_valid_" + key for key in train_keys]
+        keys = train_keys + valid_keys + ema_keys
         return keys
 
     def train(self, mode=True):

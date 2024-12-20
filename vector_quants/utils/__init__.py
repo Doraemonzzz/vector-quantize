@@ -2,6 +2,7 @@ from .arguments import get_args
 from .constants import VECTOR_QUANTS_DEBUG
 from .dataclass import get_cfg
 from .distributed import enable
+from .ema import requires_grad, update_ema
 from .module_init import AUTO_INIT_MAPPING, AUTO_TOKEN_INIT_MAPPING
 from .utils import (
     compute_grad_norm,
