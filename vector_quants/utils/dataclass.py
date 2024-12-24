@@ -328,6 +328,18 @@ class ModelConfig:
             "help": "Whether use conv in update net or not",
         },
     )
+    update_net_fwd_type: int = field(
+        default=1,
+        metadata={
+            "help": "UpdateNet forward type, 1 for high freq to low freq, 2 for low freq to hight freq",
+        },
+    )
+    update_net_normalize: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether use normalization in update net or not",
+        },
+    )
     token_pe_type: str = field(
         default="concat",
         metadata={

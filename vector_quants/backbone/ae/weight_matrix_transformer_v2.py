@@ -120,6 +120,7 @@ class UpdateNetV2(nn.Module):
         base = cfg.base
         update_net_act = cfg.update_net_act
         update_net_use_conv = cfg.update_net_use_conv
+        update_net_fwd_type = cfg.update_net_fwd_type
         # get params end
 
         self.sample_step = sample_step
@@ -129,9 +130,13 @@ class UpdateNetV2(nn.Module):
         self.act = get_activation_fn(update_net_act)
         self.index = torch.empty(0)
         self.update_net_use_conv = update_net_use_conv
+        self.update_net_fwd_type = update_net_fwd_type
 
         if self.update_net_use_conv:
             self.conv = nn.Conv2d(in_dim, in_dim, kernel_size=3, padding=1, bias=bias)
+
+        if self.update_net_fwd_type == 2:
+            self.forward = self.forward_v2
 
         if self.update_net_type in [
             "additive",
@@ -142,6 +147,7 @@ class UpdateNetV2(nn.Module):
             "dd_share_decay",
             "additive_decay",
             "delta",
+            "cumsoftmax",
         ]:
             out_dim = 2 * num_h_patch
             if update_net_type == "cosine":
@@ -206,7 +212,10 @@ class UpdateNetV2(nn.Module):
                 k = F.softmax(k, dim=-2)
 
             v = self.act(v)
+            # from high freq to low freq
+            # yn = a1 x1 + a2 x2 + ... + an xn
             if self.update_net_type in ["cosine", "rope"]:
+                # ak = exp(i (n - k) theta)
                 if self.index.shape[0] == 0:
                     self.index = (
                         n
@@ -230,7 +239,7 @@ class UpdateNetV2(nn.Module):
                     ).reshape_as(k)
                     k = k * cos + k_half * sin
             elif self.update_net_type == "di_decay":
-                # kv = lambda_ * kv + ki * vi
+                # ak = lambda ^ (n - k)
                 if self.index.shape[0] == 0:
                     self.index = (
                         n
@@ -242,37 +251,36 @@ class UpdateNetV2(nn.Module):
                 log_decay = self.index.float() * self.log_decay.float()
                 decay = torch.exp(log_decay)
                 k = (k * decay).to(v.dtype)
-
             elif self.update_net_type == "dd_decay":
+                # ak-1 = ak * bk, an = 1
                 decay = self.decay_proj(token)
                 decay_h = self.decay_h_proj(token)
                 h = decay_h.shape[-1]
                 # b h n d
                 decay = torch.einsum("b n d, b n h -> b h n d", decay, decay_h)
                 log_decay = F.logsigmoid(decay)
-                # kv = lambda_ * kv + ki * vi
-                # 1, a(n-1), a(n-2), ..., a2
                 zero = torch.zeros(
                     (b, h, 1, log_decay.shape[-1]), device=torch.cuda.current_device()
                 )
                 log_decay_reverse = torch.cat(
                     [zero, torch.flip(log_decay, dims=[-2])[:, :, :-1]], dim=-2
                 )
-                log_decay_cum = torch.cumsum(log_decay_reverse.float(), dim=-2)
+                log_decay = torch.flip(log_decay_reverse, dims=[-2])
+                log_decay_cum = torch.cumsum(log_decay.float(), dim=-2)
                 k = (k * torch.exp(log_decay_cum)).to(v.dtype)
             elif self.update_net_type == "dd_share_decay":
+                # ak-1 = ak * bk, an = 1
                 decay_h = self.decay_h_proj(token)
                 h = decay_h.shape[-1]
                 # b n h -> b h n -> b h n 1
                 decay = decay_h.transpose(-1, -2).unsqueeze(-1)
                 log_decay = F.logsigmoid(decay)
-                # kv = lambda_ * kv + ki * vi
-                # 1, a(n-1), a(n-2), ..., a2
                 zero = torch.zeros((b, h, 1, 1), device=torch.cuda.current_device())
                 log_decay_reverse = torch.cat(
                     [zero, torch.flip(log_decay, dims=[-2])[:, :, :-1]], dim=-2
                 )
-                log_decay_cum = torch.cumsum(log_decay_reverse.float(), dim=-2)
+                log_decay = torch.flip(log_decay_reverse, dims=[-2])
+                log_decay_cum = torch.cumsum(log_decay.float(), dim=-2)
                 k = (k * torch.exp(log_decay_cum)).to(v.dtype)
 
             if self.update_net_use_conv:
@@ -300,6 +308,135 @@ class UpdateNetV2(nn.Module):
                 _v = _v - (S.clone() * _k[..., None]).sum(-2)
                 _v = _v * beta_i
                 S = S.clone() + _k.unsqueeze(-1) * _v.unsqueeze(-2)
+
+            if self.update_net_use_conv:
+                weight_matrix = self.conv(S)
+                weight_matrix = rearrange(weight_matrix, "b d n m -> b (n m) d")
+            else:
+                weight_matrix = rearrange(S, "b d n m -> b (n m) d")
+
+        return weight_matrix
+
+    def forward_v2(self, token, step=-1):
+        kv = self.kv_proj(token)
+        # b n h
+        kv_h = self.kv_h_proj(token)
+        b, n, d = kv.shape
+        k, v = kv.split([d - self.v_dim, self.v_dim], dim=-1)
+        k_h, v_h = kv_h.chunk(2, dim=-1)
+        k = torch.einsum("b n d, b n h -> b h n d", k, k_h)
+        v = torch.einsum("b n d, b n h -> b h n d", v, v_h)
+
+        if self.update_net_type in [
+            "additive",
+            "cosine",
+            "rope",
+            "di_decay",
+            "dd_decay",
+            "dd_share_decay",
+            "additive_decay",
+        ]:
+            if self.update_net_type not in ["additive_decay"]:
+                k = self.act(k)
+            else:
+                k = F.softmax(k, dim=-2)
+
+            v = self.act(v)
+            # from low freq to high freq
+            # yn = a1 x1 + a2 x2 + ... + an xn
+            if self.update_net_type in ["cosine", "rope"]:
+                # ak = exp(i k theta)
+                if self.index.shape[0] == 0:
+                    self.index = torch.arange(
+                        n, dtype=torch.int64, device=torch.cuda.current_device()
+                    ).reshape(-1, 1)
+                theta = self.theta * self.index
+
+                if self.update_net_type == "cosine":
+                    cos = torch.cos(theta)
+                    sin = torch.sin(theta)
+                    k = torch.cat([k * cos, k * sin], dim=-1)
+                else:
+                    theta = repeat(theta, "... d -> ... (d g)", g=2)
+                    cos = torch.cos(theta)
+                    sin = torch.sin(theta)
+                    k_half = torch.stack(
+                        [-k[..., 1::2], k[..., ::2]], dim=-1
+                    ).reshape_as(k)
+                    k = k * cos + k_half * sin
+            elif self.update_net_type == "di_decay":
+                # ak = lambda ^ k
+                if self.index.shape[0] == 0:
+                    self.index = torch.arange(
+                        n, dtype=torch.int64, device=torch.cuda.current_device()
+                    ).reshape(-1, 1)
+                log_decay = self.index.float() * self.log_decay.float()
+                decay = torch.exp(log_decay)
+                k = (k * decay).to(v.dtype)
+            elif self.update_net_type == "dd_decay":
+                # ak = ak-1 * bk, a1 = 1
+                decay = self.decay_proj(token)
+                decay_h = self.decay_h_proj(token)
+                h = decay_h.shape[-1]
+                # b h n d
+                decay = torch.einsum("b n d, b n h -> b h n d", decay, decay_h)
+                log_decay = F.logsigmoid(decay)
+                zero = torch.zeros(
+                    (b, h, 1, log_decay.shape[-1]), device=torch.cuda.current_device()
+                )
+                log_decay = torch.cat([zero, log_decay[:, :, :-1]], dim=-2)
+                log_decay_cum = torch.cumsum(log_decay.float(), dim=-2)
+                k = (k * torch.exp(log_decay_cum)).to(v.dtype)
+            elif self.update_net_type == "dd_share_decay":
+                # ak = ak-1 * bk, a1 = 1
+                decay_h = self.decay_h_proj(token)
+                h = decay_h.shape[-1]
+                # b n h -> b h n -> b h n 1
+                decay = decay_h.transpose(-1, -2).unsqueeze(-1)
+                log_decay = F.logsigmoid(decay)
+                # kv = lambda_ * kv + ki * vi
+                # 1, a(n-1), a(n-2), ..., a2
+                zero = torch.zeros((b, h, 1, 1), device=torch.cuda.current_device())
+                log_decay = torch.cat([zero, log_decay[:, :, :-1]], dim=-2)
+                log_decay_cum = torch.cumsum(log_decay.float(), dim=-2)
+                k = (k * torch.exp(log_decay_cum)).to(v.dtype)
+
+            if self.update_net_use_conv:
+                weight_matrix = torch.einsum("b h n d, b h n e -> b h d e", k, v)
+                weight_matrix = self.conv(weight_matrix)
+                weight_matrix = rearrange(weight_matrix, "b d n m -> b (n m) d")
+            else:
+                weight_matrix = torch.einsum("b h n d, b h n e -> b d e h", k, v)
+                weight_matrix = rearrange(weight_matrix, "b n m d -> b (n m) d")
+        elif self.update_net_type == "delta":
+            k = self.act(k)
+            k = F.normalize(k, dim=-1)
+            v = self.act(v)
+            # b n h -> b h n 1
+            beta = F.sigmoid(self.beta_proj(token))
+            h = beta.shape[-1]
+            e = k.shape[-1]
+            beta = beta.transpose(-1, -2).unsqueeze(-1)
+            S = torch.zeros(b, h, e, e, dtype=torch.float32).to(v)
+            decay = torch.eye(e, e, dtype=torch.float32).to(v)
+
+            # s = s + decay * k * v ^ T
+            # decay = (1 - beta * k * k ^ T) * decay
+
+            for i in range(n):
+                _k = k[:, :, i]
+                _v = v[:, :, i].clone()
+                beta_i = beta[:, :, i].unsqueeze(-1)
+                # update decay
+                # k ^ T * decay, ... d e, ... e 1 -> ... d
+                t1 = torch.einsum("... d e, ... d -> ... e", decay, _k)
+                decay = decay - beta_i * _k.unsqueeze(-1) * t1.unsqueeze(-2)
+                # ... e e, ... e
+                t2 = torch.einsum("... d e, ... e -> ... d", decay, _k)
+                # ... e 1, ... 1 d -> ... e d
+                s = t2.unsqueeze(-1) * _v.unsqueeze(-2)
+
+                S = S.clone() + s
 
             if self.update_net_use_conv:
                 weight_matrix = self.conv(S)
