@@ -10,6 +10,9 @@ class CodeBookMetric(Metric):
         self.index_count = None
 
     def update(self, indices):
+        # add this to avoid bug
+        indices = indices[indices >= 0]
+        indices = indices[indices < self.num_embeddings]
         index_count = torch.bincount(indices.view(-1), minlength=self.num_embeddings)
         if self.index_count is None:
             self.index_count = torch.zeros(
