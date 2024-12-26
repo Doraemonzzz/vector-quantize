@@ -653,7 +653,7 @@ class VQTrainer(BaseTrainer):
             keys = list(loss_dict.keys())
             for key in keys:
                 loss_dict[prefix + key] = loss_dict.pop(key)
-            self.logger.log(**loss_dict)
+            logging_info(**loss_dict)
 
         torch.cuda.empty_cache()
         logging_info("End Evaluation")

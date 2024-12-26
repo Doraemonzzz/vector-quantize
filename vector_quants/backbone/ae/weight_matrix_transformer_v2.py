@@ -394,7 +394,6 @@ class UpdateNetV2(nn.Module):
                 # b n h -> b h n -> b h n 1
                 decay = decay_h.transpose(-1, -2).unsqueeze(-1)
                 log_decay = F.logsigmoid(decay)
-                # kv = lambda_ * kv + ki * vi
                 # 1, a(n-1), a(n-2), ..., a2
                 zero = torch.zeros((b, h, 1, 1), device=torch.cuda.current_device())
                 log_decay = torch.cat([zero, log_decay[:, :, :-1]], dim=-2)
